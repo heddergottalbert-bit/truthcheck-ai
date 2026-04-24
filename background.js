@@ -28,41 +28,214 @@ const BETROUWBARE_DOMEINEN = [
 
 const OFFICIELE_DOMEINEN = {
   "green card": "dvprogram.state.gov",
-  "belasting": "belastingdienst.nl",
+  "diversity visa": "dvprogram.state.gov",
+  "belastingdienst": "belastingdienst.nl",
   "digid": "digid.nl",
-  "bsn": "rijksoverheid.nl",
-  "paspoort": "rijksoverheid.nl",
-  "uitkering": "uwv.nl",
-  "aow": "svb.nl",
+  "burger service nummer": "rijksoverheid.nl",
+  "paspoort aanvragen": "rijksoverheid.nl",
+  "ww uitkering": "uwv.nl",
+  "aow uitkering": "svb.nl",
   "studiefinanciering": "duo.nl",
-  "politie": "politie.nl",
-  "ind": "ind.nl",
-  "visum": "ind.nl",
+  "politie aangifte": "politie.nl",
   "verblijfsvergunning": "ind.nl",
-  "ing bank": "ing.nl",
-  "abn amro": "abnamro.nl",
-  "rabobank": "rabobank.nl",
-  "paypal": "paypal.com",
-  "apple": "apple.com",
-  "microsoft": "microsoft.com",
-  "amazon": "amazon.com",
-  "dhl": "dhl.com",
-  "postnl": "postnl.nl"
+  "ing bank inloggen": "ing.nl",
+  "abn amro inloggen": "abnamro.nl",
+  "rabobank inloggen": "rabobank.nl",
+  "paypal inloggen": "paypal.com",
+  "apple id": "apple.com",
+  "microsoft account": "microsoft.com",
+  "amazon bestelling": "amazon.com",
+  "dhl pakket": "dhl.com",
+  "postnl pakket": "postnl.nl"
 };
 
-const PHISHING_WOORDEN = [
-  "gratis", "urgent", "onmiddellijk", "verloopt", "verlopen",
-  "deadline", "geselecteerd", "gewonnen", "prijs", "claim",
-  "verificatie vereist", "account geblokkeerd", "klik hier",
+const WEBSITE_PHISHING_WOORDEN = [
+  "onmiddellijk", "verloopt", "verlopen",
+  "geselecteerd", "gewonnen",
+  "verificatie vereist", "account geblokkeerd",
   "bevestig uw", "update uw", "inloggen vereist",
+  "laatste kans", "alleen vandaag",
+  "u bent gekozen",
   "limited time", "act now", "you have been selected",
-  "congratulations", "winner", "suspended", "verify now",
-  "eindigt op", "laatste kans", "alleen vandaag",
-  "controleer nu", "u bent gekozen", "uw account"
+  "congratulations", "winner", "suspended", "verify now"
 ];
+
+const EMAIL_PHISHING_WOORDEN = [
+  "geef uw wachtwoord", "vul uw pincode in",
+  "bankgegevens bevestigen", "creditcard gegevens",
+  "uw rekening wordt geblokkeerd",
+  "verify your bank", "enter your password",
+  "confirm your credit card", "your account will be closed",
+  "send money", "wire transfer", "western union",
+  "million dollars", "inheritance", "next of kin",
+  "dear sir/madam", "i am a widow", "suffering from",
+  "few months to live", "transfer the amount",
+  "god bless", "bless you"
+];
+
+function domeinCheck(tekst, sleutel) {
+  const patroon = new RegExp(
+    "\\b" + sleutel.replace(/\s+/g, "\\s+") + "\\b", "i"
+  );
+  return patroon.test(tekst);
+}
+
+function naamMatchtDomein(afzenderNaam, afzenderDomein) {
+  if (!afzenderNaam || !afzenderDomein) return true;
+
+  // noreply adressen zijn automatisch legitiem
+  if (afzenderDomein.startsWith("noreply") ||
+      afzenderDomein.includes("no-reply") ||
+      afzenderDomein.includes("notifications") ||
+      afzenderDomein.includes("mail.") ||
+      afzenderDomein.includes("mailing.") ||
+      afzenderDomein.includes("newsletter")) {
+    return true;
+  }
+
+  // Haal alle woorden uit de naam
+  const naamWoorden = afzenderNaam
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 2);
+
+  // Haal het hoofddomein op zonder subdomein en extensie
+  // bijv. mijn.overheid.nl -> overheid
+  const domeinDelen = afzenderDomein.split(".");
+  const hoofdDomein = domeinDelen.length >= 2
+    ? domeinDelen[domeinDelen.length - 2]
+    : afzenderDomein;
+
+  // Check of een van de naamwoorden voorkomt in het domein
+  const domeinTekst = afzenderDomein.replace(/\./g, " ");
+  for (const woord of naamWoorden) {
+    if (domeinTekst.includes(woord) ||
+        hoofdDomein.includes(woord) ||
+        woord.includes(hoofdDomein)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function berekenPhishingWebsite(request) {
+  const paginaTekst = (request.paginaTekst || "").toLowerCase();
+  const paginaTitel = (request.text || "").toLowerCase();
+  const paginaDomein = request.domein || "";
+
+  let phishingScore = 0;
+  const phishingSignalen = [];
+
+  WEBSITE_PHISHING_WOORDEN.forEach(woord => {
+    if (paginaTekst.includes(woord.toLowerCase())) {
+      phishingScore += 15;
+      phishingSignalen.push(woord);
+    }
+  });
+
+  if (request.text === request.text.toUpperCase() &&
+      request.text.length > 5) {
+    phishingScore += 20;
+    phishingSignalen.push("Titel in hoofdletters");
+  }
+
+  let officieelDomein = null;
+  Object.entries(OFFICIELE_DOMEINEN).forEach(([sleutel, domein]) => {
+    if (domeinCheck(paginaTitel, sleutel) ||
+        domeinCheck(paginaTekst, sleutel)) {
+      if (!paginaDomein.includes(domein.replace("www.", ""))) {
+        officieelDomein = domein;
+        phishingScore += 40;
+        phishingSignalen.push(`Officiële site is ${domein}`);
+      }
+    }
+  });
+
+  const verdachtPatroon = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle)/i;
+  if (verdachtPatroon.test(paginaDomein)) {
+    phishingScore += 25;
+    phishingSignalen.push("Verdacht domeinnaam patroon");
+  }
+
+  return {
+    actief: phishingScore >= 30,
+    score: Math.min(phishingScore, 100),
+    signalen: [...new Set(phishingSignalen)].slice(0, 4),
+    officieelDomein,
+    isEmail: false
+  };
+}
+
+function berekenPhishingEmail(request) {
+  const mailTekst = (request.paginaTekst || "").toLowerCase();
+  const afzenderNaam = (request.afzenderNaam || "");
+  const afzenderDomein = (request.afzenderDomein || "").toLowerCase();
+  const afzenderEmail = (request.afzenderEmail || "").toLowerCase();
+
+  let phishingScore = 0;
+  const phishingSignalen = [];
+
+  // noreply = automatisch veilig, geen verdere checks nodig
+  if (afzenderEmail.includes("noreply") ||
+      afzenderEmail.includes("no-reply")) {
+    return { actief: false, score: 0, signalen: [], isEmail: true };
+  }
+
+  // Naam vs domein check
+  if (!naamMatchtDomein(afzenderNaam, afzenderDomein)) {
+    phishingScore += 60;
+    phishingSignalen.push(
+      `"${afzenderNaam}" stuurt niet via eigen domein`
+    );
+  }
+
+  // Hoofdletters in onderwerp
+  if (request.text === request.text.toUpperCase() &&
+      request.text.length > 5) {
+    phishingScore += 25;
+    phishingSignalen.push("Onderwerp in hoofdletters");
+  }
+
+  // Gevaarlijke woorden
+  EMAIL_PHISHING_WOORDEN.forEach(woord => {
+    if (mailTekst.includes(woord.toLowerCase())) {
+      phishingScore += 25;
+      phishingSignalen.push(woord);
+    }
+  });
+
+  return {
+    actief: phishingScore >= 60,
+    score: Math.min(phishingScore, 100),
+    signalen: [...new Set(phishingSignalen)].slice(0, 4),
+    officieelDomein: null,
+    isEmail: true,
+    afzenderDomein: afzenderDomein
+  };
+}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_check") {
+
+    const phishing = request.isEmail
+      ? berekenPhishingEmail(request)
+      : berekenPhishingWebsite(request);
+
+    if (phishing.actief) {
+      sendResponse({
+        status: "success",
+        score: Math.max(5, 25 - phishing.score),
+        oordeel: request.isEmail ? "Verdachte e-mail" : "Verdachte site",
+        uitleg: request.isEmail
+          ? "De afzender klopt niet met het e-mailadres. Reageer niet en klik op geen enkele link."
+          : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
+        bronnen: [],
+        phishing: phishing
+      });
+      return true;
+    }
 
     fetch("https://api.tavily.com/search", {
       method: "POST",
@@ -78,47 +251,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .then(res => res.json())
     .then(tavilyData => {
       const paginaDomein = request.domein || "";
-      const paginaTekst = (request.paginaTekst || "").toLowerCase();
-      const paginaTitel = (request.text || "").toLowerCase();
 
-      // ── Phishing analyse ──────────────────────────────────
-      let phishingScore = 0;
-      const phishingSignalen = [];
-
-      PHISHING_WOORDEN.forEach(woord => {
-        if (paginaTekst.includes(woord.toLowerCase())) {
-          phishingScore += 15;
-          phishingSignalen.push(woord);
-        }
-      });
-
-      let officieelDomein = null;
-      Object.entries(OFFICIELE_DOMEINEN).forEach(([sleutel, domein]) => {
-        if (paginaTitel.includes(sleutel.toLowerCase()) ||
-            paginaTekst.includes(sleutel.toLowerCase())) {
-          if (!paginaDomein.includes(domein)) {
-            officieelDomein = domein;
-            phishingScore += 40;
-            phishingSignalen.push(`Officiële site is ${domein}`);
-          }
-        }
-      });
-
-      const verdachtPatroon = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle)/i;
-      if (verdachtPatroon.test(paginaDomein)) {
-        phishingScore += 25;
-        phishingSignalen.push("Verdacht domeinnaam patroon");
-      }
-
-      const phishingActief = phishingScore >= 30;
-      const phishingWaarschuwing = phishingActief ? {
-        actief: true,
-        score: Math.min(phishingScore, 100),
-        signalen: [...new Set(phishingSignalen)].slice(0, 3),
-        officieelDomein: officieelDomein
-      } : { actief: false };
-
-      // ── Feitencheck ───────────────────────────────────────
       let gefilterd = (tavilyData.results || []).filter(r =>
         !r.url.toLowerCase().includes(paginaDomein)
       );
@@ -127,19 +260,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const bronnen = resultaten.map(r => r.url);
         const context = resultaten.map(r => r.content).join("\n\n");
         const betrouwbaar = resultaten.length > 0;
-
-        // Als phishing actief: stuur direct lage score terug
-        if (phishingActief) {
-          sendResponse({
-            status: "success",
-            score: Math.min(25, 100 - phishingScore),
-            oordeel: "Verdachte site",
-            uitleg: "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
-            bronnen: bronnen,
-            phishing: phishingWaarschuwing
-          });
-          return;
-        }
 
         return fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
@@ -153,7 +273,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               {
                 role: "system",
                 content: betrouwbaar
-                  ? "Je bent een feitencheck AI. Geef ALLEEN een JSON object terug, geen extra tekst. Formaat: {\"score\": 75, \"oordeel\": \"Grotendeels waar\", \"uitleg\": \"Korte uitleg in 1 zin.\"}. Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hallusinaties."
+                  ? "Je bent een feitencheck AI. Geef ALLEEN een JSON object terug, geen extra tekst. Formaat: {\"score\": 75, \"oordeel\": \"Grotendeels waar\", \"uitleg\": \"Korte uitleg in 1 zin.\"}. Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hallusinaties: baseer je oordeel alleen op de bronnen."
                   : "Je bent een feitencheck AI. Geef ALLEEN een JSON object terug: {\"score\": 50, \"oordeel\": \"Onbekend\", \"uitleg\": \"Er zijn geen betrouwbare bronnen gevonden voor deze claim.\"}."
               },
               {
@@ -172,7 +292,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             oordeel: result.oordeel,
             uitleg: result.uitleg,
             bronnen: bronnen,
-            phishing: phishingWaarschuwing
+            phishing: { actief: false }
           });
         });
       };

@@ -8,7 +8,6 @@ let achtergrondKleur = "#121223";
 let tekstKleur = "#eeeeee";
 let lettertype = "Georgia, serif";
 
-// ── Instellingen ────────────────────────────────────────────
 function slaInstellingenOp() {
   localStorage.setItem("tc_transparantie", transparantie);
   localStorage.setItem("tc_achtergrond", achtergrondKleur);
@@ -45,7 +44,7 @@ function getKleur(score) {
 
 laadInstellingen();
 
-// ── Phishing waarschuwing banner ────────────────────────────
+// ── Phishing banner ─────────────────────────────────────────
 const phishingBanner = document.createElement("div");
 phishingBanner.id = "tc-phishing";
 phishingBanner.style.cssText = `
@@ -57,7 +56,6 @@ phishingBanner.style.cssText = `
   background: linear-gradient(135deg, #c0392b, #e74c3c);
   color: white;
   font-family: Georgia, serif;
-  padding: 0;
   box-shadow: 0 4px 24px rgba(0,0,0,0.4);
   transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 `;
@@ -88,9 +86,11 @@ function toonPhishingWaarschuwing(phishing) {
         <div style="font-size:28px; line-height:1;">⚠️</div>
         <div>
           <div style="font-size:14px; font-weight:bold; margin-bottom:4px;">
-            Mogelijk gevaarlijke pagina — Phishing waarschuwing
+            ${phishing.isEmail
+              ? "Verdachte e-mail gedetecteerd"
+              : "Mogelijk gevaarlijke pagina"} — Phishing waarschuwing
           </div>
-          <div style="font-size:11px; opacity:0.9; margin-bottom:6px;">
+          <div style="font-size:11px; opacity:0.9; margin-bottom:4px;">
             Gedetecteerde signalen: ${signalenHTML}
           </div>
           ${officieelHTML}
@@ -104,9 +104,7 @@ function toonPhishingWaarschuwing(phishing) {
     </div>
   `;
 
-  // Schuif banner naar beneden
   setTimeout(() => { phishingBanner.style.top = "0px"; }, 100);
-
   document.getElementById("tc-phishing-sluit").onclick = () => {
     phishingBanner.style.top = "-200px";
   };
@@ -406,8 +404,104 @@ knop.addEventListener("contextmenu", (e) => {
   menu.style.top = "auto";
 });
 
+// ── Gmail detectie ──────────────────────────────────────────
+let geopendeMail = null;
+let gmailObserver = null;
+
+function leesGmailMail() {
+  const onderwerp = document.querySelector(".hP")?.innerText || "";
+  const afzenderElement = document.querySelector(".gD");
+  const afzenderEmail = afzenderElement?.getAttribute("email") || "";
+  const afzenderNaam = afzenderElement?.getAttribute("name") ||
+                       afzenderElement?.innerText || "";
+  const mailContainer = document.querySelector(".a3s") ||
+                        document.querySelector(".ii.gt");
+  const mailTekst = mailContainer?.innerText || "";
+  const isSpam = location.href.includes("spam") ||
+                 !!document.querySelector(".aKS");
+
+  if (!onderwerp && !mailTekst) return null;
+
+  const domeinMatch = afzenderEmail.match(/@([a-zA-Z0-9.-]+)/);
+  const afzenderDomein = domeinMatch ? domeinMatch[1].toLowerCase() : "";
+
+  return {
+    onderwerp,
+    afzenderEmail,
+    afzenderNaam,
+    afzenderDomein,
+    mailTekst,
+    isSpam
+  };
+}
+
+function startGmailCheck() {
+  const mailData = leesGmailMail();
+  if (!mailData) return;
+  if (mailData.onderwerp === geopendeMail) return;
+  geopendeMail = mailData.onderwerp;
+
+  phishingBanner.style.top = "-200px";
+  updateMiniBarometer(50);
+
+  if (chrome.runtime && chrome.runtime.sendMessage) {
+    chrome.runtime.sendMessage(
+      {
+        action: "start_check",
+        text: mailData.onderwerp || "Email analyse",
+        domein: mailData.afzenderDomein,
+        paginaTekst: mailData.mailTekst.substring(0, 1000),
+        isEmail: true,
+        isSpam: mailData.isSpam,
+        afzenderNaam: mailData.afzenderNaam,
+        afzenderDomein: mailData.afzenderDomein
+      },
+      (response) => {
+        if (chrome.runtime.lastError) return;
+
+        if (response && response.status === "success") {
+          huidigScore = response.score;
+          huidigOordeel = response.oordeel;
+          huidigUitleg = response.uitleg;
+          huidigBronnen = response.bronnen || [];
+
+          updateMiniBarometer(huidigScore);
+
+          if (response.phishing && response.phishing.actief) {
+            toonPhishingWaarschuwing(response.phishing);
+          }
+
+          if (popupOpen) {
+            updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen);
+          }
+        }
+      }
+    );
+  }
+}
+
+function initialiseerGmail() {
+  if (!location.hostname.includes("mail.google.com")) return;
+  if (gmailObserver) gmailObserver.disconnect();
+
+  gmailObserver = new MutationObserver(() => {
+    const mailOpen = document.querySelector(".h7");
+    if (mailOpen) setTimeout(startGmailCheck, 1000);
+  });
+
+  gmailObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+}
+
 // ── Automatische check ───────────────────────────────────────
 function startCheck() {
+  if (location.hostname.includes("mail.google.com")) {
+    initialiseerGmail();
+    return;
+  }
+
   const text = document.querySelector("h1")?.innerText
     || document.querySelector("h2")?.innerText
     || document.title;
@@ -456,6 +550,7 @@ setInterval(() => {
   if (location.href !== laasteUrl) {
     laasteUrl = location.href;
     phishingBanner.style.top = "-200px";
+    geopendeMail = null;
     setTimeout(startCheck, 1500);
   }
 }, 1000);
