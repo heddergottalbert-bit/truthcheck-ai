@@ -517,7 +517,7 @@ function startCheck() {
   const paginaTekst = document.body.innerText.substring(0, 2000).toLowerCase();
 
   // Eerste alinea als extra zoekcontext
-  const zoekContext = document.querySelector("p")?.innerText?.substring(0, 150) || "";
+  const zoekContext = document.querySelector("p")?.innerText?.substring(0, 300) || "";
 
   updateMiniBarometer(50);
 
