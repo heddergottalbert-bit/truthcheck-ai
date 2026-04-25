@@ -451,10 +451,12 @@ function startGmailCheck() {
         text: mailData.onderwerp || "Email analyse",
         domein: mailData.afzenderDomein,
         paginaTekst: mailData.mailTekst.substring(0, 1000),
+        zoekContext: "",
         isEmail: true,
         isSpam: mailData.isSpam,
         afzenderNaam: mailData.afzenderNaam,
-        afzenderDomein: mailData.afzenderDomein
+        afzenderDomein: mailData.afzenderDomein,
+        afzenderEmail: mailData.afzenderEmail
       },
       (response) => {
         if (chrome.runtime.lastError) return;
@@ -514,11 +516,14 @@ function startCheck() {
 
   const paginaTekst = document.body.innerText.substring(0, 2000).toLowerCase();
 
+  // Eerste alinea als extra zoekcontext
+  const zoekContext = document.querySelector("p")?.innerText?.substring(0, 150) || "";
+
   updateMiniBarometer(50);
 
   if (chrome.runtime && chrome.runtime.sendMessage) {
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, paginaTekst },
+      { action: "start_check", text, domein, paginaTekst, zoekContext },
       (response) => {
         if (chrome.runtime.lastError) return;
 

@@ -54,8 +54,7 @@ const WEBSITE_PHISHING_WOORDEN = [
   "geselecteerd", "gewonnen",
   "verificatie vereist", "account geblokkeerd",
   "bevestig uw", "update uw", "inloggen vereist",
-  "laatste kans", "alleen vandaag",
-  "u bent gekozen",
+  "laatste kans", "alleen vandaag", "u bent gekozen",
   "limited time", "act now", "you have been selected",
   "congratulations", "winner", "suspended", "verify now"
 ];
@@ -83,7 +82,6 @@ function domeinCheck(tekst, sleutel) {
 function naamMatchtDomein(afzenderNaam, afzenderDomein) {
   if (!afzenderNaam || !afzenderDomein) return true;
 
-  // noreply adressen zijn automatisch legitiem
   if (afzenderDomein.startsWith("noreply") ||
       afzenderDomein.includes("no-reply") ||
       afzenderDomein.includes("notifications") ||
@@ -93,21 +91,17 @@ function naamMatchtDomein(afzenderNaam, afzenderDomein) {
     return true;
   }
 
-  // Haal alle woorden uit de naam
   const naamWoorden = afzenderNaam
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter(w => w.length > 2);
 
-  // Haal het hoofddomein op zonder subdomein en extensie
-  // bijv. mijn.overheid.nl -> overheid
   const domeinDelen = afzenderDomein.split(".");
   const hoofdDomein = domeinDelen.length >= 2
     ? domeinDelen[domeinDelen.length - 2]
     : afzenderDomein;
 
-  // Check of een van de naamwoorden voorkomt in het domein
   const domeinTekst = afzenderDomein.replace(/\./g, " ");
   for (const woord of naamWoorden) {
     if (domeinTekst.includes(woord) ||
@@ -116,7 +110,6 @@ function naamMatchtDomein(afzenderNaam, afzenderDomein) {
       return true;
     }
   }
-
   return false;
 }
 
@@ -177,28 +170,22 @@ function berekenPhishingEmail(request) {
   let phishingScore = 0;
   const phishingSignalen = [];
 
-  // noreply = automatisch veilig, geen verdere checks nodig
   if (afzenderEmail.includes("noreply") ||
       afzenderEmail.includes("no-reply")) {
     return { actief: false, score: 0, signalen: [], isEmail: true };
   }
 
-  // Naam vs domein check
   if (!naamMatchtDomein(afzenderNaam, afzenderDomein)) {
     phishingScore += 60;
-    phishingSignalen.push(
-      `"${afzenderNaam}" stuurt niet via eigen domein`
-    );
+    phishingSignalen.push(`"${afzenderNaam}" stuurt niet via eigen domein`);
   }
 
-  // Hoofdletters in onderwerp
   if (request.text === request.text.toUpperCase() &&
       request.text.length > 5) {
     phishingScore += 25;
     phishingSignalen.push("Onderwerp in hoofdletters");
   }
 
-  // Gevaarlijke woorden
   EMAIL_PHISHING_WOORDEN.forEach(woord => {
     if (mailTekst.includes(woord.toLowerCase())) {
       phishingScore += 25;
@@ -237,12 +224,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
+    // Bouw een specifiekere zoekterm
+    const zoekTerm = request.text +
+      (request.zoekContext ? " " + request.zoekContext : "");
+
     fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: request.text,
+        query: zoekTerm,
         search_depth: "basic",
         max_results: 5,
         include_domains: BETROUWBARE_DOMEINEN
@@ -273,8 +264,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               {
                 role: "system",
                 content: betrouwbaar
-                  ? "Je bent een feitencheck AI. Geef ALLEEN een JSON object terug, geen extra tekst. Formaat: {\"score\": 75, \"oordeel\": \"Grotendeels waar\", \"uitleg\": \"Korte uitleg in 1 zin.\"}. Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hallusinaties: baseer je oordeel alleen op de bronnen."
-                  : "Je bent een feitencheck AI. Geef ALLEEN een JSON object terug: {\"score\": 50, \"oordeel\": \"Onbekend\", \"uitleg\": \"Er zijn geen betrouwbare bronnen gevonden voor deze claim.\"}."
+                  ? `Je bent een feitencheck AI. Voer deze twee stappen uit:
+STAP 1: Controleer of de bronnen over hetzelfde onderwerp gaan als de claim.
+Als meer dan de helft van de bronnen NIET relevant zijn aan de claim, geef dan score 50 en oordeel "Onvoldoende relevante bronnen" en zet bronRelevant op false.
+STAP 2: Als de bronnen wel relevant zijn, bepaal dan of de claim waar is.
+Geef ALLEEN een JSON object terug, geen extra tekst.
+Formaat: {"score": 75, "oordeel": "Grotendeels waar", "uitleg": "Korte uitleg in 1 zin.", "bronRelevant": true}
+Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hallusinaties.`
+                  : `Je bent een feitencheck AI. Geef ALLEEN een JSON object terug:
+{"score": 50, "oordeel": "Onbekend", "uitleg": "Er zijn geen betrouwbare bronnen gevonden.", "bronRelevant": false}`
               },
               {
                 role: "user",
@@ -286,12 +284,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .then(res => res.json())
         .then(aiData => {
           const result = JSON.parse(aiData.choices[0].message.content);
+
+          if (!result.bronRelevant) {
+            result.score = Math.min(result.score, 50);
+            result.oordeel = "Onvoldoende relevante bronnen";
+          }
+
           sendResponse({
             status: "success",
             score: result.score,
             oordeel: result.oordeel,
             uitleg: result.uitleg,
             bronnen: bronnen,
+            bronRelevant: result.bronRelevant,
             phishing: { actief: false }
           });
         });
@@ -303,7 +308,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             api_key: TAVILY_API_KEY,
-            query: request.text,
+            query: zoekTerm,
             search_depth: "basic",
             max_results: 5,
             exclude_domains: [
