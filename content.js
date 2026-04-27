@@ -2,6 +2,7 @@ let huidigScore = 50;
 let huidigOordeel = "Laden...";
 let huidigUitleg = "";
 let huidigBronnen = [];
+let huidigDeepfake = null;
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -181,7 +182,7 @@ popup.style.cssText = `
 `;
 document.body.appendChild(popup);
 
-function updatePopup(score, oordeel, uitleg, bronnen) {
+function updatePopup(score, oordeel, uitleg, bronnen, deepfake) {
   const kleur = getKleur(score);
   const bg = hexNaarRgba(achtergrondKleur, transparantie);
 
@@ -199,6 +200,22 @@ function updatePopup(score, oordeel, uitleg, bronnen) {
         ">${b}</a>`).join("")
     : `<span style="color:#555; font-size:10px;">Geen onafhankelijke bronnen gevonden</span>`;
 
+  const deepfakeHTML = deepfake && deepfake.deepfake_kans >= 50
+    ? `<div style="
+        margin-top:12px; padding:10px;
+        background:rgba(231, 76, 60, 0.15);
+        border:1px solid rgba(231, 76, 60, 0.4);
+        border-radius:8px;
+      ">
+        <div style="font-size:10px; font-weight:bold; color:#e74c3c; margin-bottom:4px;">
+          🤖 Mogelijk AI-gegenereerd beeld (${deepfake.deepfake_kans}%)
+        </div>
+        <div style="font-size:10px; color:${tekstKleur}; opacity:0.8;">
+          ${deepfake.uitleg}
+        </div>
+      </div>`
+    : "";
+
   popup.innerHTML = `
     <div style="font-size:9px; letter-spacing:2px; color:${tekstKleur};
       opacity:0.5; text-transform:uppercase; margin-bottom:10px;
@@ -211,7 +228,9 @@ function updatePopup(score, oordeel, uitleg, bronnen) {
     <div style="font-size:11px; color:${tekstKleur}; line-height:1.5;
       margin-bottom:14px; font-family:${lettertype};">${uitleg}</div>
 
-    <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:10px;">
+    ${deepfakeHTML}
+
+    <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:10px; margin-top:10px;">
       <div style="font-size:9px; letter-spacing:1px; color:${tekstKleur};
         opacity:0.5; text-transform:uppercase; margin-bottom:6px;
         font-family:${lettertype};">Bronnen</div>
@@ -313,7 +332,7 @@ document.body.appendChild(menu);
 document.getElementById("tc-trans").oninput = (e) => {
   transparantie = parseFloat(e.target.value);
   updateMiniBarometer(huidigScore);
-  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen);
+  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake);
   slaInstellingenOp();
 };
 
@@ -321,7 +340,7 @@ menu.querySelectorAll("[data-kleur]").forEach(btn => {
   btn.onclick = () => {
     achtergrondKleur = btn.dataset.kleur;
     updateMiniBarometer(huidigScore);
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen);
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake);
     slaInstellingenOp();
   };
 });
@@ -329,7 +348,7 @@ menu.querySelectorAll("[data-kleur]").forEach(btn => {
 menu.querySelectorAll("[data-tekst]").forEach(btn => {
   btn.onclick = () => {
     tekstKleur = btn.dataset.tekst;
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen);
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake);
     slaInstellingenOp();
   };
 });
@@ -337,7 +356,7 @@ menu.querySelectorAll("[data-tekst]").forEach(btn => {
 menu.querySelectorAll("[data-font]").forEach(btn => {
   btn.onclick = () => {
     lettertype = btn.dataset.font;
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen);
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake);
     slaInstellingenOp();
   };
 });
@@ -392,7 +411,7 @@ knop.addEventListener("click", (e) => {
   if (heeftGesleept) return;
   popupOpen = !popupOpen;
   popup.style.display = popupOpen ? "block" : "none";
-  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen);
+  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake);
 });
 
 knop.addEventListener("contextmenu", (e) => {
@@ -403,6 +422,20 @@ knop.addEventListener("contextmenu", (e) => {
   menu.style.bottom = (window.innerHeight - knopRect.top + 8) + "px";
   menu.style.top = "auto";
 });
+
+// ── Hoofdafbeelding ophalen ──────────────────────────────────
+function vindHoofdAfbeelding() {
+  // Probeer Open Graph afbeelding
+  const ogAfbeelding = document.querySelector('meta[property="og:image"]');
+  if (ogAfbeelding) return ogAfbeelding.getAttribute("content");
+
+  // Grootste afbeelding op de pagina
+  const afbeeldingen = Array.from(document.querySelectorAll("img"))
+    .filter(img => img.naturalWidth > 200 && img.naturalHeight > 200)
+    .sort((a, b) => (b.naturalWidth * b.naturalHeight) - (a.naturalWidth * a.naturalHeight));
+
+  return afbeeldingen[0]?.src || null;
+}
 
 // ── Gmail detectie ──────────────────────────────────────────
 let geopendeMail = null;
@@ -466,6 +499,7 @@ function startGmailCheck() {
           huidigOordeel = response.oordeel;
           huidigUitleg = response.uitleg;
           huidigBronnen = response.bronnen || [];
+          huidigDeepfake = null;
 
           updateMiniBarometer(huidigScore);
 
@@ -474,7 +508,7 @@ function startGmailCheck() {
           }
 
           if (popupOpen) {
-            updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen);
+            updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake);
           }
         }
       }
@@ -515,15 +549,14 @@ function startCheck() {
     .replace("nl.", "");
 
   const paginaTekst = document.body.innerText.substring(0, 2000).toLowerCase();
-
-  // Eerste alinea als extra zoekcontext
   const zoekContext = document.querySelector("p")?.innerText?.substring(0, 300) || "";
+  const afbeeldingUrl = vindHoofdAfbeelding();
 
   updateMiniBarometer(50);
 
   if (chrome.runtime && chrome.runtime.sendMessage) {
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, paginaTekst, zoekContext },
+      { action: "start_check", text, domein, paginaTekst, zoekContext, afbeeldingUrl },
       (response) => {
         if (chrome.runtime.lastError) return;
 
@@ -532,6 +565,7 @@ function startCheck() {
           huidigOordeel = response.oordeel;
           huidigUitleg = response.uitleg;
           huidigBronnen = response.bronnen || [];
+          huidigDeepfake = response.deepfake || null;
 
           updateMiniBarometer(huidigScore);
 
@@ -540,7 +574,7 @@ function startCheck() {
           }
 
           if (popupOpen) {
-            updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen);
+            updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake);
           }
         }
       }

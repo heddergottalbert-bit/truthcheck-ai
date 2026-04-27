@@ -224,23 +224,77 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
-    // Bouw een specifiekere zoekterm
+    if (request.isEmail) {
+      sendResponse({
+        status: "success",
+        score: 75,
+        oordeel: "Geen gevaar gedetecteerd",
+        uitleg: "Geen phishing signalen gevonden in deze e-mail.",
+        bronnen: [],
+        phishing: { actief: false }
+      });
+      return true;
+    }
+
+    // Deepfake check als er een afbeelding is
+    const deepfakePromise = request.afbeeldingUrl
+      ? fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + OPENAI_API_KEY
+          },
+          body: JSON.stringify({
+            model: "gpt-4o",
+            max_tokens: 200,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `Analyseer deze afbeelding op tekenen van AI-generatie of deepfake manipulatie. 
+Geef ALLEEN een JSON object terug: {"deepfake_kans": 75, "uitleg": "Korte uitleg in 1 zin."}
+deepfake_kans is een percentage van 0 (zeker echt) tot 100 (zeker nep/AI).
+Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent licht, perfecte symmetrie.`
+                  },
+                  {
+                    type: "image_url",
+                    image_url: { url: request.afbeeldingUrl, detail: "low" }
+                  }
+                ]
+              }
+            ]
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          const tekst = data.choices?.[0]?.message?.content || "{}";
+          return JSON.parse(tekst);
+        })
+        .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
+      : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
+
     const zoekTerm = request.text +
       (request.zoekContext ? " " + request.zoekContext : "");
 
-    fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: TAVILY_API_KEY,
-        query: zoekTerm,
-        search_depth: "basic",
-        max_results: 5,
-        include_domains: BETROUWBARE_DOMEINEN
+    // Feitencheck en deepfake tegelijk uitvoeren
+    Promise.all([
+      deepfakePromise,
+      fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: TAVILY_API_KEY,
+          query: zoekTerm,
+          search_depth: "basic",
+          max_results: 5,
+          include_domains: BETROUWBARE_DOMEINEN
+        })
       })
-    })
-    .then(res => res.json())
-    .then(tavilyData => {
+      .then(res => res.json())
+    ])
+    .then(([deepfakeResultaat, tavilyData]) => {
       const paginaDomein = request.domein || "";
 
       let gefilterd = (tavilyData.results || []).filter(r =>
@@ -264,10 +318,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               {
                 role: "system",
                 content: betrouwbaar
-                  ? `Je bent een feitencheck AI. Voer deze twee stappen uit:
-STAP 1: Controleer of de bronnen over hetzelfde onderwerp gaan als de claim.
-Als meer dan de helft van de bronnen NIET relevant zijn aan de claim, geef dan score 50 en oordeel "Onvoldoende relevante bronnen" en zet bronRelevant op false.
-STAP 2: Als de bronnen wel relevant zijn, bepaal dan of de claim waar is.
+                  ? `Je bent een feitencheck AI. Voer deze stappen uit:
+
+STAP 1: Controleer of de paginatekst strafbare content bevat zoals haatzaaien, discriminatie, opruiing, bedreiging of kindermisbruik.
+Als dit het geval is, geef dan aan of dit in het ARTIKEL zelf staat of in de REACTIES/COMMENTAREN.
+Gebruik in de uitleg altijd een van deze formuleringen:
+- "Let op: strafbare content gedetecteerd in de reacties van dit artikel."
+- "Let op: strafbare content gedetecteerd in het artikel zelf."
+
+STAP 2: Controleer of de bronnen over hetzelfde onderwerp gaan als de claim.
+Als meer dan de helft van de bronnen NIET relevant zijn, geef dan score 50 en oordeel "Onvoldoende relevante bronnen" en zet bronRelevant op false.
+
+STAP 3: Als de bronnen wel relevant zijn, bepaal dan of de claim waar is.
+
 Geef ALLEEN een JSON object terug, geen extra tekst.
 Formaat: {"score": 75, "oordeel": "Grotendeels waar", "uitleg": "Korte uitleg in 1 zin.", "bronRelevant": true}
 Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hallusinaties.`
@@ -276,7 +339,7 @@ Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hal
               },
               {
                 role: "user",
-                content: "Claim: " + request.text + "\n\nBronnen:\n" + context
+                content: "Paginatekst:\n" + request.paginaTekst + "\n\nClaim: " + request.text + "\n\nBronnen:\n" + context
               }
             ]
           })
@@ -297,7 +360,8 @@ Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hal
             uitleg: result.uitleg,
             bronnen: bronnen,
             bronRelevant: result.bronRelevant,
-            phishing: { actief: false }
+            phishing: { actief: false },
+            deepfake: deepfakeResultaat
           });
         });
       };
