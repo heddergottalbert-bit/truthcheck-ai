@@ -219,7 +219,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           ? "De afzender klopt niet met het e-mailadres. Reageer niet en klik op geen enkele link."
           : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
         bronnen: [],
-        phishing: phishing
+        phishing: phishing,
+        strafbareContent: false
       });
       return true;
     }
@@ -231,12 +232,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         oordeel: "Geen gevaar gedetecteerd",
         uitleg: "Geen phishing signalen gevonden in deze e-mail.",
         bronnen: [],
-        phishing: { actief: false }
+        phishing: { actief: false },
+        strafbareContent: false
       });
       return true;
     }
 
-    // Deepfake check als er een afbeelding is
+    // Deepfake check
     const deepfakePromise = request.afbeeldingUrl
       ? fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
@@ -275,12 +277,50 @@ Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent lich
         .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
       : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
 
+    // Aparte strafbare content check op reacties
+    const strafbareContentPromise = request.reactiesTekst
+      ? fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + OPENAI_API_KEY
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            max_tokens: 100,
+            messages: [
+              {
+                role: "system",
+                content: `Je analyseert reacties op nieuwsartikelen op strafbare of discriminerende inhoud.
+Geef ALLEEN een JSON object terug: {"strafbaar": false, "reden": ""}
+Zet strafbaar op true bij:
+- Haatzaaien of discriminatie op basis van afkomst, religie, ras of etniciteit
+- Xenofobe taal zoals "stuur ze terug", "ze horen hier niet thuis", negatieve verwijzingen naar nationaliteit
+- Opruiing, bedreiging of geweldoproepen
+- Kindermisbruik
+Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
+              },
+              {
+                role: "user",
+                content: "Analyseer deze reacties op discriminerende of strafbare inhoud:\n" + request.reactiesTekst
+              }
+            ]
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          const tekst = data.choices?.[0]?.message?.content || '{"strafbaar": false, "reden": ""}';
+          return JSON.parse(tekst);
+        })
+        .catch(() => ({ strafbaar: false, reden: "" }))
+      : Promise.resolve({ strafbaar: false, reden: "" });
+
     const zoekTerm = request.text +
       (request.zoekContext ? " " + request.zoekContext : "");
 
-    // Feitencheck en deepfake tegelijk uitvoeren
     Promise.all([
       deepfakePromise,
+      strafbareContentPromise,
       fetch("https://api.tavily.com/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -294,8 +334,9 @@ Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent lich
       })
       .then(res => res.json())
     ])
-    .then(([deepfakeResultaat, tavilyData]) => {
+    .then(([deepfakeResultaat, strafbaarResultaat, tavilyData]) => {
       const paginaDomein = request.domein || "";
+      const strafbareContent = strafbaarResultaat.strafbaar || false;
 
       let gefilterd = (tavilyData.results || []).filter(r =>
         !r.url.toLowerCase().includes(paginaDomein)
@@ -320,16 +361,10 @@ Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent lich
                 content: betrouwbaar
                   ? `Je bent een feitencheck AI. Voer deze stappen uit:
 
-STAP 1: Controleer of de paginatekst strafbare content bevat zoals haatzaaien, discriminatie, opruiing, bedreiging of kindermisbruik.
-Als dit het geval is, geef dan aan of dit in het ARTIKEL zelf staat of in de REACTIES/COMMENTAREN.
-Gebruik in de uitleg altijd een van deze formuleringen:
-- "Let op: strafbare content gedetecteerd in de reacties van dit artikel."
-- "Let op: strafbare content gedetecteerd in het artikel zelf."
-
-STAP 2: Controleer of de bronnen over hetzelfde onderwerp gaan als de claim.
+STAP 1: Controleer of de bronnen over hetzelfde onderwerp gaan als de claim.
 Als meer dan de helft van de bronnen NIET relevant zijn, geef dan score 50 en oordeel "Onvoldoende relevante bronnen" en zet bronRelevant op false.
 
-STAP 3: Als de bronnen wel relevant zijn, bepaal dan of de claim waar is.
+STAP 2: Als de bronnen wel relevant zijn, bepaal dan of de claim waar is.
 
 Geef ALLEEN een JSON object terug, geen extra tekst.
 Formaat: {"score": 75, "oordeel": "Grotendeels waar", "uitleg": "Korte uitleg in 1 zin.", "bronRelevant": true}
@@ -339,7 +374,7 @@ Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hal
               },
               {
                 role: "user",
-                content: "Paginatekst:\n" + request.paginaTekst + "\n\nClaim: " + request.text + "\n\nBronnen:\n" + context
+                content: "Claim: " + request.text + "\n\nBronnen:\n" + context
               }
             ]
           })
@@ -353,13 +388,19 @@ Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hal
             result.oordeel = "Onvoldoende relevante bronnen";
           }
 
+          // Als strafbare content in reacties, voeg dit toe aan uitleg
+          const uitlegMetWaarschuwing = strafbareContent
+            ? result.uitleg + " Let op: strafbare content gedetecteerd in de reacties."
+            : result.uitleg;
+
           sendResponse({
             status: "success",
             score: result.score,
             oordeel: result.oordeel,
-            uitleg: result.uitleg,
+            uitleg: uitlegMetWaarschuwing,
             bronnen: bronnen,
             bronRelevant: result.bronRelevant,
+            strafbareContent: strafbareContent,
             phishing: { actief: false },
             deepfake: deepfakeResultaat
           });
