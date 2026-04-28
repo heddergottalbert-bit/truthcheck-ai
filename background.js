@@ -26,6 +26,17 @@ const BETROUWBARE_DOMEINEN = [
   "politie.nl", "rechtspraak.nl", "duo.nl", "svb.nl", "uwv.nl"
 ];
 
+const LOKALE_NIEUWS_DOMEINEN = [
+  "nos.nl", "nu.nl", "ad.nl", "telegraaf.nl", "rtlnieuws.nl",
+  "nrc.nl", "volkskrant.nl", "trouw.nl", "parool.nl",
+  "omroepwest.nl", "omroepgelderland.nl", "omroepbrabant.nl",
+  "omroepzeeland.nl", "rtvnoord.nl", "rtvoost.nl",
+  "omroepflevoland.nl", "nhnieuws.nl", "at5.nl",
+  "omroepfriesland.nl", "rtvdrenthe.nl", "omroeplimburg.nl",
+  "hartvannederland.nl", "metronieuws.nl",
+  "reuters.com", "bbc.com", "apnews.com"
+];
+
 const OFFICIELE_DOMEINEN = {
   "green card": "dvprogram.state.gov",
   "diversity visa": "dvprogram.state.gov",
@@ -203,6 +214,49 @@ function berekenPhishingEmail(request) {
   };
 }
 
+// ── OpenAI thema-extractie ───────────────────────────────────
+function extraheerThema(titel, artikelTekst) {
+  return fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + OPENAI_API_KEY
+    },
+    body: JSON.stringify({
+      model: "gpt-3.5-turbo",
+      max_tokens: 100,
+      messages: [
+        {
+          role: "system",
+          content: `Je analyseert nieuwsartikelen en extraheert zoektermen voor een feitencheck.
+Geef ALLEEN een JSON object terug:
+{"hoofdthema": "3-5 zoekwoorden over het kernonderwerp", "subthema": "3-4 zoekwoorden over de context"}
+
+Regels:
+- Hoofdthema: het concrete nieuwsfeit (wie, wat, waar)
+- Subthema: de bredere context (achtergrond, oorzaak, maatschappelijk thema)
+- Geen stopwoorden, geen aanhalingstekens, alleen zoekwoorden
+- Altijd in het Nederlands tenzij het artikel Engels is`
+        },
+        {
+          role: "user",
+          content: `Titel: ${titel}\n\nArtikeltekst: ${artikelTekst}`
+        }
+      ]
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    const tekst = data.choices?.[0]?.message?.content || "{}";
+    try {
+      return JSON.parse(tekst);
+    } catch(e) {
+      return { hoofdthema: titel.substring(0, 50), subthema: "" };
+    }
+  })
+  .catch(() => ({ hoofdthema: titel.substring(0, 50), subthema: "" }));
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_check") {
 
@@ -238,7 +292,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
-    // Deepfake check
+    // ── Deepfake check ───────────────────────────────────────
     const deepfakePromise = request.afbeeldingUrl
       ? fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
@@ -255,10 +309,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 content: [
                   {
                     type: "text",
-                    text: `Analyseer deze afbeelding op tekenen van AI-generatie of deepfake manipulatie. 
+                    text: `Analyseer deze afbeelding op tekenen van AI-generatie of deepfake manipulatie.
 Geef ALLEEN een JSON object terug: {"deepfake_kans": 75, "uitleg": "Korte uitleg in 1 zin."}
 deepfake_kans is een percentage van 0 (zeker echt) tot 100 (zeker nep/AI).
-Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent licht, perfecte symmetrie.`
+Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent licht, perfecte symmetrie.
+Let op: rechtbanktekeningen, illustraties en kunstwerken zijn GEEN deepfakes — geef die altijd score 0.`
                   },
                   {
                     type: "image_url",
@@ -272,13 +327,14 @@ Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent lich
         .then(res => res.json())
         .then(data => {
           const tekst = data.choices?.[0]?.message?.content || "{}";
-          return JSON.parse(tekst);
+          try { return JSON.parse(tekst); }
+          catch(e) { return { deepfake_kans: 0, uitleg: "" }; }
         })
         .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
       : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
 
-    // Aparte strafbare content check op reacties
-    const strafbareContentPromise = request.reactiesTekst
+    // ── Strafbare content check op reacties ─────────────────
+    const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
       ? fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -310,39 +366,130 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
         .then(res => res.json())
         .then(data => {
           const tekst = data.choices?.[0]?.message?.content || '{"strafbaar": false, "reden": ""}';
-          return JSON.parse(tekst);
+          try { return JSON.parse(tekst); }
+          catch(e) { return { strafbaar: false, reden: "" }; }
         })
         .catch(() => ({ strafbaar: false, reden: "" }))
       : Promise.resolve({ strafbaar: false, reden: "" });
 
-    const zoekTerm = request.text +
-      (request.zoekContext ? " " + request.zoekContext : "");
+    // ── Thema extractie via OpenAI ───────────────────────────
+    const themaPromise = extraheerThema(
+      request.text,
+      request.artikelTekst || request.zoekContext || ""
+    );
+
+    const paginaDomein = request.domein || "";
+
+    const uitgeslotenDomeinen = [
+      "facebook.com", "instagram.com", "twitter.com",
+      "x.com", "tiktok.com", "youtube.com",
+      "wikipedia.org", "msn.com", "yahoo.com",
+      "pinterest.com", "reddit.com", "quora.com",
+      paginaDomein
+    ].filter(Boolean);
 
     Promise.all([
       deepfakePromise,
       strafbareContentPromise,
-      fetch("https://api.tavily.com/search", {
+      themaPromise
+    ])
+    .then(([deepfakeResultaat, strafbaarResultaat, thema]) => {
+      const strafbareContent = strafbaarResultaat.strafbaar || false;
+
+      // Zoektermen op basis van thema
+      const hoofdZoekTerm = thema.hoofdthema || request.text.substring(0, 50);
+      const subZoekTerm = thema.subthema || "";
+
+      // Eerste zoekopdracht op hoofdthema — betrouwbare bronnen
+      return fetch("https://api.tavily.com/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           api_key: TAVILY_API_KEY,
-          query: zoekTerm,
+          query: hoofdZoekTerm,
           search_depth: "basic",
           max_results: 5,
           include_domains: BETROUWBARE_DOMEINEN
         })
       })
       .then(res => res.json())
-    ])
-    .then(([deepfakeResultaat, strafbaarResultaat, tavilyData]) => {
-      const paginaDomein = request.domein || "";
-      const strafbareContent = strafbaarResultaat.strafbaar || false;
+      .then(data => {
+        let gefilterd = (data.results || []).filter(r =>
+          !r.url.toLowerCase().includes(paginaDomein)
+        );
 
-      let gefilterd = (tavilyData.results || []).filter(r =>
-        !r.url.toLowerCase().includes(paginaDomein)
-      );
+        // Tweede zoekopdracht op subthema als eerste niets geeft
+        if (gefilterd.length === 0 && subZoekTerm) {
+          return fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: TAVILY_API_KEY,
+              query: subZoekTerm,
+              search_depth: "basic",
+              max_results: 5,
+              include_domains: BETROUWBARE_DOMEINEN
+            })
+          })
+          .then(res => res.json())
+          .then(data2 => {
+            let gefilterd2 = (data2.results || []).filter(r =>
+              !r.url.toLowerCase().includes(paginaDomein)
+            );
+            return { resultaten: gefilterd2, zoekTerm: subZoekTerm };
+          });
+        }
 
-      const fetchFeitencheck = (resultaten) => {
+        return { resultaten: gefilterd, zoekTerm: hoofdZoekTerm };
+      })
+      .then(({ resultaten, zoekTerm }) => {
+
+        // Derde zoekopdracht — lokale nieuwsdomeinen
+        if (resultaten.length === 0) {
+          return fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: TAVILY_API_KEY,
+              query: hoofdZoekTerm,
+              search_depth: "basic",
+              max_results: 8,
+              include_domains: LOKALE_NIEUWS_DOMEINEN
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            let lokaal = (data.results || []).filter(r =>
+              !r.url.toLowerCase().includes(paginaDomein)
+            );
+            return lokaal;
+          });
+        }
+
+        return resultaten;
+      })
+      .then(resultaten => {
+
+        // Vierde zoekopdracht — volledig open als alles faalt
+        if (resultaten.length === 0) {
+          return fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              api_key: TAVILY_API_KEY,
+              query: hoofdZoekTerm,
+              search_depth: "basic",
+              max_results: 8,
+              exclude_domains: uitgeslotenDomeinen
+            })
+          })
+          .then(res => res.json())
+          .then(data => data.results || []);
+        }
+
+        return resultaten;
+      })
+      .then(resultaten => {
         const bronnen = resultaten.map(r => r.url);
         const context = resultaten.map(r => r.content).join("\n\n");
         const betrouwbaar = resultaten.length > 0;
@@ -381,14 +528,18 @@ Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hal
         })
         .then(res => res.json())
         .then(aiData => {
-          const result = JSON.parse(aiData.choices[0].message.content);
+          let result;
+          try {
+            result = JSON.parse(aiData.choices[0].message.content);
+          } catch(e) {
+            result = { score: 50, oordeel: "Onbekend", uitleg: "Kon de bronnen niet verwerken.", bronRelevant: false };
+          }
 
           if (!result.bronRelevant) {
             result.score = Math.min(result.score, 50);
             result.oordeel = "Onvoldoende relevante bronnen";
           }
 
-          // Als strafbare content in reacties, voeg dit toe aan uitleg
           const uitlegMetWaarschuwing = strafbareContent
             ? result.uitleg + " Let op: strafbare content gedetecteerd in de reacties."
             : result.uitleg;
@@ -405,31 +556,7 @@ Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hal
             deepfake: deepfakeResultaat
           });
         });
-      };
-
-      if (gefilterd.length === 0) {
-        return fetch("https://api.tavily.com/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            api_key: TAVILY_API_KEY,
-            query: zoekTerm,
-            search_depth: "basic",
-            max_results: 5,
-            exclude_domains: [
-              "facebook.com", "instagram.com", "twitter.com",
-              "x.com", "tiktok.com", "youtube.com",
-              "wikipedia.org", "msn.com", "yahoo.com",
-              "pinterest.com", "reddit.com", "quora.com",
-              paginaDomein
-            ].filter(Boolean)
-          })
-        })
-        .then(res => res.json())
-        .then(data => fetchFeitencheck(data.results || []));
-      }
-
-      return fetchFeitencheck(gefilterd);
+      });
     })
     .catch(err => sendResponse({ status: "error", message: err.message }));
 
