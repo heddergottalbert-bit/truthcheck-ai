@@ -143,9 +143,9 @@ function updateMiniBarometer(score, strafbareContent) {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
 
   const driehoekjeHTML = strafbareContent
-    ? `<g transform="translate(44, 44)">
-        <polygon points="0,-9 8,5 -8,5" fill="#e67e22" stroke="none"/>
-        <text x="0" y="4" font-size="7" fill="white"
+    ? `<g transform="translate(32, 32)">
+        <polygon points="0,-14 16,10 -16,10" fill="#e67e22" stroke="none"/>
+        <text x="0" y="7" font-size="10" fill="white"
           text-anchor="middle" font-weight="bold">!</text>
       </g>`
     : "";
