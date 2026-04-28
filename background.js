@@ -92,7 +92,6 @@ function domeinCheck(tekst, sleutel) {
 
 function naamMatchtDomein(afzenderNaam, afzenderDomein) {
   if (!afzenderNaam || !afzenderDomein) return true;
-
   if (afzenderDomein.startsWith("noreply") ||
       afzenderDomein.includes("no-reply") ||
       afzenderDomein.includes("notifications") ||
@@ -101,18 +100,15 @@ function naamMatchtDomein(afzenderNaam, afzenderDomein) {
       afzenderDomein.includes("newsletter")) {
     return true;
   }
-
   const naamWoorden = afzenderNaam
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter(w => w.length > 2);
-
   const domeinDelen = afzenderDomein.split(".");
   const hoofdDomein = domeinDelen.length >= 2
     ? domeinDelen[domeinDelen.length - 2]
     : afzenderDomein;
-
   const domeinTekst = afzenderDomein.replace(/\./g, " ");
   for (const woord of naamWoorden) {
     if (domeinTekst.includes(woord) ||
@@ -128,27 +124,21 @@ function berekenPhishingWebsite(request) {
   const paginaTekst = (request.paginaTekst || "").toLowerCase();
   const paginaTitel = (request.text || "").toLowerCase();
   const paginaDomein = request.domein || "";
-
   let phishingScore = 0;
   const phishingSignalen = [];
-
   WEBSITE_PHISHING_WOORDEN.forEach(woord => {
     if (paginaTekst.includes(woord.toLowerCase())) {
       phishingScore += 15;
       phishingSignalen.push(woord);
     }
   });
-
-  if (request.text === request.text.toUpperCase() &&
-      request.text.length > 5) {
+  if (request.text === request.text.toUpperCase() && request.text.length > 5) {
     phishingScore += 20;
     phishingSignalen.push("Titel in hoofdletters");
   }
-
   let officieelDomein = null;
   Object.entries(OFFICIELE_DOMEINEN).forEach(([sleutel, domein]) => {
-    if (domeinCheck(paginaTitel, sleutel) ||
-        domeinCheck(paginaTekst, sleutel)) {
+    if (domeinCheck(paginaTitel, sleutel) || domeinCheck(paginaTekst, sleutel)) {
       if (!paginaDomein.includes(domein.replace("www.", ""))) {
         officieelDomein = domein;
         phishingScore += 40;
@@ -156,13 +146,11 @@ function berekenPhishingWebsite(request) {
       }
     }
   });
-
   const verdachtPatroon = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle)/i;
   if (verdachtPatroon.test(paginaDomein)) {
     phishingScore += 25;
     phishingSignalen.push("Verdacht domeinnaam patroon");
   }
-
   return {
     actief: phishingScore >= 30,
     score: Math.min(phishingScore, 100),
@@ -177,33 +165,25 @@ function berekenPhishingEmail(request) {
   const afzenderNaam = (request.afzenderNaam || "");
   const afzenderDomein = (request.afzenderDomein || "").toLowerCase();
   const afzenderEmail = (request.afzenderEmail || "").toLowerCase();
-
   let phishingScore = 0;
   const phishingSignalen = [];
-
-  if (afzenderEmail.includes("noreply") ||
-      afzenderEmail.includes("no-reply")) {
+  if (afzenderEmail.includes("noreply") || afzenderEmail.includes("no-reply")) {
     return { actief: false, score: 0, signalen: [], isEmail: true };
   }
-
   if (!naamMatchtDomein(afzenderNaam, afzenderDomein)) {
     phishingScore += 60;
     phishingSignalen.push(`"${afzenderNaam}" stuurt niet via eigen domein`);
   }
-
-  if (request.text === request.text.toUpperCase() &&
-      request.text.length > 5) {
+  if (request.text === request.text.toUpperCase() && request.text.length > 5) {
     phishingScore += 25;
     phishingSignalen.push("Onderwerp in hoofdletters");
   }
-
   EMAIL_PHISHING_WOORDEN.forEach(woord => {
     if (mailTekst.includes(woord.toLowerCase())) {
       phishingScore += 25;
       phishingSignalen.push(woord);
     }
   });
-
   return {
     actief: phishingScore >= 60,
     score: Math.min(phishingScore, 100),
@@ -228,15 +208,17 @@ function extraheerThema(titel, artikelTekst) {
       messages: [
         {
           role: "system",
-          content: `Je analyseert nieuwsartikelen en extraheert zoektermen voor een feitencheck.
+          content: `Je extraheert zoektermen uit nieuwsartikelen voor een feitencheck.
 Geef ALLEEN een JSON object terug:
-{"hoofdthema": "3-5 zoekwoorden over het kernonderwerp", "subthema": "3-4 zoekwoorden over de context"}
+{"hoofdthema": "zoekwoorden", "subthema": "zoekwoorden"}
 
-Regels:
-- Hoofdthema: het concrete nieuwsfeit (wie, wat, waar)
-- Subthema: de bredere context (achtergrond, oorzaak, maatschappelijk thema)
-- Geen stopwoorden, geen aanhalingstekens, alleen zoekwoorden
-- Altijd in het Nederlands tenzij het artikel Engels is`
+Strikte regels:
+- Hoofdthema: de CONCRETE actie in DIT artikel — rechtszaak, misdrijf, incident, besluit — ALTIJD met Nederlandse locatie of context
+- Subthema: de NEDERLANDSE maatschappelijke achtergrond — gemeente, rechtbank, politie, asielopvang, zorg, etc.
+- NOOIT buitenlandse politiek of historische context als hoofdthema
+- Als het artikel gaat over een rechtszaak IN Nederland: hoofdthema = de Nederlandse rechtszaak zelf
+- Als het artikel gaat over een incident IN Nederland: hoofdthema = het incident + gemeente/regio
+- Max 5 woorden per thema, geen stopwoorden`
         },
         {
           role: "user",
@@ -248,17 +230,76 @@ Regels:
   .then(res => res.json())
   .then(data => {
     const tekst = data.choices?.[0]?.message?.content || "{}";
-    try {
-      return JSON.parse(tekst);
-    } catch(e) {
-      return { hoofdthema: titel.substring(0, 50), subthema: "" };
-    }
+    try { return JSON.parse(tekst); }
+    catch(e) { return { hoofdthema: titel.substring(0, 50), subthema: "" }; }
   })
   .catch(() => ({ hoofdthema: titel.substring(0, 50), subthema: "" }));
 }
 
+// ── Strafbare content check — ALLEEN reacties, geen feitencheck ──
+function checkAlleenReacties(reactiesTekst, sendResponse) {
+  fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + OPENAI_API_KEY
+    },
+    body: JSON.stringify({
+      model: "gpt-3.5-turbo",
+      max_tokens: 100,
+      messages: [
+        {
+          role: "system",
+          content: `Je analyseert reacties op nieuwsartikelen op strafbare of discriminerende inhoud.
+Geef ALLEEN een JSON object terug: {"strafbaar": false, "reden": ""}
+Zet strafbaar op true bij:
+- Haatzaaien of discriminatie op basis van afkomst, religie, ras of etniciteit
+- Xenofobe taal zoals "stuur ze terug", "ze horen hier niet thuis", negatieve verwijzingen naar nationaliteit
+- Opruiing, bedreiging of geweldoproepen
+- Kindermisbruik
+Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
+        },
+        {
+          role: "user",
+          content: "Analyseer deze reacties op discriminerende of strafbare inhoud:\n" + reactiesTekst
+        }
+      ]
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    const tekst = data.choices?.[0]?.message?.content || '{"strafbaar": false, "reden": ""}';
+    let result;
+    try { result = JSON.parse(tekst); }
+    catch(e) { result = { strafbaar: false, reden: "" }; }
+    // Stuur ALLEEN strafbareContent terug — raak feitencheck niet aan
+    sendResponse({
+      status: "success",
+      alleenReactieCheck: true,
+      strafbareContent: result.strafbaar || false
+    });
+  })
+  .catch(() => {
+    sendResponse({
+      status: "success",
+      alleenReactieCheck: true,
+      strafbareContent: false
+    });
+  });
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_check") {
+
+    // ── Alleen reactiecheck — raak feitencheck NIET aan ──────
+    if (request.alleenReactieCheck) {
+      if (request.reactiesTekst && request.reactiesTekst.length > 10) {
+        checkAlleenReacties(request.reactiesTekst, sendResponse);
+      } else {
+        sendResponse({ status: "success", alleenReactieCheck: true, strafbareContent: false });
+      }
+      return true;
+    }
 
     const phishing = request.isEmail
       ? berekenPhishingEmail(request)
@@ -303,25 +344,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           body: JSON.stringify({
             model: "gpt-4o",
             max_tokens: 200,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: `Analyseer deze afbeelding op tekenen van AI-generatie of deepfake manipulatie.
+            messages: [{
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Analyseer deze afbeelding op tekenen van AI-generatie of deepfake manipulatie.
 Geef ALLEEN een JSON object terug: {"deepfake_kans": 75, "uitleg": "Korte uitleg in 1 zin."}
 deepfake_kans is een percentage van 0 (zeker echt) tot 100 (zeker nep/AI).
 Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent licht, perfecte symmetrie.
-Let op: rechtbanktekeningen, illustraties en kunstwerken zijn GEEN deepfakes — geef die altijd score 0.`
-                  },
-                  {
-                    type: "image_url",
-                    image_url: { url: request.afbeeldingUrl, detail: "low" }
-                  }
-                ]
-              }
-            ]
+Rechtbanktekeningen, illustraties en kunstwerken zijn GEEN deepfakes — geef die altijd score 0.`
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: request.afbeeldingUrl, detail: "low" }
+                }
+              ]
+            }]
           })
         })
         .then(res => res.json())
@@ -372,14 +411,13 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
         .catch(() => ({ strafbaar: false, reden: "" }))
       : Promise.resolve({ strafbaar: false, reden: "" });
 
-    // ── Thema extractie via OpenAI ───────────────────────────
+    // ── Thema extractie ──────────────────────────────────────
     const themaPromise = extraheerThema(
       request.text,
       request.artikelTekst || request.zoekContext || ""
     );
 
     const paginaDomein = request.domein || "";
-
     const uitgeslotenDomeinen = [
       "facebook.com", "instagram.com", "twitter.com",
       "x.com", "tiktok.com", "youtube.com",
@@ -388,19 +426,13 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
       paginaDomein
     ].filter(Boolean);
 
-    Promise.all([
-      deepfakePromise,
-      strafbareContentPromise,
-      themaPromise
-    ])
+    Promise.all([deepfakePromise, strafbareContentPromise, themaPromise])
     .then(([deepfakeResultaat, strafbaarResultaat, thema]) => {
       const strafbareContent = strafbaarResultaat.strafbaar || false;
-
-      // Zoektermen op basis van thema
       const hoofdZoekTerm = thema.hoofdthema || request.text.substring(0, 50);
       const subZoekTerm = thema.subthema || "";
 
-      // Eerste zoekopdracht op hoofdthema — betrouwbare bronnen
+      // Stap 1: hoofdthema op betrouwbare domeinen
       return fetch("https://api.tavily.com/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -417,9 +449,8 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
         let gefilterd = (data.results || []).filter(r =>
           !r.url.toLowerCase().includes(paginaDomein)
         );
-
-        // Tweede zoekopdracht op subthema als eerste niets geeft
         if (gefilterd.length === 0 && subZoekTerm) {
+          // Stap 2: subthema op betrouwbare domeinen
           return fetch("https://api.tavily.com/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -432,20 +463,15 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
             })
           })
           .then(res => res.json())
-          .then(data2 => {
-            let gefilterd2 = (data2.results || []).filter(r =>
-              !r.url.toLowerCase().includes(paginaDomein)
-            );
-            return { resultaten: gefilterd2, zoekTerm: subZoekTerm };
-          });
+          .then(data2 => (data2.results || []).filter(r =>
+            !r.url.toLowerCase().includes(paginaDomein)
+          ));
         }
-
-        return { resultaten: gefilterd, zoekTerm: hoofdZoekTerm };
+        return gefilterd;
       })
-      .then(({ resultaten, zoekTerm }) => {
-
-        // Derde zoekopdracht — lokale nieuwsdomeinen
+      .then(resultaten => {
         if (resultaten.length === 0) {
+          // Stap 3: lokale nieuwsdomeinen
           return fetch("https://api.tavily.com/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -458,20 +484,15 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
             })
           })
           .then(res => res.json())
-          .then(data => {
-            let lokaal = (data.results || []).filter(r =>
-              !r.url.toLowerCase().includes(paginaDomein)
-            );
-            return lokaal;
-          });
+          .then(data => (data.results || []).filter(r =>
+            !r.url.toLowerCase().includes(paginaDomein)
+          ));
         }
-
         return resultaten;
       })
       .then(resultaten => {
-
-        // Vierde zoekopdracht — volledig open als alles faalt
         if (resultaten.length === 0) {
+          // Stap 4: volledig open
           return fetch("https://api.tavily.com/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -486,7 +507,6 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
           .then(res => res.json())
           .then(data => data.results || []);
         }
-
         return resultaten;
       })
       .then(resultaten => {
@@ -508,10 +528,11 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
                 content: betrouwbaar
                   ? `Je bent een feitencheck AI. Voer deze stappen uit:
 
-STAP 1: Controleer of de bronnen over hetzelfde onderwerp gaan als de claim.
-Als meer dan de helft van de bronnen NIET relevant zijn, geef dan score 50 en oordeel "Onvoldoende relevante bronnen" en zet bronRelevant op false.
+STAP 1: Controleer of de bronnen relevant zijn voor de claim.
+Bronnen over vergelijkbare rechtszaken, vergelijkbare incidenten of de bredere Nederlandse context tellen als relevant.
+Alleen als ALLE bronnen volledig niets met het onderwerp te maken hebben: bronRelevant = false.
 
-STAP 2: Als de bronnen wel relevant zijn, bepaal dan of de claim waar is.
+STAP 2: Als de bronnen relevant zijn, bepaal dan of de claim waar is.
 
 Geef ALLEEN een JSON object terug, geen extra tekst.
 Formaat: {"score": 75, "oordeel": "Grotendeels waar", "uitleg": "Korte uitleg in 1 zin.", "bronRelevant": true}
@@ -529,11 +550,8 @@ Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hal
         .then(res => res.json())
         .then(aiData => {
           let result;
-          try {
-            result = JSON.parse(aiData.choices[0].message.content);
-          } catch(e) {
-            result = { score: 50, oordeel: "Onbekend", uitleg: "Kon de bronnen niet verwerken.", bronRelevant: false };
-          }
+          try { result = JSON.parse(aiData.choices[0].message.content); }
+          catch(e) { result = { score: 50, oordeel: "Onbekend", uitleg: "Kon de bronnen niet verwerken.", bronRelevant: false }; }
 
           if (!result.bronRelevant) {
             result.score = Math.min(result.score, 50);
