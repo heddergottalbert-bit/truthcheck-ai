@@ -1,5 +1,5 @@
-const TAVILY_API_KEY = "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";
-const OPENAI_API_KEY = "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";
+const TAVILY_API_KEY = "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";
+const OPENAI_API_KEY = "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";
 
 const BETROUWBARE_DOMEINEN = [
   "nos.nl", "nrc.nl", "volkskrant.nl", "trouw.nl", "ad.nl",
