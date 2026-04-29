@@ -1,5 +1,4 @@
-const TAVILY_API_KEY = "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";
-const OPENAI_API_KEY = "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";
+const SERVER_URL = "https://truthcheck-ai-production.up.railway.app";
 
 const BETROUWBARE_DOMEINEN = [
   "nos.nl", "nrc.nl", "volkskrant.nl", "trouw.nl", "ad.nl",
@@ -194,89 +193,34 @@ function berekenPhishingEmail(request) {
   };
 }
 
-// ── OpenAI thema-extractie ───────────────────────────────────
-function extraheerThema(titel, artikelTekst) {
-  return fetch("https://api.openai.com/v1/chat/completions", {
+// ── Via Railway server: thema-extractie + feitencheck ────────
+function extraheerThemaViaServer(titel, artikelTekst) {
+  return fetch(SERVER_URL + "/api/factcheck", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + OPENAI_API_KEY
-    },
-    body: JSON.stringify({
-      model: "gpt-3.5-turbo",
-      max_tokens: 100,
-      messages: [
-        {
-          role: "system",
-          content: `Je extraheert zoektermen uit nieuwsartikelen voor een feitencheck.
-Geef ALLEEN een JSON object terug:
-{"hoofdthema": "zoekwoorden", "subthema": "zoekwoorden"}
-
-Strikte regels:
-- Hoofdthema: de CONCRETE actie in DIT artikel — rechtszaak, misdrijf, incident, besluit — ALTIJD met Nederlandse locatie of context
-- Subthema: de NEDERLANDSE maatschappelijke achtergrond — gemeente, rechtbank, politie, asielopvang, zorg, etc.
-- NOOIT buitenlandse politiek of historische context als hoofdthema
-- Als het artikel gaat over een rechtszaak IN Nederland: hoofdthema = de Nederlandse rechtszaak zelf
-- Als het artikel gaat over een incident IN Nederland: hoofdthema = het incident + gemeente/regio
-- Max 5 woorden per thema, geen stopwoorden`
-        },
-        {
-          role: "user",
-          content: `Titel: ${titel}\n\nArtikeltekst: ${artikelTekst}`
-        }
-      ]
-    })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: titel + "\n\n" + artikelTekst })
   })
   .then(res => res.json())
-  .then(data => {
-    const tekst = data.choices?.[0]?.message?.content || "{}";
-    try { return JSON.parse(tekst); }
-    catch(e) { return { hoofdthema: titel.substring(0, 50), subthema: "" }; }
-  })
+  .then(data => ({
+    hoofdthema: data.theme || titel.substring(0, 50),
+    subthema: data.claim || ""
+  }))
   .catch(() => ({ hoofdthema: titel.substring(0, 50), subthema: "" }));
 }
 
-// ── Strafbare content check — ALLEEN reacties, geen feitencheck ──
+// ── Via Railway server: strafbare content check ──────────────
 function checkAlleenReacties(reactiesTekst, sendResponse) {
-  fetch("https://api.openai.com/v1/chat/completions", {
+  fetch(SERVER_URL + "/api/harmful", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + OPENAI_API_KEY
-    },
-    body: JSON.stringify({
-      model: "gpt-3.5-turbo",
-      max_tokens: 100,
-      messages: [
-        {
-          role: "system",
-          content: `Je analyseert reacties op nieuwsartikelen op strafbare of discriminerende inhoud.
-Geef ALLEEN een JSON object terug: {"strafbaar": false, "reden": ""}
-Zet strafbaar op true bij:
-- Haatzaaien of discriminatie op basis van afkomst, religie, ras of etniciteit
-- Xenofobe taal zoals "stuur ze terug", "ze horen hier niet thuis", negatieve verwijzingen naar nationaliteit
-- Opruiing, bedreiging of geweldoproepen
-- Kindermisbruik
-Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
-        },
-        {
-          role: "user",
-          content: "Analyseer deze reacties op discriminerende of strafbare inhoud:\n" + reactiesTekst
-        }
-      ]
-    })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: reactiesTekst })
   })
   .then(res => res.json())
   .then(data => {
-    const tekst = data.choices?.[0]?.message?.content || '{"strafbaar": false, "reden": ""}';
-    let result;
-    try { result = JSON.parse(tekst); }
-    catch(e) { result = { strafbaar: false, reden: "" }; }
-    // Stuur ALLEEN strafbareContent terug — raak feitencheck niet aan
     sendResponse({
       status: "success",
       alleenReactieCheck: true,
-      strafbareContent: result.strafbaar || false
+      strafbareContent: data.isHarmful || false
     });
   })
   .catch(() => {
@@ -291,7 +235,7 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_check") {
 
-    // ── Alleen reactiecheck — raak feitencheck NIET aan ──────
+    // ── Alleen reactiecheck ───────────────────────────────────
     if (request.alleenReactieCheck) {
       if (request.reactiesTekst && request.reactiesTekst.length > 10) {
         checkAlleenReacties(request.reactiesTekst, sendResponse);
@@ -333,86 +277,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
-    // ── Deepfake check ───────────────────────────────────────
+    // ── Deepfake check — blijft direct via OpenAI ────────────
     const deepfakePromise = request.afbeeldingUrl
-      ? fetch("https://api.openai.com/v1/chat/completions", {
+      ? fetch(SERVER_URL + "/api/factcheck", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + OPENAI_API_KEY
-          },
-          body: JSON.stringify({
-            model: "gpt-4o",
-            max_tokens: 200,
-            messages: [{
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `Analyseer deze afbeelding op tekenen van AI-generatie of deepfake manipulatie.
-Geef ALLEEN een JSON object terug: {"deepfake_kans": 75, "uitleg": "Korte uitleg in 1 zin."}
-deepfake_kans is een percentage van 0 (zeker echt) tot 100 (zeker nep/AI).
-Let op: onscherpe randen, onnatuurlijke huid, vreemde vingers, inconsistent licht, perfecte symmetrie.
-Rechtbanktekeningen, illustraties en kunstwerken zijn GEEN deepfakes — geef die altijd score 0.`
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: request.afbeeldingUrl, detail: "low" }
-                }
-              ]
-            }]
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: "deepfake check: " + request.afbeeldingUrl })
         })
         .then(res => res.json())
-        .then(data => {
-          const tekst = data.choices?.[0]?.message?.content || "{}";
-          try { return JSON.parse(tekst); }
-          catch(e) { return { deepfake_kans: 0, uitleg: "" }; }
-        })
+        .then(() => ({ deepfake_kans: 0, uitleg: "" }))
         .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
       : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
 
-    // ── Strafbare content check op reacties ─────────────────
+    // ── Strafbare content check via server ───────────────────
     const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
-      ? fetch("https://api.openai.com/v1/chat/completions", {
+      ? fetch(SERVER_URL + "/api/harmful", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + OPENAI_API_KEY
-          },
-          body: JSON.stringify({
-            model: "gpt-3.5-turbo",
-            max_tokens: 100,
-            messages: [
-              {
-                role: "system",
-                content: `Je analyseert reacties op nieuwsartikelen op strafbare of discriminerende inhoud.
-Geef ALLEEN een JSON object terug: {"strafbaar": false, "reden": ""}
-Zet strafbaar op true bij:
-- Haatzaaien of discriminatie op basis van afkomst, religie, ras of etniciteit
-- Xenofobe taal zoals "stuur ze terug", "ze horen hier niet thuis", negatieve verwijzingen naar nationaliteit
-- Opruiing, bedreiging of geweldoproepen
-- Kindermisbruik
-Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
-              },
-              {
-                role: "user",
-                content: "Analyseer deze reacties op discriminerende of strafbare inhoud:\n" + request.reactiesTekst
-              }
-            ]
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: request.reactiesTekst })
         })
         .then(res => res.json())
-        .then(data => {
-          const tekst = data.choices?.[0]?.message?.content || '{"strafbaar": false, "reden": ""}';
-          try { return JSON.parse(tekst); }
-          catch(e) { return { strafbaar: false, reden: "" }; }
-        })
+        .then(data => ({ strafbaar: data.isHarmful || false, reden: data.explanation || "" }))
         .catch(() => ({ strafbaar: false, reden: "" }))
       : Promise.resolve({ strafbaar: false, reden: "" });
 
-    // ── Thema extractie ──────────────────────────────────────
-    const themaPromise = extraheerThema(
+    // ── Thema extractie via server ───────────────────────────
+    const themaPromise = extraheerThemaViaServer(
       request.text,
       request.artikelTekst || request.zoekContext || ""
     );
@@ -432,147 +322,38 @@ Wees gevoelig — ook mildere vormen van discriminatie tellen mee.`
       const hoofdZoekTerm = thema.hoofdthema || request.text.substring(0, 50);
       const subZoekTerm = thema.subthema || "";
 
-      // Stap 1: hoofdthema op betrouwbare domeinen
-      return fetch("https://api.tavily.com/search", {
+      // ── Feitencheck via Railway server ───────────────────
+      return fetch(SERVER_URL + "/api/factcheck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          api_key: TAVILY_API_KEY,
-          query: hoofdZoekTerm,
-          search_depth: "basic",
-          max_results: 5,
-          include_domains: BETROUWBARE_DOMEINEN
+          text: request.text,
+          artikelTekst: request.artikelTekst || "",
+          domein: paginaDomein
         })
       })
       .then(res => res.json())
       .then(data => {
-        let gefilterd = (data.results || []).filter(r =>
-          !r.url.toLowerCase().includes(paginaDomein)
-        );
-        if (gefilterd.length === 0 && subZoekTerm) {
-          // Stap 2: subthema op betrouwbare domeinen
-          return fetch("https://api.tavily.com/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              api_key: TAVILY_API_KEY,
-              query: subZoekTerm,
-              search_depth: "basic",
-              max_results: 5,
-              include_domains: BETROUWBARE_DOMEINEN
-            })
-          })
-          .then(res => res.json())
-          .then(data2 => (data2.results || []).filter(r =>
-            !r.url.toLowerCase().includes(paginaDomein)
-          ));
-        }
-        return gefilterd;
-      })
-      .then(resultaten => {
-        if (resultaten.length === 0) {
-          // Stap 3: lokale nieuwsdomeinen
-          return fetch("https://api.tavily.com/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              api_key: TAVILY_API_KEY,
-              query: hoofdZoekTerm,
-              search_depth: "basic",
-              max_results: 8,
-              include_domains: LOKALE_NIEUWS_DOMEINEN
-            })
-          })
-          .then(res => res.json())
-          .then(data => (data.results || []).filter(r =>
-            !r.url.toLowerCase().includes(paginaDomein)
-          ));
-        }
-        return resultaten;
-      })
-      .then(resultaten => {
-        if (resultaten.length === 0) {
-          // Stap 4: volledig open
-          return fetch("https://api.tavily.com/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              api_key: TAVILY_API_KEY,
-              query: hoofdZoekTerm,
-              search_depth: "basic",
-              max_results: 8,
-              exclude_domains: uitgeslotenDomeinen
-            })
-          })
-          .then(res => res.json())
-          .then(data => data.results || []);
-        }
-        return resultaten;
-      })
-      .then(resultaten => {
-        const bronnen = resultaten.map(r => r.url);
-        const context = resultaten.map(r => r.content).join("\n\n");
-        const betrouwbaar = resultaten.length > 0;
+        const bronnen = (data.sources || []).map(r => r.url);
+        const score = data.score || 50;
+        const oordeel = data.theme || "Onbekend";
+        const uitleg = data.explanation || "Geen uitleg beschikbaar.";
+        const bronRelevant = bronnen.length > 0;
 
-        return fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + OPENAI_API_KEY
-          },
-          body: JSON.stringify({
-            model: "gpt-3.5-turbo",
-            messages: [
-              {
-                role: "system",
-                content: betrouwbaar
-                  ? `Je bent een feitencheck AI. Voer deze stappen uit:
+        const uitlegMetWaarschuwing = strafbareContent
+          ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
+          : uitleg;
 
-STAP 1: Controleer of de bronnen relevant zijn voor de claim.
-Bronnen over vergelijkbare rechtszaken, vergelijkbare incidenten of de bredere Nederlandse context tellen als relevant.
-Alleen als ALLE bronnen volledig niets met het onderwerp te maken hebben: bronRelevant = false.
-
-STAP 2: Als de bronnen relevant zijn, bepaal dan of de claim waar is.
-
-Geef ALLEEN een JSON object terug, geen extra tekst.
-Formaat: {"score": 75, "oordeel": "Grotendeels waar", "uitleg": "Korte uitleg in 1 zin.", "bronRelevant": true}
-Score 0 = volledig onwaar, 50 = neutraal/onbekend, 100 = volledig waar. Geen hallusinaties.`
-                  : `Je bent een feitencheck AI. Geef ALLEEN een JSON object terug:
-{"score": 50, "oordeel": "Onbekend", "uitleg": "Er zijn geen betrouwbare bronnen gevonden.", "bronRelevant": false}`
-              },
-              {
-                role: "user",
-                content: "Claim: " + request.text + "\n\nBronnen:\n" + context
-              }
-            ]
-          })
-        })
-        .then(res => res.json())
-        .then(aiData => {
-          let result;
-          try { result = JSON.parse(aiData.choices[0].message.content); }
-          catch(e) { result = { score: 50, oordeel: "Onbekend", uitleg: "Kon de bronnen niet verwerken.", bronRelevant: false }; }
-
-          if (!result.bronRelevant) {
-            result.score = Math.min(result.score, 50);
-            result.oordeel = "Onvoldoende relevante bronnen";
-          }
-
-          const uitlegMetWaarschuwing = strafbareContent
-            ? result.uitleg + " Let op: strafbare content gedetecteerd in de reacties."
-            : result.uitleg;
-
-          sendResponse({
-            status: "success",
-            score: result.score,
-            oordeel: result.oordeel,
-            uitleg: uitlegMetWaarschuwing,
-            bronnen: bronnen,
-            bronRelevant: result.bronRelevant,
-            strafbareContent: strafbareContent,
-            phishing: { actief: false },
-            deepfake: deepfakeResultaat
-          });
+        sendResponse({
+          status: "success",
+          score: score,
+          oordeel: oordeel,
+          uitleg: uitlegMetWaarschuwing,
+          bronnen: bronnen,
+          bronRelevant: bronRelevant,
+          strafbareContent: strafbareContent,
+          phishing: { actief: false },
+          deepfake: deepfakeResultaat
         });
       });
     })
