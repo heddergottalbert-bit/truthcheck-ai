@@ -4,6 +4,7 @@ let huidigUitleg = "";
 let huidigBronnen = [];
 let huidigDeepfake = null;
 let huidigStrafbareContent = false;
+let huidigEmoji = "🤔";
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -103,47 +104,20 @@ try {
 function toonLaadAnimatie() {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   knop.innerHTML = `
-    <svg viewBox="0 0 64 64" width="64" height="64">
-      <style>
-        @keyframes draaien { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .draaiend { transform-origin: 32px 32px; animation: draaien 1s linear infinite; }
-      </style>
-      <circle cx="32" cy="32" r="20" fill="none" stroke="#2a2a3a" stroke-width="6"/>
-      <circle cx="32" cy="32" r="20" fill="none" stroke="#7ab3ef" stroke-width="6"
-        stroke-dasharray="30 95" stroke-linecap="round" class="draaiend"/>
-      <text x="32" y="37" font-size="9" fill="#7ab3ef"
-        text-anchor="middle" font-family="Georgia">...</text>
-    </svg>`;
+    <div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;">
+      <span style="font-size:36px;line-height:1;">🤔</span>
+    </div>`;
 }
 
-function updateMiniBarometer(score, strafbareContent) {
-  const kleur = getKleur(score);
-  const hoek = -90 + (score / 100) * 180;
+function updateMiniBarometer(score, strafbareContent, emoji) {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
-  const driehoekjeHTML = strafbareContent
-    ? `<g transform="translate(32, 32)">
-        <polygon points="0,-14 16,10 -16,10" fill="#e67e22" stroke="none"/>
-        <text x="0" y="7" font-size="10" fill="white" text-anchor="middle" font-weight="bold">!</text>
-       </g>`
-    : "";
+  const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
+  const strafbareEmoji = strafbareContent ? `<span style="font-size:20px;line-height:1;position:absolute;bottom:2px;right:2px;">😈</span>` : "";
   knop.innerHTML = `
-    <svg viewBox="0 0 64 64" width="64" height="64">
-      <defs>
-        <linearGradient id="mg" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#e74c3c"/>
-          <stop offset="50%" stop-color="#f1c40f"/>
-          <stop offset="100%" stop-color="#2ecc71"/>
-        </linearGradient>
-      </defs>
-      <path d="M 10 44 A 22 22 0 0 1 54 44" fill="none" stroke="#2a2a3a" stroke-width="6" stroke-linecap="round"/>
-      <path d="M 10 44 A 22 22 0 0 1 54 44" fill="none" stroke="url(#mg)" stroke-width="6" stroke-linecap="round"/>
-      <g transform="translate(32, 44) rotate(${hoek})">
-        <line x1="0" y1="0" x2="0" y2="-18" stroke="white" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="0" cy="0" r="3" fill="${kleur}"/>
-      </g>
-      <text x="32" y="58" font-size="9" fill="${kleur}" text-anchor="middle" font-family="Georgia" font-weight="bold">${score}</text>
-      ${driehoekjeHTML}
-    </svg>`;
+    <div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;position:relative;">
+      <span style="font-size:36px;line-height:1;">${hoofdEmoji}</span>
+      ${strafbareEmoji}
+    </div>`;
 }
 
 // ── Popup ────────────────────────────────────────────────────
@@ -157,7 +131,7 @@ popup.style.cssText = `
 `;
 document.body.appendChild(popup);
 
-function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent) {
+function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent, emoji) {
   const kleur = getKleur(score);
   popup.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   popup.style.border = `1px solid rgba(255,255,255,0.1)`;
@@ -165,7 +139,11 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
   popup.style.fontFamily = lettertype;
 
   const bronnenHTML = bronnen && bronnen.length > 0
-    ? bronnen.map(b => `<a href="${b}" target="_blank" style="display:block;color:#7ab3ef;font-size:11px;margin-top:6px;word-break:break-all;text-decoration:none;line-height:1.4;">${b}</a>`).join("")
+    ? bronnen.map(b => {
+        let domein = b;
+        try { domein = new URL(b).hostname.replace("www.", ""); } catch(e) {}
+        return `<a href="${b}" target="_blank" style="display:inline-block;color:#7ab3ef;font-size:11px;margin-top:5px;margin-right:6px;text-decoration:none;background:rgba(122,179,239,0.1);border:1px solid rgba(122,179,239,0.3);border-radius:4px;padding:2px 7px;">${domein}</a>`;
+      }).join("")
     : `<span style="color:#555;font-size:10px;">Geen onafhankelijke bronnen gevonden</span>`;
 
   const deepfakeHTML = deepfake && deepfake.deepfake_kans >= 50
@@ -175,17 +153,28 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
        </div>` : "";
 
   const strafbareHTML = strafbareContent
-    ? `<div style="margin-top:12px;padding:10px;background:rgba(230,126,34,0.15);border:1px solid rgba(230,126,34,0.4);border-radius:8px;">
-        <div style="font-size:10px;font-weight:bold;color:#e67e22;margin-bottom:4px;">⚠️ Strafbare content gedetecteerd in reacties</div>
+    ? `<div style="margin-top:12px;padding:10px;background:rgba(128,0,128,0.15);border:1px solid rgba(128,0,128,0.4);border-radius:8px;">
+        <div style="font-size:10px;font-weight:bold;color:#cc66ff;margin-bottom:4px;">😈 Strafbare content gedetecteerd in reacties</div>
         <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">In de reacties van dit artikel is haatzaaiende of discriminerende inhoud gevonden.</div>
        </div>` : "";
 
+  const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
   const schoneUitleg = (uitleg || "").replace(" Let op: strafbare content gedetecteerd in de reacties.", "");
 
   popup.innerHTML = `
-    <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:10px;font-family:${lettertype};">Feitencheck</div>
-    <div style="font-size:15px;font-weight:bold;color:${kleur};margin-bottom:6px;font-family:${lettertype};">${oordeel}</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <span style="font-size:32px;line-height:1;">${hoofdEmoji}</span>
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;font-family:${lettertype};">Feitencheck</div>
+        <div style="font-size:15px;font-weight:bold;color:${kleur};font-family:${lettertype};">${oordeel}</div>
+      </div>
+      <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="Stel een vraag">?</div>
+    </div>
+    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:6px;font-family:${lettertype};">Score: <span style="color:${kleur};font-weight:bold;">${score}/100</span></div>
     <div style="font-size:11px;color:${tekstKleur};line-height:1.5;margin-bottom:14px;font-family:${lettertype};">${schoneUitleg}</div>
+    <div id="tc-vraag-veld" style="display:none;margin-bottom:12px;">
+      <input id="tc-vraag-input" type="text" placeholder="Wat wilt u met deze content?" style="width:100%;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:${tekstKleur};font-size:11px;font-family:${lettertype};box-sizing:border-box;"/>
+    </div>
     ${strafbareHTML}
     ${deepfakeHTML}
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
@@ -195,6 +184,11 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">Sluiten</button>`;
 
   document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
+  document.getElementById("tc-vraag-knop").onclick = () => {
+    const veld = document.getElementById("tc-vraag-veld");
+    veld.style.display = veld.style.display === "none" ? "block" : "none";
+    if (veld.style.display === "block") document.getElementById("tc-vraag-input").focus();
+  };
 }
 
 // ── Instellingen menu ────────────────────────────────────────
@@ -230,18 +224,18 @@ document.body.appendChild(menu);
 
 document.getElementById("tc-trans").oninput = (e) => {
   transparantie = parseFloat(e.target.value);
-  updateMiniBarometer(huidigScore, huidigStrafbareContent);
-  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent);
+  updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
+  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji);
   slaInstellingenOp();
 };
 menu.querySelectorAll("[data-kleur]").forEach(btn => {
-  btn.onclick = () => { achtergrondKleur = btn.dataset.kleur; updateMiniBarometer(huidigScore, huidigStrafbareContent); if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent); slaInstellingenOp(); };
+  btn.onclick = () => { achtergrondKleur = btn.dataset.kleur; updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji); if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji); slaInstellingenOp(); };
 });
 menu.querySelectorAll("[data-tekst]").forEach(btn => {
-  btn.onclick = () => { tekstKleur = btn.dataset.tekst; if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent); slaInstellingenOp(); };
+  btn.onclick = () => { tekstKleur = btn.dataset.tekst; if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji); slaInstellingenOp(); };
 });
 menu.querySelectorAll("[data-font]").forEach(btn => {
-  btn.onclick = () => { lettertype = btn.dataset.font; if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent); slaInstellingenOp(); };
+  btn.onclick = () => { lettertype = btn.dataset.font; if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji); slaInstellingenOp(); };
 });
 document.getElementById("tc-menu-sluit").onclick = () => { menu.style.display = "none"; };
 document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.target !== knop) menu.style.display = "none"; });
@@ -266,7 +260,7 @@ document.addEventListener("mouseup", () => { if (sleepActief) { sleepActief = fa
 knop.addEventListener("click", (e) => {
   if (heeftGesleept) return;
   popupOpen = !popupOpen; popup.style.display = popupOpen ? "block" : "none";
-  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent);
+  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji);
 });
 knop.addEventListener("contextmenu", (e) => {
   e.preventDefault(); menu.style.display = menu.style.display === "block" ? "none" : "block";
@@ -342,8 +336,8 @@ function startReactieCheck(vertraging) {
         if (!response || !response.alleenReactieCheck) return;
         if (response.strafbareContent && !huidigStrafbareContent) {
           huidigStrafbareContent = true;
-          updateMiniBarometer(huidigScore, true);
-          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true);
+          updateMiniBarometer(huidigScore, true, huidigEmoji);
+          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji);
         }
       }
     );
@@ -372,7 +366,7 @@ function startGmailCheck() {
   if (!mailData || mailData.onderwerp === geopendeMail) return;
   geopendeMail = mailData.onderwerp;
   phishingBanner.style.top = "-200px";
-  updateMiniBarometer(50, false);
+  updateMiniBarometer(50, false, "🤔");
   if (!chrome.runtime || !chrome.runtime.sendMessage) return;
   chrome.runtime.sendMessage({
     action: "start_check",
@@ -387,9 +381,9 @@ function startGmailCheck() {
     huidigScore = response.score; huidigOordeel = response.oordeel;
     huidigUitleg = response.uitleg; huidigBronnen = response.bronnen || [];
     huidigDeepfake = null; huidigStrafbareContent = false;
-    updateMiniBarometer(huidigScore, false);
+    updateMiniBarometer(huidigScore, false, huidigEmoji);
     if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, null, false);
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji);
   });
 }
 
@@ -422,12 +416,13 @@ function startCheck() {
       huidigScore = response.score; huidigOordeel = response.oordeel;
       huidigUitleg = response.uitleg; huidigBronnen = response.bronnen || [];
       huidigDeepfake = response.deepfake || null;
+      huidigEmoji = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
       if (!huidigStrafbareContent) {
         huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
       }
-      updateMiniBarometer(huidigScore, huidigStrafbareContent);
+      updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
       if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
-      if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent);
+      if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji);
     }
   );
 }
@@ -455,8 +450,8 @@ window.addEventListener("scroll", () => {
         if (chrome.runtime.lastError || !response || !response.alleenReactieCheck) return;
         if (response.strafbareContent && !huidigStrafbareContent) {
           huidigStrafbareContent = true;
-          updateMiniBarometer(huidigScore, true);
-          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true);
+          updateMiniBarometer(huidigScore, true, huidigEmoji);
+          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji);
         }
       }
     );
@@ -471,7 +466,7 @@ setInterval(() => {
     geopendeMail = null;
     huidigStrafbareContent = false;
     reactieCheckGedaan = false;
-    updateMiniBarometer(50, false);
+    updateMiniBarometer(50, false, "🤔");
     setTimeout(() => { startCheck(); startReactieCheck(3000); startReactieCheck(8000); startReactieCheck(12000); }, 1500);
   }
 }, 1000);

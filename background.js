@@ -36,6 +36,53 @@ const LOKALE_NIEUWS_DOMEINEN = [
   "reuters.com", "bbc.com", "apnews.com"
 ];
 
+// ── Officiële veilige domeinen — nooit rood alarm ────────────
+const VEILIGE_OFFICIELE_DOMEINEN = [
+  "belastingdienst.nl", "digid.nl", "rijksoverheid.nl",
+  "uwv.nl", "svb.nl", "duo.nl", "politie.nl", "rechtspraak.nl",
+  "ind.nl", "cak.nl", "rdw.nl", "kvk.nl", "rvo.nl",
+  "government.nl", "europa.eu", "ing.nl", "abnamro.nl",
+  "rabobank.nl", "triodos.nl", "asr.nl", "aegon.nl",
+  "google.com", "google.nl", "bing.com", "duckduckgo.com",
+  "microsoft.com", "apple.com", "paypal.com"
+];
+
+// ── Zoekmaschine domeinen ────────────────────────────────────
+const ZOEKMASCHINE_DOMEINEN = [
+  "google.com", "google.nl", "bing.com", "duckduckgo.com",
+  "yahoo.com", "startpage.com", "ecosia.org", "brave.com"
+];
+
+// ── Satire domeinen ──────────────────────────────────────────
+const SATIRE_DOMEINEN = [
+  "speld.nl", "dedebunker.nl", "hetkannietzijn.nl",
+  "theonion.com", "nieuws.nl", "ditisnieuws.nl"
+];
+
+// ── Wetenschappelijke domeinen ────────────────────────────────
+const WETENSCHAP_DOMEINEN = [
+  "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "nature.com",
+  "sciencedirect.com", "science.org", "thelancet.com",
+  "bmj.com", "nejm.org", "cell.com", "plos.org",
+  "newscientist.com", "scientificamerican.com", "arxiv.org",
+  "ieee.org", "acm.org", "who.int", "rivm.nl",
+  "knaw.nl", "nwo.nl", "gezondheidsraad.nl", "ipcc.ch"
+];
+
+// ── Nieuws domeinen ───────────────────────────────────────────
+const NIEUWS_DOMEINEN = [
+  "nos.nl", "nu.nl", "ad.nl", "telegraaf.nl", "rtlnieuws.nl",
+  "nrc.nl", "volkskrant.nl", "trouw.nl", "parool.nl",
+  "omroepwest.nl", "omroepgelderland.nl", "omroepbrabant.nl",
+  "omroepzeeland.nl", "rtvnoord.nl", "rtvoost.nl",
+  "omroepflevoland.nl", "nhnieuws.nl", "at5.nl",
+  "omroepfriesland.nl", "rtvdrenthe.nl", "omroeplimburg.nl",
+  "hartvannederland.nl", "metronieuws.nl",
+  "reuters.com", "bbc.com", "apnews.com", "theguardian.com",
+  "nytimes.com", "economist.com", "dw.com", "bbc.co.uk",
+  "ftm.nl", "fd.nl", "nieuwscheckers.nl"
+];
+
 const OFFICIELE_DOMEINEN = {
   "green card": "dvprogram.state.gov",
   "diversity visa": "dvprogram.state.gov",
@@ -82,11 +129,44 @@ const EMAIL_PHISHING_WOORDEN = [
   "god bless", "bless you"
 ];
 
+// ── Emoji bepalen op basis van score en type ─────────────────
+function bepaalEmoji(score, type) {
+  if (type === "satire") return "😄";
+  if (type === "deepfake") return "🤖";
+  if (type === "phishing") return "😡";
+  if (type === "laden") return "🤔";
+  if (type === "wetenschap") return "🎓";
+  if (type === "nieuws") return "😊";
+  if (score >= 70) return "😊";
+  if (score >= 50) return "😟";
+  return "😡";
+}
+
 function domeinCheck(tekst, sleutel) {
   const patroon = new RegExp(
     "\\b" + sleutel.replace(/\s+/g, "\\s+") + "\\b", "i"
   );
   return patroon.test(tekst);
+}
+
+function isVeiligOfficieelDomein(domein) {
+  return VEILIGE_OFFICIELE_DOMEINEN.some(d => domein.includes(d));
+}
+
+function isZoekmaschine(domein) {
+  return ZOEKMASCHINE_DOMEINEN.some(d => domein.includes(d));
+}
+
+function isSatire(domein) {
+  return SATIRE_DOMEINEN.some(d => domein.includes(d));
+}
+
+function isWetenschap(domein) {
+  return WETENSCHAP_DOMEINEN.some(d => domein.includes(d));
+}
+
+function isNieuws(domein) {
+  return NIEUWS_DOMEINEN.some(d => domein.includes(d));
 }
 
 function naamMatchtDomein(afzenderNaam, afzenderDomein) {
@@ -123,18 +203,42 @@ function berekenPhishingWebsite(request) {
   const paginaTekst = (request.paginaTekst || "").toLowerCase();
   const paginaTitel = (request.text || "").toLowerCase();
   const paginaDomein = request.domein || "";
+
+  // ── Satire site — emoji 😄, bronnen via server ───────────────
+  if (isSatire(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isSatire: true };
+  }
+
+  // ── Wetenschappelijke site — emoji 🎓, bronnen via server ────
+  if (isWetenschap(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isWetenschap: true };
+  }
+
+  // ── Nieuws site — emoji 😊, bronnen via server ───────────────
+  if (isNieuws(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isNieuws: true };
+  }
+
+  // ── Officiële veilige site — nooit alarm ─────────────────────
+  if (isVeiligOfficieelDomein(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
+  }
+
   let phishingScore = 0;
   const phishingSignalen = [];
+
   WEBSITE_PHISHING_WOORDEN.forEach(woord => {
     if (paginaTekst.includes(woord.toLowerCase())) {
       phishingScore += 15;
       phishingSignalen.push(woord);
     }
   });
+
   if (request.text === request.text.toUpperCase() && request.text.length > 5) {
     phishingScore += 20;
     phishingSignalen.push("Titel in hoofdletters");
   }
+
   let officieelDomein = null;
   Object.entries(OFFICIELE_DOMEINEN).forEach(([sleutel, domein]) => {
     if (domeinCheck(paginaTitel, sleutel) || domeinCheck(paginaTekst, sleutel)) {
@@ -145,17 +249,35 @@ function berekenPhishingWebsite(request) {
       }
     }
   });
+
   const verdachtPatroon = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle)/i;
   if (verdachtPatroon.test(paginaDomein)) {
     phishingScore += 25;
     phishingSignalen.push("Verdacht domeinnaam patroon");
   }
+
+  // ── Zoekmaschine — alleen oranje als verdachte signalen ──────
+  if (isZoekmaschine(paginaDomein)) {
+    const heeftVerdachteSignalen = phishingScore >= 30;
+    return {
+      actief: heeftVerdachteSignalen,
+      score: Math.min(phishingScore, 100),
+      signalen: [...new Set(phishingSignalen)].slice(0, 4),
+      officieelDomein,
+      isEmail: false,
+      isZoekmaschine: true,
+      niveau: heeftVerdachteSignalen ? "waarschuwing" : "veilig"
+    };
+  }
+
+  // ── Echte phishing site — rood alarm ─────────────────────────
   return {
     actief: phishingScore >= 30,
     score: Math.min(phishingScore, 100),
     signalen: [...new Set(phishingSignalen)].slice(0, 4),
     officieelDomein,
-    isEmail: false
+    isEmail: false,
+    niveau: "gevaar"
   };
 }
 
@@ -193,7 +315,6 @@ function berekenPhishingEmail(request) {
   };
 }
 
-// ── Via Railway server: thema-extractie + feitencheck ────────
 function extraheerThemaViaServer(titel, artikelTekst) {
   return fetch(SERVER_URL + "/api/factcheck", {
     method: "POST",
@@ -208,7 +329,22 @@ function extraheerThemaViaServer(titel, artikelTekst) {
   .catch(() => ({ hoofdthema: titel.substring(0, 50), subthema: "" }));
 }
 
-// ── Via Railway server: strafbare content check ──────────────
+// ── Herbruikbare factcheck-call met bronnen ───────────────────
+function haalBronnenOp(request) {
+  return fetch(SERVER_URL + "/api/factcheck", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: request.text,
+      artikelTekst: request.artikelTekst || "",
+      domein: request.domein || ""
+    })
+  })
+  .then(res => res.json())
+  .then(data => (data.sources || []).map(r => r.url))
+  .catch(() => []);
+}
+
 function checkAlleenReacties(reactiesTekst, sendResponse) {
   fetch(SERVER_URL + "/api/harmful", {
     method: "POST",
@@ -235,7 +371,6 @@ function checkAlleenReacties(reactiesTekst, sendResponse) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start_check") {
 
-    // ── Alleen reactiecheck ───────────────────────────────────
     if (request.alleenReactieCheck) {
       if (request.reactiesTekst && request.reactiesTekst.length > 10) {
         checkAlleenReacties(request.reactiesTekst, sendResponse);
@@ -249,17 +384,78 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       ? berekenPhishingEmail(request)
       : berekenPhishingWebsite(request);
 
+    // ── Satire site — bronnen via server ─────────────────────
+    if (phishing.isSatire) {
+      haalBronnenOp(request).then(bronnen => {
+        sendResponse({
+          status: "success",
+          score: 75,
+          oordeel: "Satirische content",
+          uitleg: "Dit is een satirische website. De inhoud is bedoeld als humor en niet als feitelijke berichtgeving.",
+          bronnen: bronnen,
+          phishing: { actief: false },
+          strafbareContent: false,
+          emoji: "😄",
+          type: "satire"
+        });
+      });
+      return true;
+    }
+
+    // ── Wetenschappelijke site — bronnen via server ───────────
+    if (phishing.isWetenschap) {
+      haalBronnenOp(request).then(bronnen => {
+        sendResponse({
+          status: "success",
+          score: 90,
+          oordeel: "Wetenschappelijke bron",
+          uitleg: "Dit is een wetenschappelijke of academische website met peer-reviewed content.",
+          bronnen: bronnen,
+          phishing: { actief: false },
+          strafbareContent: false,
+          emoji: "🎓",
+          type: "wetenschap"
+        });
+      });
+      return true;
+    }
+
+    // ── Nieuws site — bronnen via server ─────────────────────
+    if (phishing.isNieuws) {
+      haalBronnenOp(request).then(bronnen => {
+        sendResponse({
+          status: "success",
+          score: 85,
+          oordeel: "Betrouwbare nieuwsbron",
+          uitleg: "Dit is een bekende en betrouwbare nieuwssite. Controleer altijd meerdere bronnen voor een volledig beeld.",
+          bronnen: bronnen,
+          phishing: { actief: false },
+          strafbareContent: false,
+          emoji: "😊",
+          type: "nieuws"
+        });
+      });
+      return true;
+    }
+
     if (phishing.actief) {
+      const isWaarschuwing = phishing.isZoekmaschine;
       sendResponse({
         status: "success",
-        score: Math.max(5, 25 - phishing.score),
-        oordeel: request.isEmail ? "Verdachte e-mail" : "Verdachte site",
+        score: isWaarschuwing ? 45 : Math.max(5, 25 - phishing.score),
+        oordeel: request.isEmail
+          ? "Verdachte e-mail"
+          : isWaarschuwing ? "Let op bij klikken" : "Verdachte site",
         uitleg: request.isEmail
           ? "De afzender klopt niet met het e-mailadres. Reageer niet en klik op geen enkele link."
-          : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
+          : isWaarschuwing
+            ? "Controleer altijd de URL voordat je klikt. Phishing sites kunnen tussen zoekresultaten staan."
+            : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
         bronnen: [],
         phishing: phishing,
-        strafbareContent: false
+        strafbareContent: false,
+        emoji: "😡",
+        type: "phishing"
       });
       return true;
     }
@@ -272,12 +468,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         uitleg: "Geen phishing signalen gevonden in deze e-mail.",
         bronnen: [],
         phishing: { actief: false },
-        strafbareContent: false
+        strafbareContent: false,
+        emoji: "😊",
+        type: "normaal"
       });
       return true;
     }
 
-    // ── Deepfake check — blijft direct via OpenAI ────────────
     const deepfakePromise = request.afbeeldingUrl
       ? fetch(SERVER_URL + "/api/factcheck", {
           method: "POST",
@@ -289,7 +486,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
       : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
 
-    // ── Strafbare content check via server ───────────────────
     const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
       ? fetch(SERVER_URL + "/api/harmful", {
           method: "POST",
@@ -301,28 +497,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .catch(() => ({ strafbaar: false, reden: "" }))
       : Promise.resolve({ strafbaar: false, reden: "" });
 
-    // ── Thema extractie via server ───────────────────────────
     const themaPromise = extraheerThemaViaServer(
       request.text,
       request.artikelTekst || request.zoekContext || ""
     );
 
     const paginaDomein = request.domein || "";
-    const uitgeslotenDomeinen = [
-      "facebook.com", "instagram.com", "twitter.com",
-      "x.com", "tiktok.com", "youtube.com",
-      "wikipedia.org", "msn.com", "yahoo.com",
-      "pinterest.com", "reddit.com", "quora.com",
-      paginaDomein
-    ].filter(Boolean);
 
     Promise.all([deepfakePromise, strafbareContentPromise, themaPromise])
     .then(([deepfakeResultaat, strafbaarResultaat, thema]) => {
       const strafbareContent = strafbaarResultaat.strafbaar || false;
-      const hoofdZoekTerm = thema.hoofdthema || request.text.substring(0, 50);
-      const subZoekTerm = thema.subthema || "";
 
-      // ── Feitencheck via Railway server ───────────────────
       return fetch(SERVER_URL + "/api/factcheck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -340,6 +525,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const uitleg = data.explanation || "Geen uitleg beschikbaar.";
         const bronRelevant = bronnen.length > 0;
 
+        const isDeepfake = deepfakeResultaat && deepfakeResultaat.deepfake_kans >= 50;
+        const type = isDeepfake ? "deepfake" : "normaal";
+        const emoji = bepaalEmoji(score, type);
+
         const uitlegMetWaarschuwing = strafbareContent
           ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
           : uitleg;
@@ -353,7 +542,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           bronRelevant: bronRelevant,
           strafbareContent: strafbareContent,
           phishing: { actief: false },
-          deepfake: deepfakeResultaat
+          deepfake: deepfakeResultaat,
+          emoji: emoji,
+          type: type
         });
       });
     })
