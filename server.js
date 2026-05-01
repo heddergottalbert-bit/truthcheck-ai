@@ -54,13 +54,28 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       analysis = { theme: 'Onbekend', claim: text.slice(0, 100), score: 50, explanation: content };
     }
 
-    // Stap 2: Tavily zoekt verificatiebronnen
+    const score = analysis.score || 50;
+    const claim = analysis.claim || text.slice(0, 200);
+
+    // Stap 2: Tavily — query afhankelijk van score
+    // Hoge score (≥ 70): verdiepingsbronnen over het onderwerp
+    // Lage score (< 50): weerleggingsbronnen die de claim ontkrachten
+    // Midden (50-69): neutrale verificatiebronnen
+    let tavilyQuery;
+    if (score < 50) {
+      tavilyQuery = `fact check debunk misleading "${claim}"`;
+    } else if (score < 70) {
+      tavilyQuery = `fact check verify "${claim}"`;
+    } else {
+      tavilyQuery = `${claim}`;
+    }
+
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: analysis.claim || text.slice(0, 200),
+        query: tavilyQuery,
         search_depth: 'advanced',
         max_results: 5,
         include_answer: true
@@ -68,13 +83,33 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
     });
 
     const tavilyData = await tavilyRes.json();
+    const bronnen = tavilyData.results || [];
+
+    // Stap 3: Als Tavily niets teruggeeft, tweede poging met bredere query
+    let finalBronnen = bronnen;
+    if (finalBronnen.length === 0) {
+      const tavilyRetry = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: TAVILY_API_KEY,
+          query: analysis.theme || text.slice(0, 100),
+          search_depth: 'basic',
+          max_results: 5,
+          include_answer: false
+        })
+      });
+      const retryData = await tavilyRetry.json();
+      finalBronnen = retryData.results || [];
+    }
 
     res.json({
-      score: analysis.score,
+      score,
       theme: analysis.theme,
       claim: analysis.claim,
       explanation: analysis.explanation,
-      sources: tavilyData.results || [],
+      bronType: score < 50 ? 'weerlegging' : score < 70 ? 'verificatie' : 'verdieping',
+      sources: finalBronnen,
       answer: tavilyData.answer || null
     });
 

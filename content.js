@@ -5,31 +5,40 @@ let huidigBronnen = [];
 let huidigDeepfake = null;
 let huidigStrafbareContent = false;
 let huidigEmoji = "🤔";
+let huidigBronType = "verdieping";
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
 let tekstKleur = "#eeeeee";
 let lettertype = "Georgia, serif";
 
+// ── Instellingen opslaan/laden via chrome.storage ────────────
+
 function slaInstellingenOp() {
-  localStorage.setItem("tc_transparantie", transparantie);
-  localStorage.setItem("tc_achtergrond", achtergrondKleur);
-  localStorage.setItem("tc_tekst", tekstKleur);
-  localStorage.setItem("tc_lettertype", lettertype);
-  localStorage.setItem("tc_positie_x", knop.style.right);
-  localStorage.setItem("tc_positie_y", knop.style.bottom);
+  chrome.storage.local.set({
+    tc_transparantie: transparantie,
+    tc_achtergrond: achtergrondKleur,
+    tc_tekst: tekstKleur,
+    tc_lettertype: lettertype,
+    tc_positie_x: knop.style.right,
+    tc_positie_y: knop.style.bottom
+  });
 }
 
-function laadInstellingen() {
-  const t = localStorage.getItem("tc_transparantie");
-  const a = localStorage.getItem("tc_achtergrond");
-  const tk = localStorage.getItem("tc_tekst");
-  const l = localStorage.getItem("tc_lettertype");
-  if (t) transparantie = parseFloat(t);
-  if (a) achtergrondKleur = a;
-  if (tk) tekstKleur = tk;
-  if (l) lettertype = l;
+function laadInstellingen(callback) {
+  chrome.storage.local.get(
+    ["tc_transparantie", "tc_achtergrond", "tc_tekst", "tc_lettertype", "tc_positie_x", "tc_positie_y"],
+    (items) => {
+      if (items.tc_transparantie) transparantie = parseFloat(items.tc_transparantie);
+      if (items.tc_achtergrond)  achtergrondKleur = items.tc_achtergrond;
+      if (items.tc_tekst)        tekstKleur = items.tc_tekst;
+      if (items.tc_lettertype)   lettertype = items.tc_lettertype;
+      if (callback) callback(items);
+    }
+  );
 }
+
+// ── Hulpfuncties ──────────────────────────────────────────────
 
 function hexNaarRgba(hex, alpha) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -45,23 +54,23 @@ function getKleur(score) {
   return "#2ecc71";
 }
 
-laadInstellingen();
+// ── Phishing banner ──────────────────────────────────────────
 
-// ── Phishing banner ─────────────────────────────────────────
 const phishingBanner = document.createElement("div");
 phishingBanner.id = "tc-phishing";
 phishingBanner.style.cssText = `
-  position: fixed; top: -200px; left: 0; right: 0; z-index: 9999999;
-  background: linear-gradient(135deg, #c0392b, #e74c3c); color: white;
-  font-family: Georgia, serif; box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-  transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position:fixed;top:-200px;left:0;right:0;z-index:9999999;
+  background:linear-gradient(135deg,#c0392b,#e74c3c);color:white;
+  font-family:Georgia,serif;box-shadow:0 4px 24px rgba(0,0,0,0.4);
+  transition:top 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
 `;
 document.body.appendChild(phishingBanner);
 
 function toonPhishingWaarschuwing(phishing) {
   if (!phishing || !phishing.actief) return;
   const signalenHTML = (phishing.signalen || [])
-    .map(s => `<span style="background:rgba(0,0,0,0.2);border-radius:4px;padding:2px 8px;font-size:11px;margin:2px;display:inline-block;">${s}</span>`).join("");
+    .map(s => `<span style="background:rgba(0,0,0,0.2);border-radius:4px;padding:2px 8px;font-size:11px;margin:2px;display:inline-block;">${s}</span>`)
+    .join("");
   const officieelHTML = phishing.officieelDomein
     ? `<a href="https://${phishing.officieelDomein}" target="_blank" style="color:white;font-weight:bold;text-decoration:underline;">Ga naar officiële site: ${phishing.officieelDomein}</a>`
     : "";
@@ -83,7 +92,8 @@ function toonPhishingWaarschuwing(phishing) {
   document.getElementById("tc-phishing-sluit").onclick = () => { phishingBanner.style.top = "-200px"; };
 }
 
-// ── Knop ────────────────────────────────────────────────────
+// ── Zwevende knop ────────────────────────────────────────────
+
 const knop = document.createElement("div");
 knop.id = "tc-knop";
 knop.style.cssText = `
@@ -93,13 +103,6 @@ knop.style.cssText = `
   box-shadow:0 4px 24px rgba(0,0,0,0.35);user-select:none;
 `;
 document.body.appendChild(knop);
-
-try {
-  const opgeslagenX = localStorage.getItem("tc_positie_x");
-  const opgeslagenY = localStorage.getItem("tc_positie_y");
-  if (opgeslagenX) knop.style.right = opgeslagenX;
-  if (opgeslagenY) knop.style.bottom = opgeslagenY;
-} catch(e) {}
 
 function toonLaadAnimatie() {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
@@ -112,7 +115,9 @@ function toonLaadAnimatie() {
 function updateMiniBarometer(score, strafbareContent, emoji) {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
-  const strafbareEmoji = strafbareContent ? `<span style="font-size:20px;line-height:1;position:absolute;bottom:2px;right:2px;">😈</span>` : "";
+  const strafbareEmoji = strafbareContent
+    ? `<span style="font-size:20px;line-height:1;position:absolute;bottom:2px;right:2px;">😈</span>`
+    : "";
   knop.innerHTML = `
     <div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;position:relative;">
       <span style="font-size:36px;line-height:1;">${hoofdEmoji}</span>
@@ -121,6 +126,7 @@ function updateMiniBarometer(score, strafbareContent, emoji) {
 }
 
 // ── Popup ────────────────────────────────────────────────────
+
 const popup = document.createElement("div");
 popup.id = "tc-popup";
 popup.style.cssText = `
@@ -131,7 +137,7 @@ popup.style.cssText = `
 `;
 document.body.appendChild(popup);
 
-function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent, emoji) {
+function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent, emoji, bronType) {
   const kleur = getKleur(score);
   popup.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   popup.style.border = `1px solid rgba(255,255,255,0.1)`;
@@ -146,17 +152,25 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       }).join("")
     : `<span style="color:#555;font-size:10px;">Geen onafhankelijke bronnen gevonden</span>`;
 
+  const bronLabel = bronType === "weerlegging"
+    ? "❌ Waarom dit niet klopt"
+    : bronType === "verificatie"
+    ? "🔍 Verificatiebronnen"
+    : "📚 Lees meer";
+
   const deepfakeHTML = deepfake && deepfake.deepfake_kans >= 50
     ? `<div style="margin-top:12px;padding:10px;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);border-radius:8px;">
         <div style="font-size:10px;font-weight:bold;color:#e74c3c;margin-bottom:4px;">🤖 Mogelijk AI-gegenereerd beeld (${deepfake.deepfake_kans}%)</div>
         <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">${deepfake.uitleg}</div>
-       </div>` : "";
+       </div>`
+    : "";
 
   const strafbareHTML = strafbareContent
     ? `<div style="margin-top:12px;padding:10px;background:rgba(128,0,128,0.15);border:1px solid rgba(128,0,128,0.4);border-radius:8px;">
         <div style="font-size:10px;font-weight:bold;color:#cc66ff;margin-bottom:4px;">😈 Strafbare content gedetecteerd in reacties</div>
         <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">In de reacties van dit artikel is haatzaaiende of discriminerende inhoud gevonden.</div>
-       </div>` : "";
+       </div>`
+    : "";
 
   const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
   const schoneUitleg = (uitleg || "").replace(" Let op: strafbare content gedetecteerd in de reacties.", "");
@@ -178,7 +192,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     ${strafbareHTML}
     ${deepfakeHTML}
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
-      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">Bronnen</div>
+      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">${bronLabel}</div>
       ${bronnenHTML}
     </div>
     <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">Sluiten</button>`;
@@ -191,7 +205,8 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
   };
 }
 
-// ── Instellingen menu ────────────────────────────────────────
+// ── Instellingen menu ─────────────────────────────────────────
+
 const menu = document.createElement("div");
 menu.id = "tc-menu";
 menu.style.cssText = `
@@ -225,26 +240,44 @@ document.body.appendChild(menu);
 document.getElementById("tc-trans").oninput = (e) => {
   transparantie = parseFloat(e.target.value);
   updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
-  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji);
+  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
   slaInstellingenOp();
 };
 menu.querySelectorAll("[data-kleur]").forEach(btn => {
-  btn.onclick = () => { achtergrondKleur = btn.dataset.kleur; updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji); if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji); slaInstellingenOp(); };
+  btn.onclick = () => {
+    achtergrondKleur = btn.dataset.kleur;
+    updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+    slaInstellingenOp();
+  };
 });
 menu.querySelectorAll("[data-tekst]").forEach(btn => {
-  btn.onclick = () => { tekstKleur = btn.dataset.tekst; if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji); slaInstellingenOp(); };
+  btn.onclick = () => {
+    tekstKleur = btn.dataset.tekst;
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+    slaInstellingenOp();
+  };
 });
 menu.querySelectorAll("[data-font]").forEach(btn => {
-  btn.onclick = () => { lettertype = btn.dataset.font; if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji); slaInstellingenOp(); };
+  btn.onclick = () => {
+    lettertype = btn.dataset.font;
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+    slaInstellingenOp();
+  };
 });
 document.getElementById("tc-menu-sluit").onclick = () => { menu.style.display = "none"; };
-document.addEventListener("click", (e) => { if (!menu.contains(e.target) && e.target !== knop) menu.style.display = "none"; });
+document.addEventListener("click", (e) => {
+  if (!menu.contains(e.target) && e.target !== knop) menu.style.display = "none";
+});
 
 // ── Versleepbaar ─────────────────────────────────────────────
+
 let sleepX = 0, sleepY = 0, sleepActief = false, heeftGesleept = false;
+
 knop.addEventListener("mousedown", (e) => {
   if (e.button === 2) return;
-  sleepActief = true; heeftGesleept = false; sleepX = e.clientX; sleepY = e.clientY;
+  sleepActief = true; heeftGesleept = false;
+  sleepX = e.clientX; sleepY = e.clientY;
   knop.style.cursor = "grabbing"; e.preventDefault();
 });
 document.addEventListener("mousemove", (e) => {
@@ -252,23 +285,34 @@ document.addEventListener("mousemove", (e) => {
   const dx = e.clientX - sleepX; const dy = e.clientY - sleepY;
   if (Math.abs(dx) > 3 || Math.abs(dy) > 3) heeftGesleept = true;
   sleepX = e.clientX; sleepY = e.clientY;
-  const hr = parseInt(knop.style.right) || 20; const hb = parseInt(knop.style.bottom) || 20;
-  knop.style.right = Math.max(0, hr - dx) + "px"; knop.style.bottom = Math.max(0, hb - dy) + "px";
-  popup.style.right = knop.style.right; popup.style.bottom = (parseInt(knop.style.bottom) + 74) + "px";
+  const hr = parseInt(knop.style.right)  || 20;
+  const hb = parseInt(knop.style.bottom) || 20;
+  knop.style.right  = Math.max(0, hr - dx) + "px";
+  knop.style.bottom = Math.max(0, hb - dy) + "px";
+  popup.style.right  = knop.style.right;
+  popup.style.bottom = (parseInt(knop.style.bottom) + 74) + "px";
 });
-document.addEventListener("mouseup", () => { if (sleepActief) { sleepActief = false; knop.style.cursor = "grab"; slaInstellingenOp(); } });
-knop.addEventListener("click", (e) => {
-  if (heeftGesleept) return;
-  popupOpen = !popupOpen; popup.style.display = popupOpen ? "block" : "none";
-  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji);
-});
-knop.addEventListener("contextmenu", (e) => {
-  e.preventDefault(); menu.style.display = menu.style.display === "block" ? "none" : "block";
-  const r = knop.getBoundingClientRect();
-  menu.style.right = (window.innerWidth - r.right) + "px"; menu.style.bottom = (window.innerHeight - r.top + 8) + "px"; menu.style.top = "auto";
+document.addEventListener("mouseup", () => {
+  if (sleepActief) { sleepActief = false; knop.style.cursor = "grab"; slaInstellingenOp(); }
 });
 
-// ── Hulpfuncties ─────────────────────────────────────────────
+knop.addEventListener("click", (e) => {
+  if (heeftGesleept) return;
+  popupOpen = !popupOpen;
+  popup.style.display = popupOpen ? "block" : "none";
+  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+});
+knop.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
+  const r = knop.getBoundingClientRect();
+  menu.style.right  = (window.innerWidth - r.right) + "px";
+  menu.style.bottom = (window.innerHeight - r.top + 8) + "px";
+  menu.style.top = "auto";
+});
+
+// ── Hulpfuncties pagina ───────────────────────────────────────
+
 function vindHoofdAfbeelding() {
   const og = document.querySelector('meta[property="og:image"]');
   if (og) return og.getAttribute("content");
@@ -279,44 +323,72 @@ function vindHoofdAfbeelding() {
 }
 
 function vindArtikelTekst() {
-  const selectors = ["article p",".article-body p",".article__body p",".content p",".post-content p",".article-content p","main article p",".nieuws-artikel p",".article-text p"];
+  const selectors = [
+    "article p", ".article-body p", ".article__body p",
+    ".content p", ".post-content p", ".article-content p",
+    "main article p", ".nieuws-artikel p", ".article-text p"
+  ];
   for (const sel of selectors) {
     const els = document.querySelectorAll(sel);
     if (els.length > 0) {
-      return Array.from(els).slice(0, 5).map(p => p.innerText).filter(t => t.length > 30).join(" ").substring(0, 800);
+      return Array.from(els).slice(0, 5)
+        .map(p => p.innerText)
+        .filter(t => t.length > 30)
+        .join(" ").substring(0, 800);
     }
   }
   return Array.from(document.querySelectorAll("p"))
-    .filter(p => p.innerText.length > 30 && !p.innerText.toLowerCase().includes("cookies") && !p.innerText.toLowerCase().includes("privacy") && !p.innerText.toLowerCase().includes("huisregel"))
+    .filter(p =>
+      p.innerText.length > 30 &&
+      !p.innerText.toLowerCase().includes("cookies") &&
+      !p.innerText.toLowerCase().includes("privacy") &&
+      !p.innerText.toLowerCase().includes("huisregel")
+    )
     .slice(0, 5).map(p => p.innerText).join(" ").substring(0, 800);
 }
 
 function vindZoekContext() {
-  const selectors = ["article p",".article-body p",".article__body p",".content p",".post-content p","main article p"];
+  const selectors = [
+    "article p", ".article-body p", ".article__body p",
+    ".content p", ".post-content p", "main article p"
+  ];
   for (const sel of selectors) {
     const t = document.querySelector(sel)?.innerText;
     if (t && t.length > 50) return t.substring(0, 300);
   }
   return Array.from(document.querySelectorAll("p"))
-    .find(p => p.innerText.length > 50 && !p.innerText.toLowerCase().includes("cookies") && !p.innerText.toLowerCase().includes("privacy"))
-    ?.innerText?.substring(0, 300) || "";
+    .find(p =>
+      p.innerText.length > 50 &&
+      !p.innerText.toLowerCase().includes("cookies") &&
+      !p.innerText.toLowerCase().includes("privacy")
+    )?.innerText?.substring(0, 300) || "";
 }
 
 function vindReacties() {
-  const nujijSelectors = [".nujij__comment-body",".nujij__comment-body p","[class*='nujij__comment-body']","[class*='nujij__comment'] p"];
+  const nujijSelectors = [
+    ".nujij__comment-body", ".nujij__comment-body p",
+    "[class*='nujij__comment-body']", "[class*='nujij__comment'] p"
+  ];
   for (const sel of nujijSelectors) {
     const els = document.querySelectorAll(sel);
-    if (els.length > 0) return Array.from(els).map(el => el.innerText).join(" ").substring(0, 2000).toLowerCase();
+    if (els.length > 0)
+      return Array.from(els).map(el => el.innerText).join(" ").substring(0, 2000).toLowerCase();
   }
-  const genericSelectors = [".comment-body",".comment-content",".comment-text",".reaction-body",".reactie-tekst","[class*='comment'] p","[class*='reaction'] p"];
+  const genericSelectors = [
+    ".comment-body", ".comment-content", ".comment-text",
+    ".reaction-body", ".reactie-tekst",
+    "[class*='comment'] p", "[class*='reaction'] p"
+  ];
   for (const sel of genericSelectors) {
     const els = document.querySelectorAll(sel);
-    if (els.length > 0) return Array.from(els).map(el => el.innerText).join(" ").substring(0, 2000).toLowerCase();
+    if (els.length > 0)
+      return Array.from(els).map(el => el.innerText).join(" ").substring(0, 2000).toLowerCase();
   }
-  return ""; // NOOIT paginatekst als fallback
+  return "";
 }
 
-// ── Vertraagde reactiecheck — VOLLEDIG ONTKOPPELD van feitencheck ──
+// ── Reactiecheck ──────────────────────────────────────────────
+
 function startReactieCheck(vertraging) {
   setTimeout(() => {
     if (location.hostname.includes("mail.google.com")) return;
@@ -326,39 +398,40 @@ function startReactieCheck(vertraging) {
     if (!chrome.runtime || !chrome.runtime.sendMessage) return;
 
     chrome.runtime.sendMessage(
-      {
-        action: "start_check",
-        alleenReactieCheck: true, // Signaal: alleen reacties checken, feitencheck NIET aanraken
-        reactiesTekst
-      },
+      { action: "start_check", alleenReactieCheck: true, reactiesTekst },
       (response) => {
         if (chrome.runtime.lastError) return;
         if (!response || !response.alleenReactieCheck) return;
         if (response.strafbareContent && !huidigStrafbareContent) {
           huidigStrafbareContent = true;
           updateMiniBarometer(huidigScore, true, huidigEmoji);
-          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji);
+          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji, huidigBronType);
         }
       }
     );
   }, vertraging);
 }
 
-// ── Gmail detectie ───────────────────────────────────────────
+// ── Gmail detectie ────────────────────────────────────────────
+
 let geopendeMail = null;
 let gmailObserver = null;
 
 function leesGmailMail() {
-  const onderwerp = document.querySelector(".hP")?.innerText || "";
+  const onderwerp     = document.querySelector(".hP")?.innerText || "";
   const afzenderElement = document.querySelector(".gD");
   const afzenderEmail = afzenderElement?.getAttribute("email") || "";
-  const afzenderNaam = afzenderElement?.getAttribute("name") || afzenderElement?.innerText || "";
+  const afzenderNaam  = afzenderElement?.getAttribute("name") || afzenderElement?.innerText || "";
   const mailContainer = document.querySelector(".a3s") || document.querySelector(".ii.gt");
-  const mailTekst = mailContainer?.innerText || "";
-  const isSpam = location.href.includes("spam") || !!document.querySelector(".aKS");
+  const mailTekst     = mailContainer?.innerText || "";
+  const isSpam        = location.href.includes("spam") || !!document.querySelector(".aKS");
   if (!onderwerp && !mailTekst) return null;
   const domeinMatch = afzenderEmail.match(/@([a-zA-Z0-9.-]+)/);
-  return { onderwerp, afzenderEmail, afzenderNaam, afzenderDomein: domeinMatch ? domeinMatch[1].toLowerCase() : "", mailTekst, isSpam };
+  return {
+    onderwerp, afzenderEmail, afzenderNaam,
+    afzenderDomein: domeinMatch ? domeinMatch[1].toLowerCase() : "",
+    mailTekst, isSpam
+  };
 }
 
 function startGmailCheck() {
@@ -368,6 +441,7 @@ function startGmailCheck() {
   phishingBanner.style.top = "-200px";
   updateMiniBarometer(50, false, "🤔");
   if (!chrome.runtime || !chrome.runtime.sendMessage) return;
+
   chrome.runtime.sendMessage({
     action: "start_check",
     text: mailData.onderwerp || "Email analyse",
@@ -375,15 +449,21 @@ function startGmailCheck() {
     paginaTekst: mailData.mailTekst.substring(0, 1000),
     artikelTekst: "", reactiesTekst: "", zoekContext: "",
     isEmail: true, isSpam: mailData.isSpam,
-    afzenderNaam: mailData.afzenderNaam, afzenderDomein: mailData.afzenderDomein, afzenderEmail: mailData.afzenderEmail
+    afzenderNaam: mailData.afzenderNaam,
+    afzenderDomein: mailData.afzenderDomein,
+    afzenderEmail: mailData.afzenderEmail
   }, (response) => {
     if (chrome.runtime.lastError || !response || response.status !== "success") return;
-    huidigScore = response.score; huidigOordeel = response.oordeel;
-    huidigUitleg = response.uitleg; huidigBronnen = response.bronnen || [];
-    huidigDeepfake = null; huidigStrafbareContent = false;
+    huidigScore   = response.score;
+    huidigOordeel = response.oordeel;
+    huidigUitleg  = response.uitleg;
+    huidigBronnen = response.bronnen || [];
+    huidigDeepfake = null;
+    huidigStrafbareContent = false;
+    huidigEmoji = response.emoji || "😊";
     updateMiniBarometer(huidigScore, false, huidigEmoji);
     if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji);
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji, huidigBronType);
   });
 }
 
@@ -396,53 +476,55 @@ function initialiseerGmail() {
   gmailObserver.observe(document.body, { childList: true, subtree: true });
 }
 
-// ── Hoofdcheck ───────────────────────────────────────────────
+// ── Hoofdcheck ────────────────────────────────────────────────
+
 function startCheck() {
   if (location.hostname.includes("mail.google.com")) { initialiseerGmail(); return; }
-  const text = document.querySelector("h1")?.innerText || document.querySelector("h2")?.innerText || document.title;
+  const text = document.querySelector("h1")?.innerText
+    || document.querySelector("h2")?.innerText
+    || document.title;
   if (!text || text.length < 3) return;
-  const domein = window.location.hostname.replace("www.", "").replace("nl.", "");
-  const paginaTekst = (document.body.innerText || "").substring(0, 1000).toLowerCase();
+
+  const domein       = window.location.hostname.replace("www.", "").replace("nl.", "");
+  const paginaTekst  = (document.body.innerText || "").substring(0, 1000).toLowerCase();
   const artikelTekst = vindArtikelTekst();
   const reactiesTekst = vindReacties();
-  const zoekContext = vindZoekContext();
+  const zoekContext  = vindZoekContext();
   const afbeeldingUrl = vindHoofdAfbeelding();
+
   toonLaadAnimatie();
   if (!chrome.runtime || !chrome.runtime.sendMessage) return;
+
   chrome.runtime.sendMessage(
     { action: "start_check", text, domein, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl },
     (response) => {
       if (chrome.runtime.lastError || !response || response.status !== "success") return;
-      huidigScore = response.score; huidigOordeel = response.oordeel;
-      huidigUitleg = response.uitleg; huidigBronnen = response.bronnen || [];
+      huidigScore    = response.score;
+      huidigOordeel  = response.oordeel;
+      huidigUitleg   = response.uitleg;
+      huidigBronnen  = response.bronnen || [];
       huidigDeepfake = response.deepfake || null;
-      huidigEmoji = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
+      huidigBronType = response.bronType || (response.score < 50 ? "weerlegging" : response.score < 70 ? "verificatie" : "verdieping");
+      huidigEmoji    = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
       if (!huidigStrafbareContent) {
         huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
       }
       updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
       if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
-      if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji);
+      if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
     }
   );
 }
-   
 
-startCheck();
-startReactieCheck(3000);
-startReactieCheck(8000);
-startReactieCheck(12000);
-// ── Scroll detectie voor reacties ────────────────────────────
+// ── Scroll detectie ───────────────────────────────────────────
+
 let reactieCheckGedaan = false;
 window.addEventListener("scroll", () => {
   if (reactieCheckGedaan || huidigStrafbareContent) return;
-  
   setTimeout(() => {
     const reactiesTekst = vindReacties();
     if (!reactiesTekst || reactiesTekst.length < 20) return;
-    
     reactieCheckGedaan = true;
-    
     if (!chrome.runtime || !chrome.runtime.sendMessage) return;
     chrome.runtime.sendMessage(
       { action: "start_check", alleenReactieCheck: true, reactiesTekst },
@@ -451,13 +533,15 @@ window.addEventListener("scroll", () => {
         if (response.strafbareContent && !huidigStrafbareContent) {
           huidigStrafbareContent = true;
           updateMiniBarometer(huidigScore, true, huidigEmoji);
-          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji);
+          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji, huidigBronType);
         }
       }
     );
   }, 500);
 });
-  // ── URL verandering detecteren ───────────────────────────────
+
+// ── URL verandering detecteren ────────────────────────────────
+
 let laasteUrl = location.href;
 setInterval(() => {
   if (location.href !== laasteUrl) {
@@ -467,6 +551,23 @@ setInterval(() => {
     huidigStrafbareContent = false;
     reactieCheckGedaan = false;
     updateMiniBarometer(50, false, "🤔");
-    setTimeout(() => { startCheck(); startReactieCheck(3000); startReactieCheck(8000); startReactieCheck(12000); }, 1500);
+    setTimeout(() => {
+      startCheck();
+      startReactieCheck(3000);
+      startReactieCheck(8000);
+      startReactieCheck(12000);
+    }, 1500);
   }
 }, 1000);
+
+// ── Opstarten ─────────────────────────────────────────────────
+
+laadInstellingen((items) => {
+  if (items.tc_positie_x) knop.style.right  = items.tc_positie_x;
+  if (items.tc_positie_y) knop.style.bottom = items.tc_positie_y;
+  toonLaadAnimatie();
+  startCheck();
+  startReactieCheck(3000);
+  startReactieCheck(8000);
+  startReactieCheck(12000);
+});
