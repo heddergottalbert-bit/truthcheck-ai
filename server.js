@@ -37,7 +37,9 @@ app.post('/api/factcheck', async (req, res) => {
 2. De belangrijkste claim (1 zin)
 3. Een betrouwbaarheidsscore 0-100
 4. Korte uitleg (max 2 zinnen)
-Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "" }`
+5. Manipulatietechnieken — lijst van aanwezige technieken (leeg als geen):
+   Mogelijke technieken: Emotionele taal, Valse urgentie, Zwart-wit denken, Valse autoriteit, Herhaling als bewijs, Complotdenken, Dehumanisering, Cherrypicking
+Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "manipulatie": [] }`
           },
           { role: 'user', content: text }
         ],
@@ -108,6 +110,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       theme: analysis.theme,
       claim: analysis.claim,
       explanation: analysis.explanation,
+      manipulatie: analysis.manipulatie || [],
       bronType: score < 50 ? 'weerlegging' : score < 70 ? 'verificatie' : 'verdieping',
       sources: finalBronnen,
       answer: tavilyData.answer || null
