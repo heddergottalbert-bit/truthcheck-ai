@@ -115,13 +115,6 @@ function toonLaadAnimatie() {
 
 function updateMiniBarometer(score, strafbareContent, emoji) {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
-  const manipulatieHTML = huidigManipulatie && huidigManipulatie.length > 0
-    ? `<div style="margin-top:12px;padding:10px;background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);border-radius:8px;">
-        <div style="font-size:10px;font-weight:bold;color:#ffa500;margin-bottom:6px;">⚠️ Manipulatietechnieken gedetecteerd</div>
-        ${huidigManipulatie.map(t => `<div style="font-size:10px;color:${tekstKleur};opacity:0.8;margin-bottom:3px;">• ${t}</div>`).join("")}
-       </div>`
-    : "";
-
   const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
   const strafbareEmoji = strafbareContent
     ? `<span style="font-size:20px;line-height:1;position:absolute;bottom:2px;right:2px;">😈</span>`
@@ -177,6 +170,13 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     ? `<div style="margin-top:12px;padding:10px;background:rgba(128,0,128,0.15);border:1px solid rgba(128,0,128,0.4);border-radius:8px;">
         <div style="font-size:10px;font-weight:bold;color:#cc66ff;margin-bottom:4px;">😈 Strafbare content gedetecteerd in reacties</div>
         <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">In de reacties van dit artikel is haatzaaiende of discriminerende inhoud gevonden.</div>
+       </div>`
+    : "";
+
+  const manipulatieHTML = huidigManipulatie && huidigManipulatie.length > 0
+    ? `<div style="margin-top:12px;padding:10px;background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);border-radius:8px;">
+        <div style="font-size:10px;font-weight:bold;color:#ffa500;margin-bottom:6px;">⚠️ Manipulatietechnieken gedetecteerd</div>
+        ${huidigManipulatie.map(t => `<div style="font-size:10px;color:${tekstKleur};opacity:0.8;margin-bottom:3px;">• ${t}</div>`).join("")}
        </div>`
     : "";
 
