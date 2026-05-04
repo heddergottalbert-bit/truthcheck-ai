@@ -133,6 +133,28 @@ function isNieuws(domein) {
 function isLifestyle(domein) {
   return LIFESTYLE_DOMEINEN.some(d => domein.includes(d));
 }
+function isYouTube(domein) {
+  return domein.includes("youtube.com") || domein.includes("youtu.be");
+}
+
+const YOUTUBE_CLICKBAIT_WOORDEN = [
+  "shocking", "you won't believe", "they don't want you to know",
+  "exposed", "banned", "censored", "truth about", "wake up",
+  "dit willen ze niet", "verboden", "gecensureerd", "de waarheid over",
+  "wat niemand je vertelt", "opgepakt", "geheim", "illuminati",
+  "schokkend", "ze verbergen", "bewijs dat", "dit is het bewijs",
+  "deepfake", "deep fake", "nep video", "fake video",
+  "ai generated", "ai gegenereerd", "niet echt", "neppe",
+  "ai downfall", "ai video", "miniverse", "ai moments",
+  "artificial intelligence generated", "made with ai", "gemaakt met ai"
+];
+
+const YOUTUBE_BETROUWBARE_KANALEN = [
+  "nos", "bbc", "reuters", "nos journaal", "nieuwsuur",
+  "tegenlicht", "vpro", "npo", "rtl nieuws", "at5",
+  "ted", "ted-ed", "vsauce", "veritasium", "kurzgesagt",
+  "national geographic", "nasa", "who", "unicef"
+];
 
 function bepaalEmoji(score, type) {
   if (type === "satire")    return "😄";
@@ -142,6 +164,7 @@ function bepaalEmoji(score, type) {
   if (type === "wetenschap") return "🎓";
   if (type === "nieuws")    return "😊";
   if (type === "lifestyle") return "🌿";
+  if (type === "youtube")  return "📺";
   if (score >= 70) return "😊";
   if (score >= 50) return "😟";
   return "😡";
@@ -186,6 +209,8 @@ function berekenPhishingWebsite(request) {
     return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isNieuws: true };
   if (isLifestyle(paginaDomein))
     return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isLifestyle: true };
+  if (isYouTube(paginaDomein))
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isYouTube: true };
   if (isVeiligOfficieelDomein(paginaDomein))
     return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
 
@@ -219,6 +244,15 @@ function berekenPhishingWebsite(request) {
   if (verdachtPatroon.test(paginaDomein)) {
     phishingScore += 25;
     phishingSignalen.push("Verdacht domeinnaam patroon");
+  }
+
+  // Nep-nieuwssite detectie — lange betekenisloze domeinnaam met UTM tracking
+  const domeinZonderTLD = paginaDomein.replace(/\.(com|nl|net|org|io)$/, "");
+  const heeftUTM = (request.url || "").includes("utm_");
+  const langeMeaninglessDomein = domeinZonderTLD.length > 15 && !/^(www|mail|shop|blog|news|app)/.test(domeinZonderTLD);
+  if (heeftUTM && langeMeaninglessDomein) {
+    phishingScore += 35;
+    phishingSignalen.push("Misleidende advertentielink");
   }
 
   if (isZoekmaschine(paginaDomein)) {
@@ -415,7 +449,60 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // Phishing gevonden
+  // YouTube
+  if (phishing.isYouTube) {
+    const titel = (request.text || "").toLowerCase();
+    const paginaTekst = (request.paginaTekst || "").toLowerCase();
+    const combineerd = titel + " " + paginaTekst;
+
+    const isBetrouwbaarKanaal = YOUTUBE_BETROUWBARE_KANALEN.some(k => combineerd.includes(k));
+    const isDeepfakeVideo = ["deepfake", "deep fake", "nep video", "fake video", "ai generated", "ai gegenereerd", "ai downfall", "ai video", "made with ai", "gemaakt met ai", "miniverse ai",
+      // AI videogeneratoren
+      "sora", "sora 2", "runway ml", "runway gen", "gen-2", "gen-3",
+      "pika labs", "pika video", "kling ai", "hailuo", "minimax video",
+      "luma dream machine", "dream machine", "invideo ai",
+      "stable video", "stability ai video", "adobe firefly video",
+      "veo", "veo 2", "google veo", "meta movie gen", "movie gen",
+      "funny ai video", "ai animals", "ai cat", "ai dog",
+      "ai short", "ai film", "ai generated video", "ai footage"
+    ].some(w => combineerd.includes(w));
+    const clickbaitScore = YOUTUBE_CLICKBAIT_WOORDEN.filter(w => combineerd.includes(w.toLowerCase())).length;
+    const aantalClickbait = clickbaitScore;
+
+    let score, oordeel, uitleg;
+
+    if (isDeepfakeVideo) {
+      score = 20;
+      oordeel = "Deepfake video gedetecteerd";
+      uitleg = "De titel geeft aan dat dit een deepfake of AI-gegenereerde video is. Het getoonde beeld is niet echt — wees voorzichtig met delen.";
+    } else if (isBetrouwbaarKanaal) {
+      score = 85;
+      oordeel = "Betrouwbaar YouTube kanaal";
+      uitleg = "Dit lijkt een gevestigd en betrouwbaar kanaal. Controleer altijd de videobeschrijving en bronnen in de comments.";
+    } else if (aantalClickbait >= 2) {
+      score = 30;
+      oordeel = "Mogelijke desinformatie video";
+      uitleg = "De titel bevat meerdere clickbait of desinformatie signalen. Controleer de claims via onafhankelijke bronnen voordat je deelt.";
+    } else if (aantalClickbait === 1) {
+      score = 55;
+      oordeel = "Twijfelachtige YouTube video";
+      uitleg = "De titel bevat een mogelijk misleidend woord. Controleer het kanaal en de bronnen.";
+    } else {
+      score = 70;
+      oordeel = "YouTube video";
+      uitleg = "Geen directe desinformatie signalen gevonden. Controleer altijd het kanaal en de bronnen bij gevoelige onderwerpen.";
+    }
+
+    haalBronnenOp(request).then(bronnen => {
+      sendResponse({
+        status: "success", score,
+        oordeel, uitleg,
+        bronnen, phishing: { actief: false }, strafbareContent: false,
+        emoji: "📺", type: "youtube"
+      });
+    });
+    return true;
+  }
   if (phishing.actief) {
     const isWaarschuwing = phishing.isZoekmaschine;
     sendResponse({

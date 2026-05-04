@@ -496,7 +496,7 @@ function startCheck() {
   if (!chrome.runtime || !chrome.runtime.sendMessage) return;
 
   chrome.runtime.sendMessage(
-    { action: "start_check", text, domein, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl },
+    { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl },
     (response) => {
       if (chrome.runtime.lastError || !response || response.status !== "success") return;
       huidigScore    = response.score;
