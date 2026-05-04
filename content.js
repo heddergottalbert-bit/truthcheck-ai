@@ -6,6 +6,7 @@ let huidigDeepfake = null;
 let huidigStrafbareContent = false;
 let huidigEmoji = "🤔";
 let huidigBronType = "verdieping";
+let huidigManipulatie = [];
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -114,6 +115,13 @@ function toonLaadAnimatie() {
 
 function updateMiniBarometer(score, strafbareContent, emoji) {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
+  const manipulatieHTML = huidigManipulatie && huidigManipulatie.length > 0
+    ? `<div style="margin-top:12px;padding:10px;background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);border-radius:8px;">
+        <div style="font-size:10px;font-weight:bold;color:#ffa500;margin-bottom:6px;">⚠️ Manipulatietechnieken gedetecteerd</div>
+        ${huidigManipulatie.map(t => `<div style="font-size:10px;color:${tekstKleur};opacity:0.8;margin-bottom:3px;">• ${t}</div>`).join("")}
+       </div>`
+    : "";
+
   const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
   const strafbareEmoji = strafbareContent
     ? `<span style="font-size:20px;line-height:1;position:absolute;bottom:2px;right:2px;">😈</span>`
@@ -191,6 +199,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     </div>
     ${strafbareHTML}
     ${deepfakeHTML}
+    ${manipulatieHTML}
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
       <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">${bronLabel}</div>
       ${bronnenHTML}
@@ -505,6 +514,7 @@ function startCheck() {
       huidigBronnen  = response.bronnen || [];
       huidigDeepfake = response.deepfake || null;
       huidigBronType = response.bronType || (response.score < 50 ? "weerlegging" : response.score < 70 ? "verificatie" : "verdieping");
+      huidigManipulatie = response.manipulatie || [];
       huidigEmoji    = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
       if (!huidigStrafbareContent) {
         huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
