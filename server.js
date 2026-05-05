@@ -11,7 +11,7 @@ const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/', (req, res) => {
-  res.json({ status: 'TruthCheck AI server draait' });
+  res.json({ status: 'TruthCheck AI server running' });
 });
 
 // ── Feitencheck ───────────────────────────────────────────────
@@ -32,14 +32,14 @@ app.post('/api/factcheck', async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `Je bent een feitenchecker. Analyseer de tekst en geef terug:
-1. Het hoofdthema (1 zin)
-2. De belangrijkste claim (1 zin)
-3. Een betrouwbaarheidsscore 0-100
-4. Korte uitleg (max 2 zinnen)
-5. Manipulatietechnieken — lijst van aanwezige technieken (leeg als geen):
-   Mogelijke technieken: Emotionele taal, Valse urgentie, Zwart-wit denken, Valse autoriteit, Herhaling als bewijs, Complotdenken, Dehumanisering, Cherrypicking
-Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "manipulatie": [] }`
+            content: `You are a fact-checker. Always respond in English, regardless of the input language. Analyze the text and return:
+1. The main theme (1 sentence)
+2. The key claim (1 sentence)
+3. A credibility score 0-100
+4. Short explanation (max 2 sentences)
+5. Manipulation techniques — list of detected techniques (empty if none):
+   Possible techniques: Emotional language, False urgency, Black-and-white thinking, False authority, Repetition as proof, Conspiracy thinking, Dehumanization, Cherry-picking
+Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "manipulatie": [] }`
           },
           { role: 'user', content: text }
         ],
@@ -53,7 +53,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
     try {
       analysis = JSON.parse(content);
     } catch {
-      analysis = { theme: 'Onbekend', claim: text.slice(0, 100), score: 50, explanation: content };
+      analysis = { theme: 'Unknown', claim: text.slice(0, 100), score: 50, explanation: content };
     }
 
     const score = analysis.score || 50;
@@ -141,14 +141,14 @@ app.post('/api/phishing', async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `Je bent een phishing-detector. Analyseer de input en geef terug:
+            content: `You are a phishing detector. Always respond in English. Analyze the input and return:
 - isPhishing: true/false
-- riskScore: 0-100 (100 = zeker phishing)
-- reasons: lijst van rode vlaggen
-- advice: wat moet de gebruiker doen
-Antwoord in JSON: { "isPhishing": false, "riskScore": 0, "reasons": [], "advice": "" }`
+- riskScore: 0-100 (100 = definitely phishing)
+- reasons: list of red flags
+- advice: what should the user do
+Respond in JSON: { "isPhishing": false, "riskScore": 0, "reasons": [], "advice": "" }`
           },
-          { role: 'user', content: `Analyseer dit op phishing: ${input}` }
+          { role: 'user', content: `Analyze this for phishing: ${input}` }
         ],
         temperature: 0.2
       })
@@ -188,13 +188,13 @@ app.post('/api/harmful', async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `Je bent een content moderator. Analyseer de tekst op strafbare of haatzaaiende inhoud.
-Geef terug:
+            content: `You are a content moderator. Always respond in English. Analyze the text for harmful or hate speech content.
+Return:
 - isHarmful: true/false
-- category: type inhoud (haatzaaien/bedreiging/discriminatie/opruiing/geen)
-- severity: laag/middel/hoog
-- explanation: korte uitleg
-Antwoord in JSON: { "isHarmful": false, "category": "geen", "severity": "laag", "explanation": "" }`
+- category: type of content (hate speech/threat/discrimination/incitement/none)
+- severity: low/medium/high
+- explanation: short explanation
+Respond in JSON: { "isHarmful": false, "category": "none", "severity": "low", "explanation": "" }`
           },
           { role: 'user', content: text }
         ],
