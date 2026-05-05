@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TruthCheck AI</title>
+  <meta name="description" content="The AI filter between you and the noise of the internet.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a12;
+      --surface: #12121e;
+      --accent: #4f8ef7;
+      --accent2: #7ab3ef;
+      --text: #e8e8f0;
+      --muted: #6b6b88;
+      --border: rgba(255,255,255,0.06);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Glow orb */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, rgba(79,142,247,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    /* Logo mark */
+    .logo-mark {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #1a2a4a 0%, #0f1a2e 100%);
+      border: 1px solid rgba(79,142,247,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin: 0 auto 40px;
+      box-shadow: 0 0 40px rgba(79,142,247,0.1), 0 8px 32px rgba(0,0,0,0.4);
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(79,142,247,0.08);
+      border: 1px solid rgba(79,142,247,0.2);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 32px;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(42px, 7vw, 80px);
+      line-height: 1.05;
+      letter-spacing: -1px;
+      margin-bottom: 24px;
+      max-width: 700px;
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--accent2);
+    }
+
+    .tagline {
+      font-size: clamp(16px, 2vw, 19px);
+      color: var(--muted);
+      font-weight: 300;
+      max-width: 460px;
+      line-height: 1.6;
+      margin-bottom: 56px;
+    }
+
+    /* Score demo widget */
+    .demo {
+      background: rgba(18,18,30,0.8);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 56px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+      max-width: 340px;
+      width: 100%;
+      animation: fadeUp 1s ease 0.3s both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .demo-emoji { font-size: 32px; flex-shrink: 0; }
+
+    .demo-content { text-align: left; flex: 1; }
+
+    .demo-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .demo-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .demo-bar-track {
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .demo-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #e74c3c, #f1c40f, #2ecc71);
+      border-radius: 2px;
+      transition: width 2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .demo-score {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .demo-score span {
+      color: #2ecc71;
+      font-weight: 500;
+    }
+
+    /* CTA */
+    .cta-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: fadeUp 1s ease 0.5s both;
+    }
+
+    .cta-text {
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+    }
+
+    .cta-text a {
+      color: var(--accent2);
+      text-decoration: none;
+    }
+
+    /* Bottom bar */
+    footer {
+      position: relative;
+      z-index: 1;
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    footer a {
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    footer a:hover { color: var(--text); }
+
+    /* Fade in on load */
+    .logo-mark, .badge, h1, .tagline {
+      animation: fadeUp 0.8s ease both;
+    }
+    .badge { animation-delay: 0.1s; }
+    h1 { animation-delay: 0.2s; }
+    .tagline { animation-delay: 0.3s; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="logo-mark">🔍</div>
+
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Coming soon
+    </div>
+
+    <h1>The internet needs<br><em>a filter.</em></h1>
+
+    <p class="tagline">
+      Stop blind believing. Start knowing and trusting.
+    </p>
+
+    <div class="demo" id="demo">
+      <div class="demo-emoji">😊</div>
+      <div class="demo-content">
+        <div class="demo-label">Fact Check</div>
+        <div class="demo-title">Credibility score</div>
+        <div class="demo-bar-track">
+          <div class="demo-bar-fill" id="bar"></div>
+        </div>
+        <div class="demo-score">Score: <span>75/100</span></div>
+      </div>
+    </div>
+
+    <div class="cta-group">
+      <p class="cta-text">Chrome extension — launching soon</p>
+      <p class="cta-text"><a href="privacy.html">Privacy policy</a></p>
+    </div>
+  </main>
+
+  <footer>
+    &copy; 2026 TruthCheck AI &nbsp;·&nbsp; <a href="privacy.html">Privacy</a>
+  </footer>
+
+  <script>
+    // Animate the bar on load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('bar').style.width = '75%';
+      }, 800);
+    });
+  </script>
+</body>
+</html>
