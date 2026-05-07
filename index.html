@@ -28,7 +28,6 @@
       overflow-x: hidden;
     }
 
-    /* Subtle grid background */
     body::before {
       content: '';
       position: fixed;
@@ -41,7 +40,6 @@
       z-index: 0;
     }
 
-    /* Glow orb */
     body::after {
       content: '';
       position: fixed;
@@ -67,7 +65,6 @@
       text-align: center;
     }
 
-    /* Logo mark */
     .logo-mark {
       width: 72px;
       height: 72px;
@@ -88,7 +85,6 @@
       50% { transform: translateY(-8px); }
     }
 
-    /* Badge */
     .badge {
       display: inline-flex;
       align-items: center;
@@ -141,7 +137,6 @@
       margin-bottom: 56px;
     }
 
-    /* Score demo widget */
     .demo {
       background: rgba(18,18,30,0.8);
       border: 1px solid var(--border);
@@ -164,7 +159,6 @@
     }
 
     .demo-emoji { font-size: 32px; flex-shrink: 0; }
-
     .demo-content { text-align: left; flex: 1; }
 
     .demo-label {
@@ -208,7 +202,6 @@
       font-weight: 500;
     }
 
-    /* CTA */
     .cta-group {
       display: flex;
       flex-direction: column;
@@ -228,7 +221,11 @@
       text-decoration: none;
     }
 
-    /* Bottom bar */
+    .ph-badge {
+      margin-top: 8px;
+      animation: fadeUp 1s ease 0.7s both;
+    }
+
     footer {
       position: relative;
       z-index: 1;
@@ -246,7 +243,6 @@
 
     footer a:hover { color: var(--text); }
 
-    /* Fade in on load */
     .logo-mark, .badge, h1, .tagline {
       animation: fadeUp 0.8s ease both;
     }
@@ -261,7 +257,7 @@
 
     <div class="badge">
       <span class="badge-dot"></span>
-      Coming soon
+      Launching 20 May 2026
     </div>
 
     <h1>The internet needs<br><em>a filter.</em></h1>
@@ -285,6 +281,13 @@
     <div class="cta-group">
       <p class="cta-text">Chrome extension — launching soon</p>
       <p class="cta-text"><a href="privacy.html">Privacy policy</a></p>
+
+      <div class="ph-badge">
+        <a href="https://www.producthunt.com/products/truthcheck-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-truthcheck-ai" target="_blank" rel="noopener noreferrer">
+          <img alt="TruthCheck AI on Product Hunt" width="250" height="54"
+            src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1139656&theme=dark&t=1778143888683">
+        </a>
+      </div>
     </div>
   </main>
 
@@ -293,7 +296,6 @@
   </footer>
 
   <script>
-    // Animate the bar on load
     window.addEventListener('load', () => {
       setTimeout(() => {
         document.getElementById('bar').style.width = '75%';
