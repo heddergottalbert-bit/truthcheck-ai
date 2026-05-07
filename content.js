@@ -1,3 +1,6 @@
+// Laad vertalingen eerst
+// translations.js moet voor content.js geladen worden via manifest.json
+
 let huidigScore = 50;
 let huidigOordeel = "Laden...";
 let huidigUitleg = "";
@@ -12,8 +15,6 @@ let transparantie = 0.75;
 let achtergrondKleur = "#121223";
 let tekstKleur = "#eeeeee";
 let lettertype = "Georgia, serif";
-
-// ── Instellingen opslaan/laden via chrome.storage ────────────
 
 function slaInstellingenOp() {
   chrome.storage.local.set({
@@ -39,8 +40,6 @@ function laadInstellingen(callback) {
   );
 }
 
-// ── Hulpfuncties ──────────────────────────────────────────────
-
 function hexNaarRgba(hex, alpha) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -49,9 +48,8 @@ function hexNaarRgba(hex, alpha) {
 }
 
 function getKleur(score) {
-  if (score < 30) return "#e74c3c";
-  if (score < 50) return "#e67e22";
-  if (score < 70) return "#f1c40f";
+  if (score <= 30) return "#e74c3c";
+  if (score <= 70) return "#e67e22";
   return "#2ecc71";
 }
 
@@ -73,7 +71,7 @@ function toonPhishingWaarschuwing(phishing) {
     .map(s => `<span style="background:rgba(0,0,0,0.2);border-radius:4px;padding:2px 8px;font-size:11px;margin:2px;display:inline-block;">${s}</span>`)
     .join("");
   const officieelHTML = phishing.officieelDomein
-    ? `<a href="https://${phishing.officieelDomein}" target="_blank" style="color:white;font-weight:bold;text-decoration:underline;">Go to official site: ${phishing.officieelDomein}</a>`
+    ? `<a href="https://${phishing.officieelDomein}" target="_blank" style="color:white;font-weight:bold;text-decoration:underline;">${t.phishingOfficialSite}: ${phishing.officieelDomein}</a>`
     : "";
   phishingBanner.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px;max-width:100%;">
@@ -81,13 +79,13 @@ function toonPhishingWaarschuwing(phishing) {
         <div style="font-size:28px;line-height:1;">⚠️</div>
         <div>
           <div style="font-size:14px;font-weight:bold;margin-bottom:4px;">
-            ${phishing.isEmail ? "Suspicious email detected" : "Potentially dangerous page"} — Phishing warning
+            ${phishing.isEmail ? t.phishingSuspiciousEmail : t.phishingDangerousPage} — ${t.phishingWarning}
           </div>
-          <div style="font-size:11px;opacity:0.9;margin-bottom:4px;">Detected signals: ${signalenHTML}</div>
+          <div style="font-size:11px;opacity:0.9;margin-bottom:4px;">${t.phishingSignals}: ${signalenHTML}</div>
           ${officieelHTML}
         </div>
       </div>
-      <button id="tc-phishing-sluit" style="background:rgba(0,0,0,0.2);border:none;color:white;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:10px;white-space:nowrap;">✕ Close</button>
+      <button id="tc-phishing-sluit" style="background:rgba(0,0,0,0.2);border:none;color:white;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:10px;white-space:nowrap;">${t.phishingClose}</button>
     </div>`;
   setTimeout(() => { phishingBanner.style.top = "0px"; }, 100);
   document.getElementById("tc-phishing-sluit").onclick = () => { phishingBanner.style.top = "-200px"; };
@@ -151,32 +149,32 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
         try { domein = new URL(b).hostname.replace("www.", ""); } catch(e) {}
         return `<a href="${b}" target="_blank" style="display:inline-block;color:#7ab3ef;font-size:11px;margin-top:5px;margin-right:6px;text-decoration:none;background:rgba(122,179,239,0.1);border:1px solid rgba(122,179,239,0.3);border-radius:4px;padding:2px 7px;">${domein}</a>`;
       }).join("")
-    : `<span style="color:#555;font-size:10px;">No independent sources found</span>`;
+    : `<span style="color:#555;font-size:10px;">${t.noSources}</span>`;
 
   const bronLabel = bronType === "weerlegging"
-    ? "❌ Why this is wrong"
+    ? t.whyWrong
     : bronType === "verificatie"
-    ? "🔍 Verification sources"
-    : "📚 Read more";
+    ? t.verificationSources
+    : t.readMore;
 
   const deepfakeHTML = deepfake && deepfake.deepfake_kans >= 50
     ? `<div style="margin-top:12px;padding:10px;background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);border-radius:8px;">
-        <div style="font-size:10px;font-weight:bold;color:#e74c3c;margin-bottom:4px;">🤖 Possibly AI-generated image (${deepfake.deepfake_kans}%)</div>
+        <div style="font-size:10px;font-weight:bold;color:#e74c3c;margin-bottom:4px;">${t.deepfakeLabel(deepfake.deepfake_kans)}</div>
         <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">${deepfake.uitleg}</div>
        </div>`
     : "";
 
   const strafbareHTML = strafbareContent
     ? `<div style="margin-top:12px;padding:10px;background:rgba(128,0,128,0.15);border:1px solid rgba(128,0,128,0.4);border-radius:8px;">
-        <div style="font-size:10px;font-weight:bold;color:#cc66ff;margin-bottom:4px;">😈 Harmful content detected in comments</div>
-        <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">Hateful or discriminatory content was found in the comments of this article.</div>
+        <div style="font-size:10px;font-weight:bold;color:#cc66ff;margin-bottom:4px;">${t.harmfulTitle}</div>
+        <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">${t.harmfulBody}</div>
        </div>`
     : "";
 
   const manipulatieHTML = huidigManipulatie && huidigManipulatie.length > 0
     ? `<div style="margin-top:12px;padding:10px;background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);border-radius:8px;">
-        <div style="font-size:10px;font-weight:bold;color:#ffa500;margin-bottom:6px;">⚠️ Manipulation techniques detected</div>
-        ${huidigManipulatie.map(t => `<div style="font-size:10px;color:${tekstKleur};opacity:0.8;margin-bottom:3px;">• ${t}</div>`).join("")}
+        <div style="font-size:10px;font-weight:bold;color:#ffa500;margin-bottom:6px;">${t.manipulationTitle}</div>
+        ${huidigManipulatie.map(tech => `<div style="font-size:10px;color:${tekstKleur};opacity:0.8;margin-bottom:3px;">• ${tech}</div>`).join("")}
        </div>`
     : "";
 
@@ -187,15 +185,15 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
       <span style="font-size:32px;line-height:1;">${hoofdEmoji}</span>
       <div>
-        <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;font-family:${lettertype};">Fact Check</div>
+        <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;font-family:${lettertype};">${t.factCheck}</div>
         <div style="font-size:15px;font-weight:bold;color:${kleur};font-family:${lettertype};">${oordeel}</div>
       </div>
-      <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="Stel een vraag">?</div>
+      <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="${t.askQuestion}">?</div>
     </div>
-    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:6px;font-family:${lettertype};">Score: <span style="color:${kleur};font-weight:bold;">${score}/100</span></div>
+    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:6px;font-family:${lettertype};">${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span></div>
     <div style="font-size:11px;color:${tekstKleur};line-height:1.5;margin-bottom:14px;font-family:${lettertype};">${schoneUitleg}</div>
     <div id="tc-vraag-veld" style="display:none;margin-bottom:12px;">
-      <input id="tc-vraag-input" type="text" placeholder="What do you want to know about this content?" style="width:100%;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:${tekstKleur};font-size:11px;font-family:${lettertype};box-sizing:border-box;"/>
+      <input id="tc-vraag-input" type="text" placeholder="${t.questionPlaceholder}" style="width:100%;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:${tekstKleur};font-size:11px;font-family:${lettertype};box-sizing:border-box;"/>
     </div>
     ${strafbareHTML}
     ${deepfakeHTML}
@@ -204,7 +202,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">${bronLabel}</div>
       ${bronnenHTML}
     </div>
-    <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">Close</button>`;
+    <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">${t.close}</button>`;
 
   document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
   document.getElementById("tc-vraag-knop").onclick = () => {
@@ -225,25 +223,25 @@ menu.style.cssText = `
   box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;
 `;
 menu.innerHTML = `
-  <div style="font-size:9px;letter-spacing:2px;color:#555;text-transform:uppercase;margin-bottom:14px;">Settings</div>
-  <div style="font-size:11px;color:#aaa;margin-bottom:5px;">Transparency</div>
+  <div style="font-size:9px;letter-spacing:2px;color:#555;text-transform:uppercase;margin-bottom:14px;">${t.settingsTitle}</div>
+  <div style="font-size:11px;color:#aaa;margin-bottom:5px;">${t.settingsTransparency}</div>
   <input id="tc-trans" type="range" min="0.1" max="1" step="0.05" value="${transparantie}" style="width:100%;accent-color:#7ab3ef;margin-bottom:14px;"/>
-  <div style="font-size:11px;color:#aaa;margin-bottom:5px;">Background color</div>
+  <div style="font-size:11px;color:#aaa;margin-bottom:5px;">${t.settingsBackground}</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-    ${[["#121223","Dark"],["#1a1a1a","Black"],["#0d2137","Night"],["#1e3a1e","Green"],["#2d1b1b","Red"],["#f0f0fa","Light"],["#ffffff","White"]]
+    ${[["#121223",t.colorDark],["#1a1a1a",t.colorBlack],["#0d2137",t.colorNight],["#1e3a1e",t.colorGreen],["#2d1b1b",t.colorRed],["#f0f0fa",t.colorLight],["#ffffff",t.colorWhite]]
       .map(([k,n]) => `<button data-kleur="${k}" style="padding:4px 8px;border-radius:6px;cursor:pointer;font-size:10px;border:1px solid rgba(255,255,255,0.2);background:${k};color:${["#f0f0fa","#ffffff"].includes(k)?"#333":"#eee"};">${n}</button>`).join("")}
   </div>
-  <div style="font-size:11px;color:#aaa;margin-bottom:5px;">Text color</div>
+  <div style="font-size:11px;color:#aaa;margin-bottom:5px;">${t.settingsTextColor}</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-    ${[["#eeeeee","White"],["#000000","Black"],["#ffd700","Gold"],["#90ee90","Light green"],["#add8e6","Light blue"]]
+    ${[["#eeeeee",t.textWhite],["#000000",t.textBlack],["#ffd700",t.textGold],["#90ee90",t.textLightGreen],["#add8e6",t.textLightBlue]]
       .map(([k,n]) => `<button data-tekst="${k}" style="padding:4px 8px;border-radius:6px;cursor:pointer;font-size:10px;border:1px solid rgba(255,255,255,0.2);background:#2a2a3a;color:${k};">${n}</button>`).join("")}
   </div>
-  <div style="font-size:11px;color:#aaa;margin-bottom:5px;">Font</div>
+  <div style="font-size:11px;color:#aaa;margin-bottom:5px;">${t.settingsFont}</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
     ${[["Georgia, serif","Georgia"],["Arial, sans-serif","Arial"],["'Courier New', monospace","Courier"],["Verdana, sans-serif","Verdana"],["'Times New Roman', serif","Times"]]
       .map(([f,n]) => `<button data-font="${f}" style="padding:4px 8px;border-radius:6px;cursor:pointer;font-size:10px;border:1px solid rgba(255,255,255,0.2);background:#2a2a3a;color:#eee;font-family:${f};">${n}</button>`).join("")}
   </div>
-  <button id="tc-menu-sluit" style="width:100%;padding:7px;background:rgba(255,255,255,0.06);border:1px solid #333;border-radius:8px;color:#888;cursor:pointer;font-size:11px;">Close</button>`;
+  <button id="tc-menu-sluit" style="width:100%;padding:7px;background:rgba(255,255,255,0.06);border:1px solid #333;border-radius:8px;color:#888;cursor:pointer;font-size:11px;">${t.settingsClose}</button>`;
 document.body.appendChild(menu);
 
 document.getElementById("tc-trans").oninput = (e) => {
@@ -342,7 +340,7 @@ function vindArtikelTekst() {
     if (els.length > 0) {
       return Array.from(els).slice(0, 5)
         .map(p => p.innerText)
-        .filter(t => t.length > 30)
+        .filter(tekst => tekst.length > 30)
         .join(" ").substring(0, 800);
     }
   }
@@ -362,8 +360,8 @@ function vindZoekContext() {
     ".content p", ".post-content p", "main article p"
   ];
   for (const sel of selectors) {
-    const t = document.querySelector(sel)?.innerText;
-    if (t && t.length > 50) return t.substring(0, 300);
+    const tekst = document.querySelector(sel)?.innerText;
+    if (tekst && tekst.length > 50) return tekst.substring(0, 300);
   }
   return Array.from(document.querySelectorAll("p"))
     .find(p =>
@@ -494,11 +492,11 @@ function startCheck() {
     || document.title;
   if (!text || text.length < 3) return;
 
-  const domein       = window.location.hostname.replace("www.", "").replace("nl.", "");
-  const paginaTekst  = (document.body.innerText || "").substring(0, 1000).toLowerCase();
-  const artikelTekst = vindArtikelTekst();
+  const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");
+  const paginaTekst   = (document.body.innerText || "").substring(0, 1000).toLowerCase();
+  const artikelTekst  = vindArtikelTekst();
   const reactiesTekst = vindReacties();
-  const zoekContext  = vindZoekContext();
+  const zoekContext   = vindZoekContext();
   const afbeeldingUrl = vindHoofdAfbeelding();
 
   toonLaadAnimatie();
