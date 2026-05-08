@@ -1,23 +1,29 @@
-<!DOCTYPE  html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TruthCheck AI</title>
-  <meta name="description" content="The AI filter between you and the noise of the internet.">
+  <title>TruthCheck AI — The internet needs a filter</title>
+  <meta name="description" content="TruthCheck AI checks every page you visit for credibility, manipulation, and misinformation. Real-time. In your browser.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0a0a12;
-      --surface: #12121e;
-      --accent: #4f8ef7;
-      --accent2: #7ab3ef;
-      --text: #e8e8f0;
-      --muted: #6b6b88;
-      --border: rgba(255,255,255,0.06);
+      --bg: #07070f;
+      --surface: #0e0e1c;
+      --surface2: #141428;
+      --accent: #3b82f6;
+      --accent2: #93c5fd;
+      --accent3: #1d4ed8;
+      --green: #22c55e;
+      --orange: #f59e0b;
+      --red: #ef4444;
+      --text: #f1f5f9;
+      --muted: #64748b;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(59,130,246,0.2);
     }
 
     html, body {
@@ -28,32 +34,92 @@
       overflow-x: hidden;
     }
 
+    /* Animated grid background */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
       background-image:
-        linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
-      background-size: 60px 60px;
+        linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+      background-size: 80px 80px;
       pointer-events: none;
       z-index: 0;
     }
 
+    /* Top glow */
     body::after {
       content: '';
       position: fixed;
-      top: -200px;
+      top: -300px;
       left: 50%;
       transform: translateX(-50%);
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(79,142,247,0.08) 0%, transparent 70%);
+      width: 1000px;
+      height: 700px;
+      background: radial-gradient(ellipse, rgba(59,130,246,0.1) 0%, transparent 65%);
       pointer-events: none;
       z-index: 0;
     }
 
-    main {
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(7,7,15,0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: -0.3px;
+    }
+
+    .nav-logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent3), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .nav-link {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: var(--text); }
+
+    .nav-cta {
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .nav-cta:hover { background: #2563eb; transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
       position: relative;
       z-index: 1;
       min-height: 100vh;
@@ -61,171 +127,430 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 24px;
+      padding: 120px 24px 80px;
       text-align: center;
     }
 
-    .logo-mark {
-      width: 72px;
-      height: 72px;
-      border-radius: 20px;
-      background: linear-gradient(135deg, #1a2a4a 0%, #0f1a2e 100%);
-      border: 1px solid rgba(79,142,247,0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 36px;
-      margin: 0 auto 40px;
-      box-shadow: 0 0 40px rgba(79,142,247,0.1), 0 8px 32px rgba(0,0,0,0.4);
-      animation: float 4s ease-in-out infinite;
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-8px); }
-    }
-
-    .badge {
+    .live-badge {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      background: rgba(79,142,247,0.08);
-      border: 1px solid rgba(79,142,247,0.2);
+      gap: 8px;
+      background: rgba(59,130,246,0.08);
+      border: 1px solid rgba(59,130,246,0.25);
       border-radius: 100px;
-      padding: 6px 16px;
+      padding: 7px 18px;
       font-size: 11px;
       font-weight: 500;
-      letter-spacing: 1.5px;
+      letter-spacing: 1.8px;
       text-transform: uppercase;
       color: var(--accent2);
-      margin-bottom: 32px;
+      margin-bottom: 40px;
+      animation: fadeUp 0.6s ease both;
     }
 
-    .badge-dot {
-      width: 6px;
-      height: 6px;
+    .live-dot {
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background: var(--accent);
+      background: var(--green);
       animation: pulse 2s ease-in-out infinite;
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.8); }
-    }
-
-    h1 {
-      font-family: 'DM Serif Display', serif;
-      font-size: clamp(42px, 7vw, 80px);
-      line-height: 1.05;
-      letter-spacing: -1px;
-      margin-bottom: 24px;
-      max-width: 700px;
-    }
-
-    h1 em {
-      font-style: italic;
-      color: var(--accent2);
-    }
-
-    .tagline {
-      font-size: clamp(16px, 2vw, 19px);
-      color: var(--muted);
-      font-weight: 300;
-      max-width: 460px;
-      line-height: 1.6;
-      margin-bottom: 56px;
-    }
-
-    .demo {
-      background: rgba(18,18,30,0.8);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 20px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 56px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
-      max-width: 340px;
-      width: 100%;
-      animation: fadeUp 1s ease 0.3s both;
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+      50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(34,197,94,0); }
     }
 
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
+      from { opacity: 0; transform: translateY(24px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .demo-emoji { font-size: 32px; flex-shrink: 0; }
-    .demo-content { text-align: left; flex: 1; }
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(44px, 8vw, 86px);
+      font-weight: 800;
+      line-height: 1.0;
+      letter-spacing: -2px;
+      margin-bottom: 28px;
+      max-width: 800px;
+      animation: fadeUp 0.7s ease 0.1s both;
+    }
+
+    h1 .accent {
+      color: var(--accent2);
+      position: relative;
+    }
+
+    h1 .line2 {
+      display: block;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .subline {
+      font-size: clamp(16px, 2.2vw, 20px);
+      color: var(--muted);
+      font-weight: 300;
+      max-width: 500px;
+      line-height: 1.65;
+      margin-bottom: 20px;
+      animation: fadeUp 0.7s ease 0.2s both;
+    }
+
+    .stat-line {
+      font-size: 13px;
+      color: var(--accent2);
+      margin-bottom: 52px;
+      animation: fadeUp 0.7s ease 0.25s both;
+      opacity: 0.8;
+    }
+
+    /* ── DEMO CARD ── */
+    .demo-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 24px;
+      max-width: 380px;
+      width: 100%;
+      margin: 0 auto 52px;
+      text-align: left;
+      animation: fadeUp 0.7s ease 0.3s both;
+      box-shadow: 0 0 60px rgba(59,130,246,0.08), 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .demo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .demo-site {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .demo-live-tag {
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--green);
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.2);
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    .demo-score-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .demo-emoji { font-size: 40px; flex-shrink: 0; }
+
+    .demo-score-info { flex: 1; }
 
     .demo-label {
       font-size: 9px;
       letter-spacing: 2px;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 2px;
+      margin-bottom: 4px;
     }
 
-    .demo-title {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text);
-      margin-bottom: 6px;
+    .demo-score-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--green);
+      line-height: 1;
+      margin-bottom: 8px;
     }
 
     .demo-bar-track {
-      height: 4px;
+      height: 5px;
       background: rgba(255,255,255,0.06);
-      border-radius: 2px;
+      border-radius: 3px;
       overflow: hidden;
     }
 
     .demo-bar-fill {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #e74c3c, #f1c40f, #2ecc71);
-      border-radius: 2px;
-      transition: width 2s cubic-bezier(0.4, 0, 0.2, 1);
+      background: linear-gradient(90deg, var(--red) 0%, var(--orange) 50%, var(--green) 100%);
+      border-radius: 3px;
+      transition: width 2.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .demo-score {
-      font-size: 11px;
+    .demo-verdict {
+      font-size: 13px;
       color: var(--muted);
-      margin-top: 4px;
+      line-height: 1.5;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
     }
 
-    .demo-score span {
-      color: #2ecc71;
-      font-weight: 500;
-    }
+    .demo-verdict strong { color: var(--text); font-weight: 500; }
 
+    /* ── CTA BUTTONS ── */
     .cta-group {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
-      animation: fadeUp 1s ease 0.5s both;
+      gap: 14px;
+      animation: fadeUp 0.7s ease 0.45s both;
     }
 
-    .cta-text {
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 14px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(59,130,246,0.35);
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(59,130,246,0.45);
+    }
+
+    .btn-secondary {
       font-size: 13px;
       color: var(--muted);
-      letter-spacing: 0.5px;
-    }
-
-    .cta-text a {
-      color: var(--accent2);
       text-decoration: none;
+      transition: color 0.2s;
+    }
+    .btn-secondary:hover { color: var(--text); }
+
+    .launch-note {
+      font-size: 12px;
+      color: var(--muted);
+      opacity: 0.7;
     }
 
     .ph-badge {
-      margin-top: 8px;
-      animation: fadeUp 1s ease 0.7s both;
+      margin-top: 4px;
     }
 
+    /* ── FEATURES ── */
+    .features {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--accent2);
+      text-align: center;
+      margin-bottom: 16px;
+      opacity: 0.7;
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 56px;
+      letter-spacing: -1px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border2);
+      transform: translateY(-3px);
+    }
+
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 14px;
+    }
+
+    .feature-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.2px;
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how {
+      position: relative;
+      z-index: 1;
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+      text-align: center;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 48px;
+      text-align: left;
+    }
+
+    .step {
+      display: flex;
+      gap: 20px;
+      padding: 0 0 32px 0;
+      position: relative;
+    }
+
+    .step:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 18px;
+      top: 40px;
+      bottom: 0;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .step-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent2);
+      flex-shrink: 0;
+    }
+
+    .step-content { padding-top: 6px; }
+
+    .step-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .step-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── SOCIAL PROOF ── */
+    .stats-section {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .stat-number {
+      font-family: 'Syne', sans-serif;
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--accent2);
+      letter-spacing: -1px;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* ── FINAL CTA ── */
+    .final-cta {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 60px 24px 100px;
+    }
+
+    .final-cta-box {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 24px;
+      padding: 60px 40px;
+      max-width: 580px;
+      margin: 0 auto;
+      box-shadow: 0 0 80px rgba(59,130,246,0.06);
+    }
+
+    .final-cta h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .final-cta p {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 36px;
+      line-height: 1.6;
+    }
+
+    /* ── FOOTER ── */
     footer {
       position: relative;
       z-index: 1;
@@ -233,6 +558,7 @@
       text-align: center;
       font-size: 12px;
       color: var(--muted);
+      border-top: 1px solid var(--border);
     }
 
     footer a {
@@ -240,66 +566,210 @@
       text-decoration: none;
       transition: color 0.2s;
     }
-
     footer a:hover { color: var(--text); }
 
-    .logo-mark, .badge, h1, .tagline {
-      animation: fadeUp 0.8s ease both;
+    @media (max-width: 600px) {
+      nav { padding: 14px 16px; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .final-cta-box { padding: 40px 24px; }
     }
-    .badge { animation-delay: 0.1s; }
-    h1 { animation-delay: 0.2s; }
-    .tagline { animation-delay: 0.3s; }
   </style>
 </head>
 <body>
-  <main>
-    <div class="logo-mark">🔍</div>
 
-    <div class="badge">
-      <span class="badge-dot"></span>
-      Launching 20 May 2026
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">
+      <div class="nav-logo-icon">🔍</div>
+      TruthCheck AI
+    </div>
+    <div style="display:flex;align-items:center;gap:24px;">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#how" class="nav-link">How it works</a>
+      <a href="privacy.html" class="nav-link">Privacy</a>
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSfZNnOWuA1s5g6nW_IIjeJ98NTC7B8HqkoyvrxbbDs3SEbVpg/viewform" class="nav-cta" target="_blank" rel="noopener">Notify me</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      Now live — version 1.6
     </div>
 
-    <h1>The internet needs<br><em>a filter.</em></h1>
+    <h1>
+      The internet needs<br>
+      <span class="accent">a filter.</span>
+      <span class="line2">You're looking at it.</span>
+    </h1>
 
-    <p class="tagline">
-      Stop blind believing. Start knowing and trusting.
+    <p class="subline">
+      35% of new web pages in 2026 are AI-generated. TruthCheck AI checks every page you visit — automatically, silently, in real time.
     </p>
 
-    <div class="demo" id="demo">
-      <div class="demo-emoji">😊</div>
-      <div class="demo-content">
-        <div class="demo-label">Fact Check</div>
-        <div class="demo-title">Credibility score</div>
-        <div class="demo-bar-track">
-          <div class="demo-bar-fill" id="bar"></div>
+    <p class="stat-line">🔬 Backed by European Commission research on misinformation</p>
+
+    <div class="demo-card" id="demo">
+      <div class="demo-header">
+        <span class="demo-site">nu.nl</span>
+        <span class="demo-live-tag">Live check</span>
+      </div>
+      <div class="demo-score-row">
+        <div class="demo-emoji" id="demoEmoji">😊</div>
+        <div class="demo-score-info">
+          <div class="demo-label">Credibility score</div>
+          <div class="demo-score-num" id="demoNum">82<span style="font-size:16px;color:var(--muted)">/100</span></div>
+          <div class="demo-bar-track">
+            <div class="demo-bar-fill" id="bar"></div>
+          </div>
         </div>
-        <div class="demo-score">Score: <span>75/100</span></div>
+      </div>
+      <div class="demo-verdict">
+        <strong>Reliable news source.</strong> Verified by 3 independent sources. No manipulation techniques detected.
       </div>
     </div>
 
     <div class="cta-group">
-      <p class="cta-text">Chrome extension — launching soon</p>
-      <p class="cta-text"><a href="privacy.html">Privacy policy</a></p>
+      <p style="font-size:15px;color:var(--muted);margin-bottom:4px;">🚀 Launching <strong style="color:var(--accent2)">3 June 2026</strong> on Product Hunt</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Be the first to know — get notified on launch day.</p>
+
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSfZNnOWuA1s5g6nW_IIjeJ98NTC7B8HqkoyvrxbbDs3SEbVpg/viewform"
+         class="btn-primary" target="_blank" rel="noopener">
+        🔔 Notify me on launch
+      </a>
+
+      <a href="privacy.html" class="btn-secondary">Privacy policy →</a>
 
       <div class="ph-badge">
-        <a href="https://www.producthunt.com/products/truthcheck-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-truthcheck-ai" target="_blank" rel="noopener noreferrer">
-          <img alt="TruthCheck AI on Product Hunt" width="250" height="54"
+        <a href="https://www.producthunt.com/posts/truthcheck-ai" target="_blank" rel="noopener noreferrer">
+          <img alt="TruthCheck AI on Product Hunt" width="220" height="48"
             src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1139656&theme=dark&t=1778143888683">
         </a>
       </div>
     </div>
-  </main>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <p class="section-label">What it does</p>
+    <h2 class="section-title">Your AI filter, running quietly in the background</h2>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📰</div>
+        <div class="feature-title">Credibility scoring</div>
+        <div class="feature-desc">Every page gets a score from 0–100. Red, orange, or green — you always know what you're reading.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-title">Manipulation detection</div>
+        <div class="feature-desc">Flags 6 psychological techniques used by conspiracy sites: emotional manipulation, us-vs-them framing, and more.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎣</div>
+        <div class="feature-title">Phishing protection</div>
+        <div class="feature-desc">Detects suspicious pages — including in Gmail. Warns you before you click or submit anything.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">AI content detection</div>
+        <div class="feature-desc">Identifies AI-generated articles and deepfake images so you know when a human actually wrote what you're reading.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌍</div>
+        <div class="feature-title">Dutch & English</div>
+        <div class="feature-desc">Automatically detects your browser language and gives feedback in Dutch or English.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-title">Privacy first</div>
+        <div class="feature-desc">No account needed. No personal data stored. Checks happen on our server — your browsing stays yours.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how" id="how">
+    <p class="section-label">How it works</p>
+    <h2 class="section-title">Three steps. Zero effort.</h2>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Install the extension</div>
+          <div class="step-desc">One click in the Chrome Web Store. No account, no email, no setup.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Browse normally</div>
+          <div class="step-desc">TruthCheck AI sits quietly in the corner of every page as a small floating button.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Click when you want to know</div>
+          <div class="step-desc">Tap the button to check any page. Get an instant credibility score with sources and explanation — in your language.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats-section">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-number">35%</div>
+        <div class="stat-label">of new web pages in 2026 are AI-generated</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">6</div>
+        <div class="stat-label">manipulation techniques detected automatically</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">0–100</div>
+        <div class="stat-label">credibility score, verified by real sources</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="final-cta">
+    <div class="final-cta-box">
+      <h2>Start browsing with confidence.</h2>
+      <p>Leave your email and be the first to know<br>when TruthCheck AI launches on 3 June 2026.</p>
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSfZNnOWuA1s5g6nW_IIjeJ98NTC7B8HqkoyvrxbbDs3SEbVpg/viewform"
+         class="btn-primary" target="_blank" rel="noopener" style="display:inline-flex;">
+        🔔 Notify me on launch — 3 June
+      </a>
+    </div>
+  </section>
 
   <footer>
-    &copy; 2026 TruthCheck AI &nbsp;·&nbsp; <a href="privacy.html">Privacy</a>
+    &copy; 2026 TruthCheck AI &nbsp;·&nbsp;
+    <a href="privacy.html">Privacy</a> &nbsp;·&nbsp;
+    <a href="https://www.producthunt.com/posts/truthcheck-ai" target="_blank" rel="noopener">Product Hunt</a> &nbsp;·&nbsp;
+    <a href="mailto:support@truthcheckai.com">Support</a>
   </footer>
 
   <script>
     window.addEventListener('load', () => {
       setTimeout(() => {
-        document.getElementById('bar').style.width = '75%';
-      }, 800);
+        document.getElementById('bar').style.width = '82%';
+      }, 900);
+    });
+
+    // Smooth scroll for nav links
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const el = document.querySelector(a.getAttribute('href'));
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     });
   </script>
 </body>
