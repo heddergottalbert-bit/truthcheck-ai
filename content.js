@@ -88,7 +88,8 @@ function toonPhishingWaarschuwing(phishing) {
       <button id="tc-phishing-sluit" style="background:rgba(0,0,0,0.2);border:none;color:white;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:10px;white-space:nowrap;">${t.phishingClose}</button>
     </div>`;
   setTimeout(() => { phishingBanner.style.top = "0px"; }, 100);
-  document.getElementById("tc-phishing-sluit").onclick = () => { phishingBanner.style.top = "-200px"; };
+  const sluitKnop = document.getElementById("tc-phishing-sluit");
+  if (sluitKnop) sluitKnop.onclick = () => { phishingBanner.style.top = "-200px"; };
 }
 
 // ── Zwevende knop ────────────────────────────────────────────
