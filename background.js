@@ -373,7 +373,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return fetch(SERVER_URL + "/api/factcheck", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: request.text, artikelTekst: request.artikelTekst || "", domein: request.domein || "" })
+      body: JSON.stringify({ text: request.text, artikelTekst: request.artikelTekst || "", domein: request.domein || "", taal: request.taal || "en" })
     })
     .then(res => res.json())
     .then(data => {

@@ -17,8 +17,26 @@ app.get('/', (req, res) => {
 // ── Feitencheck ───────────────────────────────────────────────
 app.post('/api/factcheck', async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, taal } = req.body;
     if (!text) return res.status(400).json({ error: 'Geen tekst meegegeven' });
+
+    const taalCode = (taal || "en").substring(0, 2).toLowerCase();
+    const antwoordTaal = taalCode === "nl" ? "Dutch" : "English";
+    const manipulatieTechnieken = taalCode === "nl"
+      ? `Gebruik ALLEEN deze zes technieken (in het Nederlands):
+   - "Emotionele manipulatie: taal die angst of woede opwekt voordat je de feiten hebt gelezen"
+   - "Imitatie: valselijk beweren een autoriteit of betrouwbare organisatie te vertegenwoordigen"
+   - "Polarisatie: wij-zij taal die vijandigheid tussen groepen creëert"
+   - "Complotdenken: suggereren dat een geheime elite de gebeurtenissen controleert"
+   - "Ad hominem: de persoon aanvallen in plaats van het argument"
+   - "Valse tegenstelling: slechts twee opties presenteren terwijl er veel meer zijn"`
+      : `Use ONLY these six techniques (in English):
+   - "Emotional manipulation: language designed to trigger fear or outrage before you've read the facts"
+   - "Impersonation: falsely claiming to represent an authority or trusted organization"
+   - "Polarization: us vs. them language designed to create hostility between groups"
+   - "Conspiratorial ideation: implying a secretive elite group is controlling events"
+   - "Ad hominem: attacking the person making an argument instead of the argument itself"
+   - "False dichotomy: presenting only two options when many more exist"`;
 
     // Stap 1: OpenAI extraheert het hoofdthema
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -32,18 +50,12 @@ app.post('/api/factcheck', async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `You are a fact-checker. Always respond in English, regardless of the input language. Analyze the text and return:
+            content: `You are a fact-checker. Always respond in ${antwoordTaal}. Analyze the text and return:
 1. The main theme (1 sentence)
 2. The key claim (1 sentence)
 3. A credibility score 0-100
 4. Short explanation (max 2 sentences)
-5. Manipulation techniques — ONLY list techniques if score is 30 or below. Use ONLY these six techniques (based on Cambridge/BBC/Google inoculation research):
-   - "Emotional manipulation: language designed to trigger fear or outrage before you've read the facts"
-   - "Impersonation: falsely claiming to represent an authority or trusted organization"
-   - "Polarization: us vs. them language designed to create hostility between groups"
-   - "Conspiratorial ideation: implying a secretive elite group is controlling events"
-   - "Ad hominem: attacking the person making an argument instead of the argument itself"
-   - "False dichotomy: presenting only two options when many more exist"
+5. Manipulation techniques — ONLY list techniques if score is 35 or below. ${manipulatieTechnieken}
    If score is above 35, always return an empty array for manipulatie.
 
 STRICT SCORING RULES — always apply these:
