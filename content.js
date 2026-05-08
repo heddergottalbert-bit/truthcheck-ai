@@ -485,6 +485,25 @@ function initialiseerGmail() {
 
 // ── Hoofdcheck ────────────────────────────────────────────────
 
+function toonLimietBerikt() {
+  knop.style.background = hexNaarRgba("#2d1b1b", transparantie);
+  knop.innerHTML = `<div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;"><span style="font-size:28px;">🔒</span></div>`;
+  if (popupOpen) {
+    popup.style.background = hexNaarRgba(achtergrondKleur, transparantie);
+    popup.style.border = `1px solid rgba(255,255,255,0.1)`;
+    popup.style.color = tekstKleur;
+    popup.innerHTML = `
+      <div style="text-align:center;padding:20px 10px;">
+        <div style="font-size:36px;margin-bottom:12px;">🔒</div>
+        <div style="font-size:13px;font-weight:bold;color:#e67e22;margin-bottom:8px;">Daily limit reached</div>
+        <div style="font-size:11px;color:${tekstKleur};opacity:0.7;line-height:1.5;margin-bottom:14px;">You've used your 5 free checks for today.<br>Premium version coming soon.</div>
+        <div style="font-size:10px;color:${tekstKleur};opacity:0.4;">Resets at midnight</div>
+        <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;">Close</button>
+      </div>`;
+    document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
+  }
+}
+
 function startCheck() {
   if (location.hostname.includes("mail.google.com")) { initialiseerGmail(); return; }
   const text = document.querySelector("h1")?.innerText
@@ -492,36 +511,44 @@ function startCheck() {
     || document.title;
   if (!text || text.length < 3) return;
 
-  const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");
-  const paginaTekst   = (document.body.innerText || "").substring(0, 1000).toLowerCase();
-  const artikelTekst  = vindArtikelTekst();
-  const reactiesTekst = vindReacties();
-  const zoekContext   = vindZoekContext();
-  const afbeeldingUrl = vindHoofdAfbeelding();
+  // ── Dagelijks limiet ──────────────────────────────────────────
+  const vandaag = new Date().toISOString().slice(0, 10);
+  chrome.storage.local.get(["tc_checks_datum", "tc_checks_aantal"], (items) => {
+    let aantal = (items.tc_checks_datum === vandaag) ? (items.tc_checks_aantal || 0) : 0;
+    if (aantal >= 5) { toonLimietBerikt(); return; }
+    chrome.storage.local.set({ tc_checks_datum: vandaag, tc_checks_aantal: aantal + 1 });
 
-  toonLaadAnimatie();
-  if (!chrome.runtime || !chrome.runtime.sendMessage) return;
+    const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");
+    const paginaTekst   = (document.body.innerText || "").substring(0, 1000).toLowerCase();
+    const artikelTekst  = vindArtikelTekst();
+    const reactiesTekst = vindReacties();
+    const zoekContext   = vindZoekContext();
+    const afbeeldingUrl = vindHoofdAfbeelding();
 
-  chrome.runtime.sendMessage(
-    { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, taal: navigator.language || "en" },
-    (response) => {
-      if (chrome.runtime.lastError || !response || response.status !== "success") return;
-      huidigScore    = response.score;
-      huidigOordeel  = response.oordeel;
-      huidigUitleg   = response.uitleg;
-      huidigBronnen  = response.bronnen || [];
-      huidigDeepfake = response.deepfake || null;
-      huidigBronType = response.bronType || (response.score < 50 ? "weerlegging" : response.score < 70 ? "verificatie" : "verdieping");
-      huidigManipulatie = response.manipulatie || [];
-      huidigEmoji    = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
-      if (!huidigStrafbareContent) {
-        huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
+    toonLaadAnimatie();
+    if (!chrome.runtime || !chrome.runtime.sendMessage) return;
+
+    chrome.runtime.sendMessage(
+      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, taal: navigator.language || "en" },
+      (response) => {
+        if (chrome.runtime.lastError || !response || response.status !== "success") return;
+        huidigScore    = response.score;
+        huidigOordeel  = response.oordeel;
+        huidigUitleg   = response.uitleg;
+        huidigBronnen  = response.bronnen || [];
+        huidigDeepfake = response.deepfake || null;
+        huidigBronType = response.bronType || (response.score < 50 ? "weerlegging" : response.score < 70 ? "verificatie" : "verdieping");
+        huidigManipulatie = response.manipulatie || [];
+        huidigEmoji    = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
+        if (!huidigStrafbareContent) {
+          huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
+        }
+        updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
+        if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
+        if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
       }
-      updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
-      if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
-      if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
-    }
-  );
+    );
+  }); // einde chrome.storage.local.get
 }
 
 // ── Scroll detectie ───────────────────────────────────────────
