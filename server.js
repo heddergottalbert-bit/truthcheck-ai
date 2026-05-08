@@ -37,8 +37,25 @@ app.post('/api/factcheck', async (req, res) => {
 2. The key claim (1 sentence)
 3. A credibility score 0-100
 4. Short explanation (max 2 sentences)
-5. Manipulation techniques — list of detected techniques (empty if none):
-   Possible techniques: Emotional language, False urgency, Black-and-white thinking, False authority, Repetition as proof, Conspiracy thinking, Dehumanization, Cherry-picking
+5. Manipulation techniques — ONLY list techniques if score is 30 or below. Use ONLY these six techniques (based on Cambridge/BBC/Google inoculation research):
+   - "Emotional manipulation: language designed to trigger fear or outrage before you've read the facts"
+   - "Impersonation: falsely claiming to represent an authority or trusted organization"
+   - "Polarization: us vs. them language designed to create hostility between groups"
+   - "Conspiratorial ideation: implying a secretive elite group is controlling events"
+   - "Ad hominem: attacking the person making an argument instead of the argument itself"
+   - "False dichotomy: presenting only two options when many more exist"
+   If score is above 35, always return an empty array for manipulatie.
+
+STRICT SCORING RULES — always apply these:
+- Conspiracy theories, hidden agendas, secret elites, deep state claims: score MAX 20
+- Unverified sensationalist claims with fear language ("zet je schrap", "stilletjes gepubliceerd", "lockdown 2.0"): score MAX 25
+- Claims implying government or institutional cover-up without evidence: score MAX 25
+- Emotional manipulation combined with unverified claims: score MAX 30
+- Alternative news sites known for misinformation (ninefornews, frontnieuws, etc.): score MAX 35
+- Satire sites: score 75
+- Known reliable news (NOS, BBC, Reuters, NRC): score MIN 75
+- Scientific peer-reviewed sources: score MIN 85
+
 Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "manipulatie": [] }`
           },
           { role: 'user', content: text }

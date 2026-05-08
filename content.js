@@ -171,7 +171,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
        </div>`
     : "";
 
-  const manipulatieHTML = huidigManipulatie && huidigManipulatie.length > 0
+  const manipulatieHTML = huidigManipulatie && huidigManipulatie.length > 0 && score <= 35
     ? `<div style="margin-top:12px;padding:10px;background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);border-radius:8px;">
         <div style="font-size:10px;font-weight:bold;color:#ffa500;margin-bottom:6px;">${t.manipulationTitle}</div>
         ${huidigManipulatie.map(tech => `<div style="font-size:10px;color:${tekstKleur};opacity:0.8;margin-bottom:3px;">• ${tech}</div>`).join("")}
