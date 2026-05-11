@@ -248,6 +248,70 @@ Respond in JSON: { "isHarmful": false, "category": "none", "severity": "low", "e
   }
 });
 
+
+// ── Vraag beantwoorden ────────────────────────────────────────
+app.post('/api/vraag', async (req, res) => {
+  try {
+    const { vraag, context, taal } = req.body;
+    if (!vraag) return res.status(400).json({ error: 'Geen vraag meegegeven' });
+
+    const taalCode = (taal || "en").substring(0, 2).toLowerCase();
+    const antwoordTaal = taalCode === "nl" ? "Dutch" : "English";
+
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a helpful assistant that answers questions about web page content. Always respond in ${antwoordTaal}. 
+Answer the user's question directly and concisely based on the context provided. 
+If the context doesn't contain enough information, search your knowledge to give a useful answer.
+Keep your answer to 2-3 sentences maximum.`
+          },
+          {
+            role: 'user',
+            content: `Question: ${vraag}\n\nPage context: ${context || 'No context available'}`
+          }
+        ],
+        temperature: 0.3
+      })
+    });
+
+    const data = await openaiRes.json();
+    const antwoord = data.choices[0].message.content;
+
+    // Tavily voor relevante bronnen bij de vraag
+    const tavilyRes = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
+        query: vraag,
+        search_depth: 'basic',
+        max_results: 3,
+        include_answer: false
+      })
+    });
+
+    const tavilyData = await tavilyRes.json();
+
+    res.json({
+      antwoord,
+      bronnen: (tavilyData.results || []).map(r => r.url)
+    });
+
+  } catch (err) {
+    console.error('Vraag fout:', err);
+    res.status(500).json({ error: 'Server fout bij beantwoorden vraag' });
+  }
+});
+
 // ── Start server ──────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
