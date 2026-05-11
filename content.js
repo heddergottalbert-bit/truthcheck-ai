@@ -194,7 +194,11 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:6px;font-family:${lettertype};">${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span></div>
     <div style="font-size:11px;color:${tekstKleur};line-height:1.5;margin-bottom:14px;font-family:${lettertype};">${schoneUitleg}</div>
     <div id="tc-vraag-veld" style="display:none;margin-bottom:12px;">
-      <input id="tc-vraag-input" type="text" placeholder="${t.questionPlaceholder}" style="width:100%;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:${tekstKleur};font-size:11px;font-family:${lettertype};box-sizing:border-box;"/>
+      <div style="display:flex;gap:6px;">
+        <input id="tc-vraag-input" type="text" placeholder="${t.questionPlaceholder}" style="flex:1;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:${tekstKleur};font-size:11px;font-family:${lettertype};box-sizing:border-box;"/>
+        <button id="tc-vraag-verstuur" style="padding:7px 10px;background:rgba(122,179,239,0.2);border:1px solid rgba(122,179,239,0.4);border-radius:8px;color:#7ab3ef;cursor:pointer;font-size:11px;">→</button>
+      </div>
+      <div id="tc-vraag-antwoord" style="display:none;margin-top:8px;padding:8px;background:rgba(255,255,255,0.05);border-radius:8px;font-size:11px;color:${tekstKleur};line-height:1.5;"></div>
     </div>
     ${strafbareHTML}
     ${deepfakeHTML}
@@ -211,6 +215,40 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     veld.style.display = veld.style.display === "none" ? "block" : "none";
     if (veld.style.display === "block") document.getElementById("tc-vraag-input").focus();
   };
+
+  function verstuurVraag() {
+    const input = document.getElementById("tc-vraag-input");
+    const antwoordDiv = document.getElementById("tc-vraag-antwoord");
+    const vraag = input.value.trim();
+    if (!vraag) return;
+
+    antwoordDiv.style.display = "block";
+    antwoordDiv.textContent = "⏳ Even wachten...";
+
+    const context = huidigUitleg + " " + huidigBronnen.join(" ");
+
+    chrome.runtime.sendMessage(
+      { action: "stel_vraag", vraag, context: context.substring(0, 500), taal: navigator.language || "en" },
+      (response) => {
+        if (chrome.runtime.lastError || !response) {
+          antwoordDiv.textContent = "Kon geen antwoord ophalen.";
+          return;
+        }
+        antwoordDiv.innerHTML = '<span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;opacity:0.5;display:block;margin-bottom:4px;">💬 Antwoord</span>' + (response.antwoord || 'Geen antwoord gevonden.');
+
+        // Alle bestaande bronnen oplichten bij een antwoord
+        const bronLinks = document.querySelectorAll("#tc-popup a[href]");
+        bronLinks.forEach(link => {
+          link.style.background = "rgba(46,204,113,0.2)";
+          link.style.border = "1px solid rgba(46,204,113,0.6)";
+          link.style.color = "#2ecc71";
+        });
+      }
+    );
+  }
+
+  document.getElementById("tc-vraag-verstuur").onclick = verstuurVraag;
+  document.getElementById("tc-vraag-input").onkeydown = (e) => { if (e.key === "Enter") verstuurVraag(); };
 }
 
 // ── Instellingen menu ─────────────────────────────────────────
@@ -505,8 +543,38 @@ function toonLimietBerikt() {
   }
 }
 
+const ZOEKMASCHINE_UITSLUIT = [
+  "google.com", "google.nl", "google.be", "google.de", "google.fr",
+  "bing.com", "duckduckgo.com", "yahoo.com", "startpage.com",
+  "ecosia.org", "brave.com", "qwant.com", "search.yahoo.com",
+  "yandex.com", "baidu.com",
+  // Browsers met ingebouwde zoekpagina
+  "edge://", "about:blank", "chrome://", "firefox://", "newtab"
+];
+
+function isZoekpagina() {
+  const domein = location.hostname;
+  const pad = location.pathname;
+  const zoekParam = new URLSearchParams(location.search);
+  const url = location.href;
+
+  // Nieuwe tabbladpagina's en lege pagina's
+  if (!domein || url === "about:blank" || url.startsWith("chrome://") || url.startsWith("edge://") || url.startsWith("moz-extension://")) return true;
+
+  // Alleen uitsluiten als het écht een bekend zoekdomein is
+  const isZoekDomein = ZOEKMASCHINE_UITSLUIT.some(d => domein === d || domein.endsWith("." + d));
+  if (!isZoekDomein) return false; // Onbekend domein — altijd checken
+
+  const heeftZoekQuery = zoekParam.has("q") || zoekParam.has("query") || zoekParam.has("search");
+  const isHomepagina = pad === "/" || pad === "";
+  const isZoekPad = /^\/(search|zoek|results|web)/.test(pad);
+
+  return isHomepagina || heeftZoekQuery || isZoekPad;
+}
+
 function startCheck() {
   if (location.hostname.includes("mail.google.com")) { initialiseerGmail(); return; }
+  if (isZoekpagina()) return; // Zoekpagina — niets doen
   const text = document.querySelector("h1")?.innerText
     || document.querySelector("h2")?.innerText
     || document.title;
@@ -516,7 +584,7 @@ function startCheck() {
   const vandaag = new Date().toISOString().slice(0, 10);
   chrome.storage.local.get(["tc_checks_datum", "tc_checks_aantal"], (items) => {
     let aantal = (items.tc_checks_datum === vandaag) ? (items.tc_checks_aantal || 0) : 0;
-    if (aantal >= 5) { toonLimietBerikt(); return; }
+    if (aantal >= 9999) { toonLimietBerikt(); return; }
     chrome.storage.local.set({ tc_checks_datum: vandaag, tc_checks_aantal: aantal + 1 });
 
     const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");
