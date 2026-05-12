@@ -708,8 +708,8 @@ function startCheck() {
     toonLaadAnimatie();
     if (!chrome.runtime || !chrome.runtime.sendMessage) return;
 
-    const videoContext = isYouTube || location.hostname.includes("vimeo") || location.hostname.includes("tiktok")
-      ? vindVideoContext() : "";
+    const isVideoPagina = location.hostname.includes("youtube.com") || location.hostname.includes("vimeo.com") || location.hostname.includes("tiktok.com");
+    const videoContext = isVideoPagina ? vindVideoContext() : "";
 
     chrome.runtime.sendMessage(
       { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: navigator.language || "en" },
