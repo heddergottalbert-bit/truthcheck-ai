@@ -395,14 +395,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  const deepfakePromise = (request.afbeeldingUrl || request.domein?.includes("youtube"))
+  const isVideoPagina = request.afbeeldingUrl || 
+    request.domein?.includes("youtube") || 
+    request.domein?.includes("vimeo") || 
+    request.domein?.includes("tiktok");
+
+  const deepfakePromise = isVideoPagina
     ? fetch(SERVER_URL + "/api/deepfake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           afbeeldingUrl: request.afbeeldingUrl || null,
           titel: request.text || "",
-          domein: request.domein || ""
+          domein: request.domein || "",
+          videoContext: request.videoContext || ""
         })
       })
       .then(res => res.json())

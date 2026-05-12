@@ -460,7 +460,13 @@ function vindArtikelTekst() {
     .slice(0, 8).map(p => p.innerText).join(" ").substring(0, 1200);
   if (alleTekst.length > 100) return alleTekst;
 
-  // Stap 4: body.innerText als laatste redmiddel
+  // Stap 4: li elementen meenemen
+  const liTekst = Array.from(document.querySelectorAll("li"))
+    .filter(li => isSchoneTekst(li.innerText))
+    .slice(0, 10).map(li => li.innerText).join(" ").substring(0, 1200);
+  if (liTekst.length > 100) return liTekst;
+
+  // Stap 5: body.innerText als laatste redmiddel
   return (document.body.innerText || "").replace(/\s+/g, " ").substring(0, 1200);
 }
 
@@ -479,6 +485,40 @@ function vindZoekContext() {
       !p.innerText.toLowerCase().includes("cookies") &&
       !p.innerText.toLowerCase().includes("privacy")
     )?.innerText?.substring(0, 300) || "";
+}
+
+
+function vindVideoContext() {
+  // YouTube specifiek
+  if (location.hostname.includes("youtube.com")) {
+    const titel     = document.querySelector("h1.ytd-video-primary-info-renderer, h1.style-scope.ytd-watch-metadata")?.innerText || "";
+    const kanaal    = document.querySelector("#channel-name, #owner #channel-name, ytd-channel-name")?.innerText || "";
+    const beschrijving = document.querySelector("#description-inline-expander, #description ytd-text-inline-expander, #snippet")?.innerText || "";
+    const tags      = Array.from(document.querySelectorAll("meta[property='og:video:tag']")).map(m => m.content).join(", ");
+    const views     = document.querySelector(".view-count, #info .ytd-video-view-count-renderer")?.innerText || "";
+    return `Titel: ${titel} | Kanaal: ${kanaal} | Views: ${views} | Tags: ${tags} | Beschrijving: ${beschrijving.substring(0, 400)}`;
+  }
+
+  // Vimeo
+  if (location.hostname.includes("vimeo.com")) {
+    const titel     = document.querySelector(".clip_info-description h1, .player_container h1")?.innerText || document.title;
+    const uploader  = document.querySelector(".byline a, .user-handle")?.innerText || "";
+    const beschrijving = document.querySelector(".clip_description, .description")?.innerText || "";
+    return `Titel: ${titel} | Uploader: ${uploader} | Beschrijving: ${beschrijving.substring(0, 400)}`;
+  }
+
+  // TikTok
+  if (location.hostname.includes("tiktok.com")) {
+    const caption   = document.querySelector("[data-e2e='browse-video-desc'], .video-meta-caption")?.innerText || "";
+    const gebruiker = document.querySelector("[data-e2e='browse-username'], .author-uniqueId")?.innerText || "";
+    return `Gebruiker: ${gebruiker} | Caption: ${caption}`;
+  }
+
+  // Generiek — fallback voor andere videoplatforms
+  const ogTitle   = document.querySelector('meta[property="og:title"]')?.content || "";
+  const ogDesc    = document.querySelector('meta[property="og:description"]')?.content || "";
+  const auteur    = document.querySelector('[rel="author"], .author, .creator')?.innerText || "";
+  return `Titel: ${ogTitle} | Auteur: ${auteur} | Beschrijving: ${ogDesc.substring(0, 400)}`;
 }
 
 function vindReacties() {
@@ -668,8 +708,11 @@ function startCheck() {
     toonLaadAnimatie();
     if (!chrome.runtime || !chrome.runtime.sendMessage) return;
 
+    const videoContext = isYouTube || location.hostname.includes("vimeo") || location.hostname.includes("tiktok")
+      ? vindVideoContext() : "";
+
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, taal: navigator.language || "en" },
+      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: navigator.language || "en" },
       (response) => {
         if (chrome.runtime.lastError || !response || response.status !== "success") return;
         huidigScore    = response.score;

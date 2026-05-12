@@ -327,7 +327,7 @@ Keep your answer to 2-3 sentences maximum.`
 // ── Deepfake detectie ─────────────────────────────────────────
 app.post('/api/deepfake', async (req, res) => {
   try {
-    const { afbeeldingUrl, titel, domein } = req.body;
+    const { afbeeldingUrl, titel, domein, videoContext } = req.body;
 
     // Stap 1: Titel/metadata check voor YouTube en video
     const titelLower = (titel || "").toLowerCase();
@@ -347,15 +347,26 @@ app.post('/api/deepfake', async (req, res) => {
     const aantalDeepfakeWoorden = DEEPFAKE_WOORDEN.filter(w => titelLower.includes(w)).length;
     const isBetrouwbaarKanaal = BETROUWBARE_KANALEN.some(k => titelLower.includes(k));
 
-    // Snelle score op basis van titel alleen als geen afbeelding
+    // Context ook checken op deepfake woorden
+    const contextLower = (videoContext || "").toLowerCase();
+    const aantalContextWoorden = DEEPFAKE_WOORDEN.filter(w => contextLower.includes(w)).length;
+    const isBetrouwbaarContext = BETROUWBARE_KANALEN.some(k => contextLower.includes(k));
+
+    // Snelle score op basis van titel + context als geen afbeelding
     if (!afbeeldingUrl) {
-      if (aantalDeepfakeWoorden >= 1) {
-        return res.json({ deepfake_kans: 90, uitleg: "De titel bevat directe deepfake of AI-video signalen." });
+      if (aantalDeepfakeWoorden >= 1 && aantalContextWoorden === 0 && isBetrouwbaarContext) {
+        return res.json({ deepfake_kans: 20, uitleg: "Titel bevat 'deepfake' maar context wijst op een betrouwbaar kanaal of informatief artikel." });
       }
-      if (isBetrouwbaarKanaal) {
+      if (aantalDeepfakeWoorden >= 1 && aantalContextWoorden >= 1) {
+        return res.json({ deepfake_kans: 90, uitleg: "Zowel titel als beschrijving bevatten AI-video signalen." });
+      }
+      if (aantalDeepfakeWoorden >= 1) {
+        return res.json({ deepfake_kans: 60, uitleg: "Titel bevat deepfake signalen — controleer de beschrijving en het kanaal." });
+      }
+      if (isBetrouwbaarKanaal || isBetrouwbaarContext) {
         return res.json({ deepfake_kans: 5, uitleg: "Betrouwbaar kanaal — lage kans op deepfake." });
       }
-      return res.json({ deepfake_kans: 15, uitleg: "Geen directe deepfake signalen gevonden in de titel." });
+      return res.json({ deepfake_kans: 15, uitleg: "Geen directe deepfake signalen gevonden." });
     }
 
     // Stap 2: OpenAI Vision analyseert de afbeelding
@@ -379,7 +390,7 @@ Look for: unnatural skin, weird lighting, blurry edges around faces, inconsisten
             role: "user",
             content: [
               { type: "image_url", image_url: { url: afbeeldingUrl, detail: "low" } },
-              { type: "text", text: `Analyze this image for deepfake or AI generation. Page title: "${titel || ""}"` }
+              { type: "text", text: `Analyze this image for deepfake or AI generation. Page title: "${titel || ""}". Additional context: ${videoContext || "none"}` }
             ]
           }
         ],
