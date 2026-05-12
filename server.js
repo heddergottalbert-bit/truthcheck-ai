@@ -95,57 +95,60 @@ Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "
     const score = analysis.score || 50;
     const claim = analysis.claim || text.slice(0, 200);
 
-    // Stap 2: Tavily — query afhankelijk van score
-    // Hoge score (≥ 70): verdiepingsbronnen over het onderwerp
-    // Lage score (< 50): weerleggingsbronnen die de claim ontkrachten
-    // Midden (50-69): neutrale verificatiebronnen
-    let tavilyQuery;
-    if (score < 50) {
-      tavilyQuery = `fact check debunk misleading "${claim}"`;
-    } else if (score < 70) {
-      tavilyQuery = `fact check verify "${claim}"`;
-    } else {
-      tavilyQuery = `${claim}`;
-    }
+    // Stap 2: Tavily — alleen als gebruiker actief bronnen opvraagt
+    const includeSources = req.body.includeSources === true;
+    let finalBronnen = [];
+    let tavilyAnswer = null;
 
-    const tavilyRes = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: TAVILY_API_KEY,
-        query: tavilyQuery,
-        search_depth: 'advanced',
-        max_results: 5,
-        include_answer: true
-      })
-    });
+    if (includeSources) {
+      let tavilyQuery;
+      if (score < 50) {
+        tavilyQuery = `fact check debunk misleading "${claim}"`;
+      } else if (score < 70) {
+        tavilyQuery = `fact check verify "${claim}"`;
+      } else {
+        tavilyQuery = `${claim}`;
+      }
 
-    const tavilyData = await tavilyRes.json();
-    const bronnen = tavilyData.results || [];
-
-    // Stap 3: Als Tavily niets teruggeeft, tweede poging met bredere query
-    let finalBronnen = bronnen;
-    if (finalBronnen.length === 0) {
-      const tavilyRetry = await fetch('https://api.tavily.com/search', {
+      const tavilyRes = await fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           api_key: TAVILY_API_KEY,
-          query: analysis.theme || text.slice(0, 100),
-          search_depth: 'basic',
+          query: tavilyQuery,
+          search_depth: 'advanced',
           max_results: 5,
-          include_answer: false
+          include_answer: true
         })
       });
-      const retryData = await tavilyRetry.json();
-      finalBronnen = retryData.results || [];
+
+      const tavilyData = await tavilyRes.json();
+      finalBronnen = tavilyData.results || [];
+      tavilyAnswer = tavilyData.answer || null;
+
+      // Stap 3: retry als eerste niets oplevert
+      if (finalBronnen.length === 0) {
+        const tavilyRetry = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            api_key: TAVILY_API_KEY,
+            query: analysis.theme || text.slice(0, 100),
+            search_depth: 'basic',
+            max_results: 5,
+            include_answer: false
+          })
+        });
+        const retryData = await tavilyRetry.json();
+        finalBronnen = retryData.results || [];
+      }
     }
 
     const heeftBronnen = finalBronnen.length > 0;
-    const gecorrigeerdeScore = (!heeftBronnen && score > 60) ? 60 : score;
-    const bronVermelding = heeftBronnen
-      ? ""
-      : " Geen onafhankelijke bronnen gevonden — score is indicatief.";
+    const gecorrigeerdeScore = (!heeftBronnen && score > 60 && includeSources) ? 60 : score;
+    const bronVermelding = includeSources && !heeftBronnen
+      ? " Geen onafhankelijke bronnen gevonden — score is indicatief."
+      : "";
 
     res.json({
       score: gecorrigeerdeScore,
@@ -157,7 +160,7 @@ Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "
       bronType: gecorrigeerdeScore < 50 ? 'weerlegging' : gecorrigeerdeScore < 70 ? 'verificatie' : 'verdieping',
       sources: finalBronnen,
       heeftBronnen,
-      answer: tavilyData.answer || null
+      answer: tavilyAnswer
     });
 
   } catch (err) {

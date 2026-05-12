@@ -256,7 +256,7 @@ function haalBronnenOp(request) {
   return fetch(SERVER_URL + "/api/factcheck", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: request.text, artikelTekst: request.artikelTekst || "", domein: request.domein || "" })
+    body: JSON.stringify({ text: request.text, artikelTekst: request.artikelTekst || "", domein: request.domein || "", includeSources: true })
   })
   .then(res => res.json())
   .then(data => (data.sources || []).map(r => r.url))
