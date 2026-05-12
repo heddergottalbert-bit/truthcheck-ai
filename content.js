@@ -434,7 +434,7 @@ function vindArtikelTekst() {
   for (const sel of artikelSelectors) {
     const els = document.querySelectorAll(sel);
     if (els.length > 0) {
-      const tekst = Array.from(els).slice(0, 8).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 1200);
+      const tekst = Array.from(els).slice(0, 15).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 2500);
       if (tekst.length > 100) return tekst;
     }
   }
@@ -449,7 +449,7 @@ function vindArtikelTekst() {
   for (const sel of bredeSelectors) {
     const els = document.querySelectorAll(sel);
     if (els.length > 0) {
-      const tekst = Array.from(els).slice(0, 8).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 1200);
+      const tekst = Array.from(els).slice(0, 15).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 2500);
       if (tekst.length > 100) return tekst;
     }
   }
@@ -457,17 +457,17 @@ function vindArtikelTekst() {
   // Stap 3: alle p tags als fallback
   const alleTekst = Array.from(document.querySelectorAll("p"))
     .filter(p => isSchoneTekst(p.innerText))
-    .slice(0, 8).map(p => p.innerText).join(" ").substring(0, 1200);
+    .slice(0, 15).map(p => p.innerText).join(" ").substring(0, 2500);
   if (alleTekst.length > 100) return alleTekst;
 
   // Stap 4: li elementen meenemen
   const liTekst = Array.from(document.querySelectorAll("li"))
     .filter(li => isSchoneTekst(li.innerText))
-    .slice(0, 10).map(li => li.innerText).join(" ").substring(0, 1200);
+    .slice(0, 15).map(li => li.innerText).join(" ").substring(0, 2500);
   if (liTekst.length > 100) return liTekst;
 
   // Stap 5: body.innerText als laatste redmiddel
-  return (document.body.innerText || "").replace(/\s+/g, " ").substring(0, 1200);
+  return (document.body.innerText || "").replace(/\s+/g, " ").substring(0, 2500);
 }
 
 function vindZoekContext() {
