@@ -70,7 +70,12 @@ STRICT SCORING RULES — always apply these:
 
 Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "manipulatie": [], "aiTekst": 0 }
 
-6. AI-generated text probability (0-100): estimate the likelihood this text was written by AI. Consider: uniform sentence length, lack of personal voice, generic phrasing, no typos, overly structured. Return as "aiTekst": 0-100.`
+6. AI-generated text probability (0-100): estimate the likelihood this text was written by AI.
+   Score HIGH (70-100) ONLY when multiple of these are present: no real names/dates, no concrete statistics, no quotes from real people, perfectly uniform sentences, generic motivational closing, reads like a template.
+   Score LOW (0-15) when: contains real names, specific dates, real quotes, concrete case studies, journalistic structure, personal voice or anecdotes.
+   Score MEDIUM (20-50) when: professionally written but lacks personal voice or concrete sources.
+   Important: professional, academic or journalistic writing is NOT automatically AI. Only score high when clear AI patterns dominate.
+   Return as "aiTekst": 0-100.`
           },
           { role: 'user', content: text }
         ],
