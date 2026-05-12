@@ -134,14 +134,21 @@ Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "
       finalBronnen = retryData.results || [];
     }
 
+    const heeftBronnen = finalBronnen.length > 0;
+    const gecorrigeerdeScore = (!heeftBronnen && score > 60) ? 60 : score;
+    const bronVermelding = heeftBronnen
+      ? ""
+      : " Geen onafhankelijke bronnen gevonden — score is indicatief.";
+
     res.json({
-      score,
+      score: gecorrigeerdeScore,
       theme: analysis.theme,
       claim: analysis.claim,
-      explanation: analysis.explanation,
+      explanation: analysis.explanation + bronVermelding,
       manipulatie: analysis.manipulatie || [],
-      bronType: score < 50 ? 'weerlegging' : score < 70 ? 'verificatie' : 'verdieping',
+      bronType: gecorrigeerdeScore < 50 ? 'weerlegging' : gecorrigeerdeScore < 70 ? 'verificatie' : 'verdieping',
       sources: finalBronnen,
+      heeftBronnen,
       answer: tavilyData.answer || null
     });
 
@@ -309,6 +316,35 @@ Keep your answer to 2-3 sentences maximum.`
   } catch (err) {
     console.error('Vraag fout:', err);
     res.status(500).json({ error: 'Server fout bij beantwoorden vraag' });
+  }
+});
+
+
+// ── Feedback opslaan ──────────────────────────────────────────
+const fs = require('fs');
+const path = require('path');
+
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const { url, score, oordeel, duim, tekst, timestamp } = req.body;
+    
+    const feedback = {
+      timestamp: timestamp || new Date().toISOString(),
+      url: url || 'onbekend',
+      score: score || 0,
+      oordeel: oordeel || '',
+      duim: duim || 'geen',
+      tekst: tekst || ''
+    };
+
+    // Log naar console (zichtbaar in Railway logs)
+    console.log('FEEDBACK:', JSON.stringify(feedback));
+
+    res.json({ status: 'ok' });
+
+  } catch (err) {
+    console.error('Feedback fout:', err);
+    res.status(500).json({ error: 'Server fout bij feedback opslaan' });
   }
 });
 
