@@ -10,6 +10,7 @@ let huidigStrafbareContent = false;
 let huidigEmoji = "🤔";
 let huidigBronType = "verdieping";
 let huidigManipulatie = [];
+let huidigAiTekst = 0;
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -204,12 +205,60 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     ${deepfakeHTML}
     ${manipulatieHTML}
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
+      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">AI-gegenereerde tekst</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.1);overflow:hidden;">
+          <div style="height:100%;width:${huidigAiTekst}%;background:linear-gradient(to right,#2ecc71,#f1c40f,#e74c3c);"></div>
+        </div>
+        <div style="font-size:11px;font-weight:bold;min-width:32px;text-align:right;font-family:${lettertype};color:${huidigAiTekst >= 70 ? '#e74c3c' : huidigAiTekst >= 40 ? '#f1c40f' : '#2ecc71'};">${huidigAiTekst}%</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
       <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">${bronLabel}</div>
       ${bronnenHTML}
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
+      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:8px;font-family:${lettertype};">Feedback</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button id="tc-duim-op" style="flex:1;padding:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:16px;" title="Klopt dit oordeel?">👍</button>
+        <button id="tc-duim-neer" style="flex:1;padding:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:16px;" title="Klopt dit oordeel niet?">👎</button>
+      </div>
+      <div id="tc-feedback-veld" style="display:none;margin-bottom:8px;">
+        <input id="tc-feedback-tekst" type="text" placeholder="Optioneel: wat klopt er niet?" style="width:100%;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:${tekstKleur};font-size:11px;font-family:${lettertype};box-sizing:border-box;"/>
+        <button id="tc-feedback-verstuur" style="width:100%;margin-top:6px;padding:6px;background:rgba(122,179,239,0.2);border:1px solid rgba(122,179,239,0.4);border-radius:8px;color:#7ab3ef;cursor:pointer;font-size:11px;">Verstuur feedback</button>
+      </div>
+      <div id="tc-feedback-bevestiging" style="display:none;font-size:11px;color:#2ecc71;text-align:center;margin-bottom:8px;">✓ Bedankt voor je feedback!</div>
     </div>
     <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">${t.close}</button>`;
 
   document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
+
+  function verstuurFeedback(duim) {
+    const tekst = document.getElementById("tc-feedback-tekst")?.value || "";
+    chrome.runtime.sendMessage({
+      action: "stuur_feedback",
+      url: window.location.href,
+      score: huidigScore,
+      oordeel: huidigOordeel,
+      duim,
+      tekst,
+      timestamp: new Date().toISOString()
+    });
+    document.getElementById("tc-duim-op").style.opacity = duim === "op" ? "1" : "0.3";
+    document.getElementById("tc-duim-neer").style.opacity = duim === "neer" ? "1" : "0.3";
+    document.getElementById("tc-feedback-bevestiging").style.display = "block";
+    document.getElementById("tc-feedback-veld").style.display = "none";
+  }
+
+  document.getElementById("tc-duim-op").onclick = () => {
+    document.getElementById("tc-feedback-veld").style.display = "none";
+    verstuurFeedback("op");
+  };
+  document.getElementById("tc-duim-neer").onclick = () => {
+    document.getElementById("tc-feedback-veld").style.display = "block";
+    document.getElementById("tc-feedback-tekst").focus();
+  };
+  document.getElementById("tc-feedback-verstuur").onclick = () => verstuurFeedback("neer");
   document.getElementById("tc-vraag-knop").onclick = () => {
     const veld = document.getElementById("tc-vraag-veld");
     veld.style.display = veld.style.display === "none" ? "block" : "none";
@@ -369,28 +418,50 @@ function vindHoofdAfbeelding() {
 }
 
 function vindArtikelTekst() {
-  const selectors = [
+  const uitsluitWoorden = ["cookies", "privacy", "huisregel", "copyright", "all rights reserved", "terms of service", "newsletter", "subscribe"];
+
+  function isSchoneTekst(tekst) {
+    const lower = tekst.toLowerCase();
+    return tekst.length > 30 && !uitsluitWoorden.some(w => lower.includes(w));
+  }
+
+  // Stap 1: specifieke artikel selectors
+  const artikelSelectors = [
     "article p", ".article-body p", ".article__body p",
     ".content p", ".post-content p", ".article-content p",
     "main article p", ".nieuws-artikel p", ".article-text p"
   ];
-  for (const sel of selectors) {
+  for (const sel of artikelSelectors) {
     const els = document.querySelectorAll(sel);
     if (els.length > 0) {
-      return Array.from(els).slice(0, 5)
-        .map(p => p.innerText)
-        .filter(tekst => tekst.length > 30)
-        .join(" ").substring(0, 800);
+      const tekst = Array.from(els).slice(0, 8).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 1200);
+      if (tekst.length > 100) return tekst;
     }
   }
-  return Array.from(document.querySelectorAll("p"))
-    .filter(p =>
-      p.innerText.length > 30 &&
-      !p.innerText.toLowerCase().includes("cookies") &&
-      !p.innerText.toLowerCase().includes("privacy") &&
-      !p.innerText.toLowerCase().includes("huisregel")
-    )
-    .slice(0, 5).map(p => p.innerText).join(" ").substring(0, 800);
+
+  // Stap 2: bredere selectors voor community/event/landingspaginas
+  const bredeSelectors = [
+    "main p", "section p", ".description p", ".details p",
+    ".body p", ".text p", ".entry p", ".post p",
+    "[class*=\'content\'] p", "[class*=\'description\'] p",
+    "[class*=\'detail\'] p", "[class*=\'body\'] p"
+  ];
+  for (const sel of bredeSelectors) {
+    const els = document.querySelectorAll(sel);
+    if (els.length > 0) {
+      const tekst = Array.from(els).slice(0, 8).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 1200);
+      if (tekst.length > 100) return tekst;
+    }
+  }
+
+  // Stap 3: alle p tags als fallback
+  const alleTekst = Array.from(document.querySelectorAll("p"))
+    .filter(p => isSchoneTekst(p.innerText))
+    .slice(0, 8).map(p => p.innerText).join(" ").substring(0, 1200);
+  if (alleTekst.length > 100) return alleTekst;
+
+  // Stap 4: body.innerText als laatste redmiddel
+  return (document.body.innerText || "").replace(/\s+/g, " ").substring(0, 1200);
 }
 
 function vindZoekContext() {
@@ -584,7 +655,7 @@ function startCheck() {
   const vandaag = new Date().toISOString().slice(0, 10);
   chrome.storage.local.get(["tc_checks_datum", "tc_checks_aantal"], (items) => {
     let aantal = (items.tc_checks_datum === vandaag) ? (items.tc_checks_aantal || 0) : 0;
-    if (aantal >= 9999) { toonLimietBerikt(); return; }
+    if (aantal >= 100) { toonLimietBerikt(); return; }
     chrome.storage.local.set({ tc_checks_datum: vandaag, tc_checks_aantal: aantal + 1 });
 
     const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");
@@ -608,6 +679,7 @@ function startCheck() {
         huidigDeepfake = response.deepfake || null;
         huidigBronType = response.bronType || (response.score < 50 ? "weerlegging" : response.score < 70 ? "verificatie" : "verdieping");
         huidigManipulatie = response.manipulatie || [];
+        huidigAiTekst    = response.aiTekst || 0;
         huidigEmoji    = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
         if (!huidigStrafbareContent) {
           huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
