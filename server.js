@@ -68,7 +68,11 @@ STRICT SCORING RULES — always apply these:
 - Known reliable news (NOS, BBC, Reuters, NRC): score MIN 75
 - Scientific peer-reviewed sources: score MIN 85
 
-Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "manipulatie": [] }`
+5. AI-generated text probability (0-100): estimate the likelihood this text was written by AI.
+   Consider: uniform sentence length, lack of personal voice, generic phrasing, no typos, overly structured.
+   Return as "aiTekst": 0-100.
+
+Always respond ONLY in valid JSON, nothing else: { "theme": "", "claim": "", "score": 0, "explanation": "", "manipulatie": [], "aiTekst": 0 }`
           },
           { role: 'user', content: text }
         ],
@@ -146,6 +150,7 @@ Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "
       claim: analysis.claim,
       explanation: analysis.explanation + bronVermelding,
       manipulatie: analysis.manipulatie || [],
+      aiTekst: analysis.aiTekst || 0,
       bronType: gecorrigeerdeScore < 50 ? 'weerlegging' : gecorrigeerdeScore < 70 ? 'verificatie' : 'verdieping',
       sources: finalBronnen,
       heeftBronnen,
