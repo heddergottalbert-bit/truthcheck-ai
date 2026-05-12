@@ -275,6 +275,47 @@ function checkAlleenReacties(reactiesTekst, sendResponse) {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+
+  // ── Feedback opslaan ─────────────────────────────────────────
+  if (request.action === "stuur_feedback") {
+    fetch("https://truthcheck-ai-production.up.railway.app/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: request.url,
+        score: request.score,
+        oordeel: request.oordeel,
+        duim: request.duim,
+        tekst: request.tekst,
+        timestamp: request.timestamp
+      })
+    }).catch(() => {});
+    return false;
+  }
+
+  // ── Vraag aan AI stellen ──────────────────────────────────────
+  if (request.action === "stel_vraag") {
+    fetch("https://truthcheck-ai-production.up.railway.app/api/vraag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vraag: request.vraag,
+        context: request.context || "",
+        taal: request.taal || "en"
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      sendResponse({
+        status: "success",
+        antwoord: data.antwoord || "Geen antwoord gevonden.",
+        bronnen: data.bronnen || []
+      });
+    })
+    .catch(() => sendResponse({ status: "error", antwoord: "Kon geen antwoord ophalen." }));
+    return true;
+  }
+
   if (request.action !== "start_check") return false;
 
   if (request.alleenReactieCheck) {
@@ -354,9 +395,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  const deepfakePromise = request.afbeeldingUrl
-    ? fetch(SERVER_URL + "/api/factcheck", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: "deepfake check: " + request.afbeeldingUrl }) })
-      .then(res => res.json()).then(() => ({ deepfake_kans: 0, uitleg: "" })).catch(() => ({ deepfake_kans: 0, uitleg: "" }))
+  const deepfakePromise = (request.afbeeldingUrl || request.domein?.includes("youtube"))
+    ? fetch(SERVER_URL + "/api/deepfake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          afbeeldingUrl: request.afbeeldingUrl || null,
+          titel: request.text || "",
+          domein: request.domein || ""
+        })
+      })
+      .then(res => res.json())
+      .then(data => ({ deepfake_kans: data.deepfake_kans || 0, uitleg: data.uitleg || "" }))
+      .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
     : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
 
   const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
@@ -382,6 +433,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const oordeel    = data.theme || "Onbekend";
       const uitleg     = data.explanation || "Geen uitleg beschikbaar.";
       const manipulatie = data.manipulatie || [];
+      const aiTekst   = data.aiTekst || 0;
       const isDeepfake = deepfakeResultaat && deepfakeResultaat.deepfake_kans >= 50;
       const type       = isDeepfake ? "deepfake" : "normaal";
       const emoji      = bepaalEmoji(score, type);
@@ -395,6 +447,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         phishing: { actief: false },
         deepfake: deepfakeResultaat,
         manipulatie,
+        aiTekst,
         emoji, type
       });
     });

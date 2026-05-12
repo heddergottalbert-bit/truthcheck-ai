@@ -82,11 +82,9 @@ Always respond in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "
     const content = openaiData.choices[0].message.content;
     let analysis;
     try {
-      const schoon = content.replace(/```json|```/g, "").trim();
-      analysis = JSON.parse(schoon);
+      analysis = JSON.parse(content);
     } catch {
-      console.error('JSON parse fout:', content.substring(0, 200));
-      analysis = { theme: 'Unknown', claim: text.slice(0, 100), score: 50, explanation: 'Analyse mislukt.', manipulatie: [], aiTekst: 0 };
+      analysis = { theme: 'Unknown', claim: text.slice(0, 100), score: 50, explanation: content };
     }
 
     const score = analysis.score || 50;
@@ -324,6 +322,99 @@ Keep your answer to 2-3 sentences maximum.`
   }
 });
 
+
+
+// ── Deepfake detectie ─────────────────────────────────────────
+app.post('/api/deepfake', async (req, res) => {
+  try {
+    const { afbeeldingUrl, titel, domein } = req.body;
+
+    // Stap 1: Titel/metadata check voor YouTube en video
+    const titelLower = (titel || "").toLowerCase();
+    const DEEPFAKE_WOORDEN = [
+      "deepfake", "deep fake", "ai generated", "ai gegenereerd",
+      "nep video", "fake video", "made with ai", "gemaakt met ai",
+      "ai downfall", "ai animals", "ai cat", "ai dog", "ai short",
+      "sora", "runway ml", "pika labs", "kling ai", "hailuo",
+      "luma dream machine", "stable video", "veo 2", "movie gen"
+    ];
+    const BETROUWBARE_KANALEN = [
+      "nos", "bbc", "reuters", "nieuwsuur", "vpro", "npo",
+      "rtl nieuws", "ted", "vsauce", "veritasium", "kurzgesagt",
+      "national geographic", "nasa", "who", "unicef"
+    ];
+
+    const aantalDeepfakeWoorden = DEEPFAKE_WOORDEN.filter(w => titelLower.includes(w)).length;
+    const isBetrouwbaarKanaal = BETROUWBARE_KANALEN.some(k => titelLower.includes(k));
+
+    // Snelle score op basis van titel alleen als geen afbeelding
+    if (!afbeeldingUrl) {
+      if (aantalDeepfakeWoorden >= 1) {
+        return res.json({ deepfake_kans: 90, uitleg: "De titel bevat directe deepfake of AI-video signalen." });
+      }
+      if (isBetrouwbaarKanaal) {
+        return res.json({ deepfake_kans: 5, uitleg: "Betrouwbaar kanaal — lage kans op deepfake." });
+      }
+      return res.json({ deepfake_kans: 15, uitleg: "Geen directe deepfake signalen gevonden in de titel." });
+    }
+
+    // Stap 2: OpenAI Vision analyseert de afbeelding
+    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are a deepfake and AI-generated image detector. Analyze the image and return ONLY valid JSON:
+{ "deepfake_kans": 0-100, "uitleg": "short explanation in Dutch, max 1 sentence" }
+Score 0 = definitely real, 100 = definitely AI generated or deepfake.
+Look for: unnatural skin, weird lighting, blurry edges around faces, inconsistent shadows, too-perfect symmetry, strange backgrounds, AI art style.`
+          },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: afbeeldingUrl, detail: "low" } },
+              { type: "text", text: `Analyze this image for deepfake or AI generation. Page title: "${titel || ""}"` }
+            ]
+          }
+        ],
+        max_tokens: 100,
+        temperature: 0.2
+      })
+    });
+
+    const data = await openaiRes.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    
+    let resultaat;
+    try {
+      const schoon = content.replace(/```json|```/g, "").trim();
+      resultaat = JSON.parse(schoon);
+    } catch {
+      // Fallback op titelscore als Vision parse mislukt
+      resultaat = {
+        deepfake_kans: aantalDeepfakeWoorden >= 1 ? 85 : isBetrouwbaarKanaal ? 5 : 15,
+        uitleg: "Visuele analyse niet beschikbaar."
+      };
+    }
+
+    // Combineer vision score met titelscore
+    if (aantalDeepfakeWoorden >= 1) {
+      resultaat.deepfake_kans = Math.max(resultaat.deepfake_kans, 80);
+    }
+
+    res.json(resultaat);
+
+  } catch (err) {
+    console.error("Deepfake fout:", err);
+    res.json({ deepfake_kans: 0, uitleg: "Deepfake analyse niet beschikbaar." });
+  }
+});
 
 // ── Feedback opslaan ──────────────────────────────────────────
 const fs = require('fs');
