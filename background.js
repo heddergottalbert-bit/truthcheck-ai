@@ -55,7 +55,8 @@ const LIFESTYLE_DOMEINEN = [
   "cosmopolitan.com", "cosmopolitan.nl", "elle.com", "elle.nl",
   "libelle.nl", "margriet.nl", "flair.nl", "nina.be",
   "harpersbazaar.com", "instyle.com",
-  "lifestylemagazine.nl", "gezondheidskrant.nl"
+  "lifestylemagazine.nl", "gezondheidskrant.nl",
+  "msn.com"
 ];
 
 const OFFICIELE_DOMEINEN = {
@@ -302,6 +303,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
   }
 
+  // ── Bronnen ophalen bij popup open (Tavily on-demand) ──────────
+  if (request.action === "haal_bronnen") {
+    haalBronnenOp(request).then(bronnen => {
+      sendResponse({ bronnen });
+    });
+    return true;
+  }
+
   // ── Vraag aan AI stellen ──────────────────────────────────────
   if (request.action === "stel_vraag") {
     fetch("https://truthcheck-ai-production.up.railway.app/api/vraag", {
@@ -338,31 +347,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   const phishing = request.isEmail ? berekenPhishingEmail(request) : berekenPhishingWebsite(request);
 
+  // ── Taal bepalen ─────────────────────────────────────────────
+  const taal = (request.taal || "en").substring(0, 2).toLowerCase();
+  const isNL = taal === "nl";
+
+  const T = {
+    satireOordeel:    isNL ? "Satirische content"        : "Satirical content",
+    satireUitleg:     isNL ? "Dit is een satirische website. De inhoud is bedoeld als humor en niet als feitelijke berichtgeving."
+                           : "This is a satirical website. The content is intended as humor, not factual reporting.",
+    wetOordeel:       isNL ? "Wetenschappelijke bron"    : "Scientific source",
+    wetUitleg:        isNL ? "Dit is een wetenschappelijke of academische website met peer-reviewed content."
+                           : "This is a scientific or academic website with peer-reviewed content.",
+    nieuwsOordeel:    isNL ? "Betrouwbare nieuwsbron"    : "Reliable news source",
+    nieuwsUitleg:     isNL ? "Dit is een bekende en betrouwbare nieuwssite. Controleer altijd meerdere bronnen voor een volledig beeld."
+                           : "This is a well-known and reliable news site. Always check multiple sources for a complete picture.",
+    lifestyleOordeel: isNL ? "Lifestyle content"         : "Lifestyle content",
+    lifestyleUitleg:  isNL ? "Dit is een lifestyle website over gezondheid, sport, mode of beauty. Controleer medische of voedingsadviezen altijd bij een professional."
+                           : "This is a lifestyle website about health, sport, fashion or beauty. Always verify medical or dietary advice with a professional."
+  };
+
   if (phishing.isSatire) {
-    haalBronnenOp(request).then(bronnen => {
-      sendResponse({ status: "success", score: 75, oordeel: "Satirische content", uitleg: "Dit is een satirische website. De inhoud is bedoeld als humor en niet als feitelijke berichtgeving.", bronnen, phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "😄", type: "satire" });
-    });
+    sendResponse({ status: "success", score: 75, oordeel: T.satireOordeel, uitleg: T.satireUitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "😄", type: "satire" });
     return true;
   }
 
   if (phishing.isWetenschap) {
-    haalBronnenOp(request).then(bronnen => {
-      sendResponse({ status: "success", score: 90, oordeel: "Wetenschappelijke bron", uitleg: "Dit is een wetenschappelijke of academische website met peer-reviewed content.", bronnen, phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "🎓", type: "wetenschap" });
-    });
+    sendResponse({ status: "success", score: 90, oordeel: T.wetOordeel, uitleg: T.wetUitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "🎓", type: "wetenschap" });
     return true;
   }
 
   if (phishing.isNieuws) {
-    haalBronnenOp(request).then(bronnen => {
-      sendResponse({ status: "success", score: 85, oordeel: "Betrouwbare nieuwsbron", uitleg: "Dit is een bekende en betrouwbare nieuwssite. Controleer altijd meerdere bronnen voor een volledig beeld.", bronnen, phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "😊", type: "nieuws" });
-    });
+    sendResponse({ status: "success", score: 85, oordeel: T.nieuwsOordeel, uitleg: T.nieuwsUitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "😊", type: "nieuws" });
     return true;
   }
 
   if (phishing.isLifestyle) {
-    haalBronnenOp(request).then(bronnen => {
-      sendResponse({ status: "success", score: 70, oordeel: "Lifestyle content", uitleg: "Dit is een lifestyle website over gezondheid, sport, mode of beauty. Controleer medische of voedingsadviezen altijd bij een professional.", bronnen, phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "🌿", type: "lifestyle" });
-    });
+    sendResponse({ status: "success", score: 70, oordeel: T.lifestyleOordeel, uitleg: T.lifestyleUitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "🌿", type: "lifestyle" });
     return true;
   }
 
@@ -381,9 +401,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     else if (aantalClickbait === 1) { score = 55; oordeel = "Twijfelachtige YouTube video"; uitleg = "De titel bevat een mogelijk misleidend woord. Controleer het kanaal en de bronnen."; }
     else { score = 70; oordeel = "YouTube video"; uitleg = "Geen directe desinformatie signalen gevonden. Controleer altijd het kanaal en de bronnen bij gevoelige onderwerpen."; }
 
-    haalBronnenOp(request).then(bronnen => {
-      sendResponse({ status: "success", score, oordeel, uitleg, bronnen, phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "📺", type: "youtube" });
-    });
+    sendResponse({ status: "success", score, oordeel, uitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "📺", type: "youtube" });
     return true;
   }
 

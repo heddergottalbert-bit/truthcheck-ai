@@ -11,6 +11,7 @@ let huidigEmoji = "🤔";
 let huidigBronType = "verdieping";
 let huidigManipulatie = [];
 let huidigAiTekst = 0;
+let huidigArtikeltekst = "";
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -218,6 +219,15 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       ${bronnenHTML}
     </div>
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
+      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:8px;font-family:${lettertype};">Delen</div>
+      <div style="display:flex;gap:6px;">
+        <button id="tc-deel-klembord" style="flex:1;padding:6px 4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:10px;" title="Kopieer naar klembord">Kopieer</button>
+        <button id="tc-deel-mail" style="flex:1;padding:6px 4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:10px;" title="Deel via e-mail">Mail</button>
+        <button id="tc-deel-whatsapp" style="flex:1;padding:6px 4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:10px;" title="Deel via WhatsApp">WhatsApp</button>
+      </div>
+      <div id="tc-deel-bevestiging" style="display:none;font-size:10px;color:#2ecc71;text-align:center;margin-top:6px;">✓ Gekopieerd naar klembord</div>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
       <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:8px;font-family:${lettertype};">Feedback</div>
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <button id="tc-duim-op" style="flex:1;padding:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:16px;" title="Klopt dit oordeel?">👍</button>
@@ -274,10 +284,11 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     antwoordDiv.style.display = "block";
     antwoordDiv.textContent = "⏳ Even wachten...";
 
-    const context = huidigUitleg + " " + huidigBronnen.join(" ");
+    const context = [huidigArtikeltekst, huidigUitleg, huidigBronnen.join(" ")]
+      .filter(Boolean).join(" ").substring(0, 1500);
 
     chrome.runtime.sendMessage(
-      { action: "stel_vraag", vraag, context: context.substring(0, 500), taal: navigator.language || "en" },
+      { action: "stel_vraag", vraag, context: context, taal: navigator.language || "en" },
       (response) => {
         if (chrome.runtime.lastError || !response) {
           antwoordDiv.textContent = "Kon geen antwoord ophalen.";
@@ -298,6 +309,39 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
 
   document.getElementById("tc-vraag-verstuur").onclick = verstuurVraag;
   document.getElementById("tc-vraag-input").onkeydown = (e) => { if (e.key === "Enter") verstuurVraag(); };
+
+  // ── Deel knoppen ──────────────────────────────────────────────
+  function maakDeelTekst() {
+    const bronnenLijst = huidigBronnen.length > 0
+      ? huidigBronnen.map(b => "• " + b).join("\n")
+      : "Geen bronnen gevonden";
+    return `FactRadar analyse\n\n` +
+      `📄 ${window.location.href}\n` +
+      `${huidigEmoji} ${huidigOordeel} — Score: ${huidigScore}/100\n\n` +
+      `${huidigUitleg}\n\n` +
+      `🔗 Bronnen:\n${bronnenLijst}\n\n` +
+      `Geanalyseerd met FactRadar`;
+  }
+
+  document.getElementById("tc-deel-klembord").onclick = () => {
+    navigator.clipboard.writeText(maakDeelTekst()).then(() => {
+      const bevestiging = document.getElementById("tc-deel-bevestiging");
+      bevestiging.style.display = "block";
+      setTimeout(() => { bevestiging.style.display = "none"; }, 2500);
+    });
+  };
+
+  document.getElementById("tc-deel-mail").onclick = () => {
+    const tekst = maakDeelTekst();
+    const onderwerp = encodeURIComponent("FactRadar: " + huidigOordeel);
+    const body = encodeURIComponent(tekst);
+    window.open(`mailto:?subject=${onderwerp}&body=${body}`, "_blank");
+  };
+
+  document.getElementById("tc-deel-whatsapp").onclick = () => {
+    const tekst = encodeURIComponent(maakDeelTekst());
+    window.open(`https://wa.me/?text=${tekst}`, "_blank");
+  };
 }
 
 // ── Instellingen menu ─────────────────────────────────────────
@@ -393,9 +437,23 @@ document.addEventListener("mouseup", () => {
 
 knop.addEventListener("click", (e) => {
   if (heeftGesleept) return;
+  if (isZoekpagina()) return; // Geen actie op uitgesloten pagina's
   popupOpen = !popupOpen;
   popup.style.display = popupOpen ? "block" : "none";
-  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+  if (popupOpen) {
+    updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+    // ── Bronnen ophalen als die er nog niet zijn (Tavily on-demand) ──
+    if (huidigBronnen.length === 0 && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage(
+        { action: "haal_bronnen", text: huidigOordeel, artikelTekst: huidigArtikeltekst, domein: window.location.hostname.replace("www.", "") },
+        (response) => {
+          if (chrome.runtime.lastError || !response || !response.bronnen) return;
+          huidigBronnen = response.bronnen;
+          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+        }
+      );
+    }
+  }
 });
 knop.addEventListener("contextmenu", (e) => {
   e.preventDefault();
@@ -417,12 +475,37 @@ function vindHoofdAfbeelding() {
   return imgs[0]?.src || null;
 }
 
+function detecteerTaal(tekst) {
+  if (!tekst || tekst.length < 30) return navigator.language?.substring(0, 2) || "en";
+  const sample = tekst.toLowerCase().substring(0, 300);
+  const nlWoorden = ["de", "het", "een", "van", "en", "is", "dat", "dit", "zijn", "met", "voor", "niet", "ook", "aan", "heeft", "worden", "door", "maar", "om", "op"];
+  const enWoorden = ["the", "and", "for", "that", "this", "with", "are", "have", "from", "they", "not", "but", "also", "been", "which", "their", "will", "can", "was", "has"];
+  const nlScore = nlWoorden.filter(w => new RegExp("\\b" + w + "\\b").test(sample)).length;
+  const enScore = enWoorden.filter(w => new RegExp("\\b" + w + "\\b").test(sample)).length;
+  return nlScore >= enScore ? "nl" : "en";
+}
+
 function vindArtikelTekst() {
-  const uitsluitWoorden = ["cookies", "privacy", "huisregel", "copyright", "all rights reserved", "terms of service", "newsletter", "subscribe"];
+  // ── Token-stripping: reclame en ruis actief verwijderen ──────
+  const ruis = document.querySelectorAll(
+    "nav, header, footer, aside, .nav, .header, .footer, .sidebar, " +
+    ".advertisement, .ad, .ads, .reclame, .cookie-banner, .cookie-notice, " +
+    "[class*='sponsor'], [class*='promo'], [class*='banner'], [class*='advert'], " +
+    "[id*='sponsor'], [id*='promo'], [id*='banner'], [id*='advert'], " +
+    "script, style, noscript, iframe"
+  );
+  ruis.forEach(el => el.setAttribute("data-tc-skip", "true"));
+
+  const uitsluitWoorden = ["cookies", "privacy", "huisregel", "copyright", "all rights reserved", "terms of service", "newsletter", "subscribe", "advertentie", "gesponsord", "sponsored"];
 
   function isSchoneTekst(tekst) {
     const lower = tekst.toLowerCase();
+    // Sla elementen over die gemarkeerd zijn als ruis
     return tekst.length > 30 && !uitsluitWoorden.some(w => lower.includes(w));
+  }
+
+  function filterRuis(els) {
+    return Array.from(els).filter(el => !el.closest("[data-tc-skip='true']"));
   }
 
   // Stap 1: specifieke artikel selectors
@@ -432,36 +515,34 @@ function vindArtikelTekst() {
     "main article p", ".nieuws-artikel p", ".article-text p"
   ];
   for (const sel of artikelSelectors) {
-    const els = document.querySelectorAll(sel);
+    const els = filterRuis(document.querySelectorAll(sel));
     if (els.length > 0) {
-      const tekst = Array.from(els).slice(0, 15).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 2500);
+      const tekst = els.slice(0, 15).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 2500);
       if (tekst.length > 100) return tekst;
     }
   }
 
-  // Stap 2: bredere selectors voor community/event/landingspaginas
+  // Stap 2: bredere selectors
   const bredeSelectors = [
     "main p", "section p", ".description p", ".details p",
-    ".body p", ".text p", ".entry p", ".post p",
-    "[class*=\'content\'] p", "[class*=\'description\'] p",
-    "[class*=\'detail\'] p", "[class*=\'body\'] p"
+    ".body p", ".text p", ".entry p", ".post p"
   ];
   for (const sel of bredeSelectors) {
-    const els = document.querySelectorAll(sel);
+    const els = filterRuis(document.querySelectorAll(sel));
     if (els.length > 0) {
-      const tekst = Array.from(els).slice(0, 15).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 2500);
+      const tekst = els.slice(0, 15).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 2500);
       if (tekst.length > 100) return tekst;
     }
   }
 
-  // Stap 3: alle p tags als fallback
-  const alleTekst = Array.from(document.querySelectorAll("p"))
+  // Stap 3: alle p tags — ook gefilterd
+  const alleTekst = filterRuis(document.querySelectorAll("p"))
     .filter(p => isSchoneTekst(p.innerText))
     .slice(0, 15).map(p => p.innerText).join(" ").substring(0, 2500);
   if (alleTekst.length > 100) return alleTekst;
 
-  // Stap 4: li elementen meenemen
-  const liTekst = Array.from(document.querySelectorAll("li"))
+  // Stap 4: li elementen — ook gefilterd
+  const liTekst = filterRuis(document.querySelectorAll("li"))
     .filter(li => isSchoneTekst(li.innerText))
     .slice(0, 15).map(li => li.innerText).join(" ").substring(0, 2500);
   if (liTekst.length > 100) return liTekst;
@@ -659,33 +740,81 @@ const ZOEKMASCHINE_UITSLUIT = [
   "bing.com", "duckduckgo.com", "yahoo.com", "startpage.com",
   "ecosia.org", "brave.com", "qwant.com", "search.yahoo.com",
   "yandex.com", "baidu.com",
-  // Browsers met ingebouwde zoekpagina
   "edge://", "about:blank", "chrome://", "firefox://", "newtab"
 ];
 
-function isZoekpagina() {
-  const domein = location.hostname;
-  const pad = location.pathname;
-  const zoekParam = new URLSearchParams(location.search);
-  const url = location.href;
+// ── Altijd uitsluiten — geen enkel pad ───────────────────────
+const ALTIJD_UITSLUIT = [
+  // Restaurants & reviews
+  "tripadvisor.com", "tripadvisor.nl", "yelp.com", "iens.nl", "thefork.com",
+  // Eten & bezorging
+  "thuisbezorgd.nl", "uber.com", "deliveroo.nl", "dominos.nl", "mcdonalds.nl",
+  // Routeplanners & kaarten
+  "maps.google.com", "waze.com", "route.nl",
+  // Bioscopen & tickets
+  "pathe.nl", "kinepolis.nl", "ticketmaster.nl", "eventbrite.nl", "ticketswap.nl",
+  // Social media
+  "twitter.com", "x.com", "instagram.com", "facebook.com",
+  "linkedin.com", "pinterest.com", "snapchat.com", "threads.net",
+  // Streaming & entertainment
+  "netflix.com", "videoland.com", "disneyplus.com", "spotify.com",
+  "youtube.com", "twitch.tv"
+];
 
-  // Nieuwe tabbladpagina's en lege pagina's
-  if (!domein || url === "about:blank" || url.startsWith("chrome://") || url.startsWith("edge://") || url.startsWith("moz-extension://")) return true;
+// ── Alleen homepagina uitsluiten — artikelen/producten wel checken ──
+const UITSLUIT_DOMEINEN = [
+  "bol.com", "amazon.nl", "amazon.com", "zalando.nl", "coolblue.nl",
+  "reddit.com", "tiktok.com"
+];
 
-  // Alleen uitsluiten als het écht een bekend zoekdomein is
+// ── URL patronen die we altijd overslaan ─────────────────────
+const UITSLUIT_PATRONEN = [
+  /\/(cart|checkout|basket|winkelwagen|betalen|payment)/i,
+  /\/(login|signin|register|account|mijn-account)/i,
+  /\/(search|zoeken)\?/i
+];
+
+function isUitgesloten() {
+  const domein = location.hostname.replace("www.", "");
+  const url    = location.href;
+  const pad    = location.pathname;
+
+  // Lege pagina's en browser-intern
+  if (!domein || url === "about:blank" || url.startsWith("chrome://") ||
+      url.startsWith("edge://") || url.startsWith("moz-extension://")) return true;
+
+  // Zoekpagina's
   const isZoekDomein = ZOEKMASCHINE_UITSLUIT.some(d => domein === d || domein.endsWith("." + d));
-  if (!isZoekDomein) return false; // Onbekend domein — altijd checken
+  if (isZoekDomein) {
+    const zoekParam = new URLSearchParams(location.search);
+    const heeftZoekQuery = zoekParam.has("q") || zoekParam.has("query") || zoekParam.has("search");
+    const isHomepagina   = pad === "/" || pad === "";
+    const isZoekPad      = /^\/(search|zoek|results|web)/.test(pad);
+    if (isHomepagina || heeftZoekQuery || isZoekPad) return true;
+  }
 
-  const heeftZoekQuery = zoekParam.has("q") || zoekParam.has("query") || zoekParam.has("search");
-  const isHomepagina = pad === "/" || pad === "";
-  const isZoekPad = /^\/(search|zoek|results|web)/.test(pad);
+  // Altijd uitsluiten — op elk pad
+  if (ALTIJD_UITSLUIT.some(d => domein === d || domein.endsWith("." + d))) return true;
 
-  return isHomepagina || heeftZoekQuery || isZoekPad;
+  // Alleen homepagina uitsluiten — artikelen/producten wel checken
+  const isGedeeltelijkUitgesloten = UITSLUIT_DOMEINEN.some(d => domein === d || domein.endsWith("." + d));
+  if (isGedeeltelijkUitgesloten && (pad === "/" || pad === "" || pad.length < 4)) return true;
+
+  // Uitgesloten URL patronen
+  if (UITSLUIT_PATRONEN.some(p => p.test(pad))) return true;
+
+  return false;
 }
+
+function isZoekpagina() { return isUitgesloten(); }
 
 function startCheck() {
   if (location.hostname.includes("mail.google.com")) { initialiseerGmail(); return; }
-  if (isZoekpagina()) return; // Zoekpagina — niets doen
+  if (isZoekpagina()) {
+    knop.style.display = "none"; // Verberg knop op uitgesloten pagina's
+    return;
+  }
+  knop.style.display = "block"; // Zorg dat knop zichtbaar is op andere pagina's
   const text = document.querySelector("h1")?.innerText
     || document.querySelector("h2")?.innerText
     || document.title;
@@ -712,7 +841,7 @@ function startCheck() {
     const videoContext = isVideoPagina ? vindVideoContext() : "";
 
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: navigator.language || "en" },
+      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: detecteerTaal(artikelTekst || paginaTekst) },
       (response) => {
         if (chrome.runtime.lastError || !response || response.status !== "success") return;
         huidigScore    = response.score;
@@ -723,6 +852,7 @@ function startCheck() {
         huidigBronType = response.bronType || (response.score < 50 ? "weerlegging" : response.score < 70 ? "verificatie" : "verdieping");
         huidigManipulatie = response.manipulatie || [];
         huidigAiTekst    = response.aiTekst || 0;
+        huidigArtikeltekst = artikelTekst || "";
         huidigEmoji    = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
         if (!huidigStrafbareContent) {
           huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
