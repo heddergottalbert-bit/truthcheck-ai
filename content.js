@@ -846,10 +846,43 @@ function isUitgesloten() {
   return false;
 }
 
+const ZOEKMASCHINE_DOMEINEN = [
+  "google.com", "google.nl", "google.be", "google.de", "google.fr",
+  "bing.com", "duckduckgo.com", "yahoo.com", "startpage.com",
+  "ecosia.org", "brave.com", "qwant.com"
+];
+
 function isZoekpagina() { return isUitgesloten(); }
+
+function isActieveZoekopdracht() {
+  const domein = location.hostname.replace("www.", "");
+  const zoekParam = new URLSearchParams(location.search);
+  return ZOEKMASCHINE_DOMEINEN.some(d => domein === d || domein.endsWith("." + d))
+    && (zoekParam.has("q") || zoekParam.has("query") || zoekParam.has("search"));
+}
 
 function startCheck() {
   if (location.hostname.includes("mail.google.com")) { initialiseerGmail(); return; }
+
+  // Zoekpagina met actieve query — alleen phishing check, geen factcheck
+  if (isActieveZoekopdracht()) {
+    knop.style.display = "block";
+    chrome.runtime.sendMessage(
+      { action: "start_check", text: document.title, domein: location.hostname, paginaTekst: (document.body.innerText || "").substring(0, 1000).toLowerCase(), artikelTekst: "", reactiesTekst: "", zoekContext: "", afbeeldingUrl: null, videoContext: "", taal: "nl", alleenPhishing: true },
+      (response) => {
+        if (chrome.runtime.lastError || !response || response.status !== "success") return;
+        huidigScore   = response.score;
+        huidigOordeel = response.oordeel;
+        huidigUitleg  = response.uitleg;
+        huidigBronnen = [];
+        huidigEmoji   = response.emoji || "🤔";
+        updateMiniBarometer(huidigScore, false, huidigEmoji);
+        if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
+      }
+    );
+    return;
+  }
+
   if (isZoekpagina()) {
     knop.style.display = "none"; // Verberg knop op uitgesloten pagina's
     return;
