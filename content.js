@@ -745,26 +745,66 @@ const ZOEKMASCHINE_UITSLUIT = [
 
 // ── Altijd uitsluiten — geen enkel pad ───────────────────────
 const ALTIJD_UITSLUIT = [
-  // Restaurants & reviews
-  "tripadvisor.com", "tripadvisor.nl", "yelp.com", "iens.nl", "thefork.com",
-  // Eten & bezorging
-  "thuisbezorgd.nl", "uber.com", "deliveroo.nl", "dominos.nl", "mcdonalds.nl",
-  // Routeplanners & kaarten
-  "maps.google.com", "waze.com", "route.nl",
-  // Bioscopen & tickets
-  "pathe.nl", "kinepolis.nl", "ticketmaster.nl", "eventbrite.nl", "ticketswap.nl",
   // Social media
-  "twitter.com", "x.com", "instagram.com", "facebook.com",
+  "facebook.com", "instagram.com", "twitter.com", "x.com",
   "linkedin.com", "pinterest.com", "snapchat.com", "threads.net",
-  // Streaming & entertainment
-  "netflix.com", "videoland.com", "disneyplus.com", "spotify.com",
-  "youtube.com", "twitch.tv"
+  "tiktok.com", "reddit.com", "tumblr.com", "mastodon.social",
+
+  // Video & streaming
+  "youtube.com", "youtu.be", "netflix.com", "videoland.com",
+  "disneyplus.com", "hbomax.com", "primevideo.com", "twitch.tv",
+  "vimeo.com", "dailymotion.com", "peacocktv.com", "paramountplus.com",
+
+  // Muziek
+  "spotify.com", "deezer.com", "soundcloud.com", "tidal.com",
+  "music.apple.com", "music.youtube.com",
+
+  // Restaurants & reviews
+  "tripadvisor.com", "tripadvisor.nl", "yelp.com", "iens.nl",
+  "thefork.com", "opentable.com", "thuisafgehaald.nl",
+
+  // Eten & bezorging
+  "thuisbezorgd.nl", "ubereats.com", "deliveroo.nl", "dominos.nl",
+  "mcdonalds.nl", "burgerking.nl", "kfc.com",
+
+  // Reizen & accommodatie
+  "booking.com", "airbnb.com", "airbnb.nl", "hotels.com",
+  "skyscanner.nl", "skyscanner.com", "vliegtickets.nl", "kayak.com",
+  "expedia.com", "trivago.nl", "hostelworld.com",
+
+  // Routeplanners & kaarten
+  "maps.google.com", "waze.com", "tomtom.com", "flitsmeister.nl",
+  "route.nl", "anwb.nl",
+
+  // Bioscopen & tickets
+  "pathe.nl", "kinepolis.nl", "ticketmaster.nl", "ticketmaster.com",
+  "eventbrite.nl", "eventbrite.com", "ticketswap.nl", "ticketswap.com",
+  "uitagenda.nl", "podiuminfo.nl",
+
+  // Productiviteit & tools
+  "calendar.google.com", "outlook.live.com", "notion.so",
+  "trello.com", "asana.com", "slack.com", "discord.com",
+  "zoom.us", "teams.microsoft.com", "meet.google.com",
+
+  // Bank & betalen
+  "ing.nl", "abnamro.nl", "rabobank.nl", "paypal.com",
+  "ideal.nl", "bunq.com", "revolut.com", "wise.com",
+
+  // Developer & code
+  "github.com", "gitlab.com", "stackoverflow.com", "npmjs.com",
+  "pypi.org", "hub.docker.com", "codepen.io", "jsfiddle.net",
+  "railway.app", "railway.com", "vercel.com", "netlify.com", "heroku.com",
+
+  // Overig
+  "whatsapp.com", "web.whatsapp.com", "telegram.org", "signal.org",
+  "wetransfer.com", "dropbox.com", "drive.google.com", "docs.google.com"
 ];
 
-// ── Alleen homepagina uitsluiten — artikelen/producten wel checken ──
+// ── Alleen homepagina uitsluiten — productpagina's wel checken ──
 const UITSLUIT_DOMEINEN = [
   "bol.com", "amazon.nl", "amazon.com", "zalando.nl", "coolblue.nl",
-  "reddit.com", "tiktok.com"
+  "mediamarkt.nl", "wehkamp.nl", "fonQ.nl", "alternate.nl",
+  "ikea.com", "ikea.nl", "hm.com", "zara.com"
 ];
 
 // ── URL patronen die we altijd overslaan ─────────────────────
