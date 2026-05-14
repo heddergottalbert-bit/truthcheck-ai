@@ -441,6 +441,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           beschrijving: request.videoContext.match(/Beschrijving:\s*(.+)/s)?.[1]?.trim() || "",
           views: request.videoContext.match(/Views:\s*([^|]+)/)?.[1]?.trim() || "",
           aiContent: request.videoContext.match(/AI-content:\s*([^|]+)/)?.[1]?.trim() || "onbekend",
+          tags: request.videoContext.match(/Tags:\s*([^|]+)/)?.[1]?.trim() || "",
           videoUrl: request.url || "",
           taal: request.taal || "nl"
         })
