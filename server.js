@@ -19,14 +19,50 @@ function controleerApiKey(req, res, next) {
   next();
 }
 
+// ── Rate limiting — max 10 calls per minuut per IP ────────────
+const rateLimitMap = new Map();
+const RATE_LIMIT = 10;
+const RATE_WINDOW = 60 * 1000; // 1 minuut in milliseconden
+
+function rateLimiter(req, res, next) {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'onbekend';
+  const nu = Date.now();
+
+  if (!rateLimitMap.has(ip)) {
+    rateLimitMap.set(ip, []);
+  }
+
+  // Verwijder timestamps ouder dan 1 minuut
+  const timestamps = rateLimitMap.get(ip).filter(t => nu - t < RATE_WINDOW);
+  timestamps.push(nu);
+  rateLimitMap.set(ip, timestamps);
+
+  if (timestamps.length > RATE_LIMIT) {
+    return res.status(429).json({ error: 'Te veel verzoeken — wacht even en probeer opnieuw.' });
+  }
+
+  next();
+}
+
+// Opruimen van oude IPs elke 5 minuten — voorkomt geheugenlek
+setInterval(() => {
+  const nu = Date.now();
+  for (const [ip, timestamps] of rateLimitMap.entries()) {
+    const actief = timestamps.filter(t => nu - t < RATE_WINDOW);
+    if (actief.length === 0) {
+      rateLimitMap.delete(ip);
+    } else {
+      rateLimitMap.set(ip, actief);
+    }
+  }
+}, 5 * 60 * 1000);
+
 // ── Input sanitizer — blokkeert tokenmanipulatie ──────────────
 function sanitizeInput(tekst) {
   if (!tekst || typeof tekst !== 'string') return '';
 
-  // Begrenzen op 2000 tekens
   let schoon = tekst.slice(0, 2000);
 
-  // Prompt injection patronen verwijderen
   const INJECTIE_PATRONEN = [
     /ignore\s+(all\s+)?(previous|prior|above)\s+instructions?/gi,
     /you\s+are\s+now\s+/gi,
@@ -46,7 +82,6 @@ function sanitizeInput(tekst) {
     schoon = schoon.replace(patroon, '');
   });
 
-  // Gevaarlijke tekens die JSON of prompts kunnen breken
   schoon = schoon
     .replace(/`/g, "'")
     .replace(/\\/g, ' ')
@@ -61,7 +96,7 @@ app.get('/', (req, res) => {
 });
 
 // ── Feitencheck ───────────────────────────────────────────────
-app.post('/api/factcheck', controleerApiKey, async (req, res) => {
+app.post('/api/factcheck', controleerApiKey, rateLimiter, async (req, res) => {
   try {
     const { text, artikelTekst, domein } = req.body;
     if (!text) return res.status(400).json({ error: 'Geen tekst meegegeven' });
@@ -69,7 +104,6 @@ app.post('/api/factcheck', controleerApiKey, async (req, res) => {
     const schoneTekst = sanitizeInput(text);
     const schoneArtikelTekst = sanitizeInput(artikelTekst || '');
 
-    // Stap 1: OpenAI extraheert het hoofdthema
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -103,7 +137,6 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       analysis = { theme: 'Onbekend', claim: schoneTekst.slice(0, 100), score: 50, explanation: content };
     }
 
-    // Stap 2: Tavily zoekt verificatiebronnen
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -134,7 +167,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
 });
 
 // ── Phishing detectie ─────────────────────────────────────────
-app.post('/api/phishing', controleerApiKey, async (req, res) => {
+app.post('/api/phishing', controleerApiKey, rateLimiter, async (req, res) => {
   try {
     const { url, text } = req.body;
     if (!url && !text) return res.status(400).json({ error: 'Geen URL of tekst meegegeven' });
@@ -183,7 +216,7 @@ Antwoord in JSON: { "isPhishing": false, "riskScore": 0, "reasons": [], "advice"
 });
 
 // ── Strafbare content detectie ────────────────────────────────
-app.post('/api/harmful', controleerApiKey, async (req, res) => {
+app.post('/api/harmful', controleerApiKey, rateLimiter, async (req, res) => {
   try {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: 'Geen tekst meegegeven' });
