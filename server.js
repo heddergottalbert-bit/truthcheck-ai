@@ -295,15 +295,42 @@ function bepaalContentType(titel, beschrijving, tags) {
     'klimaat', 'climate', 'economie', 'economy', 'financieel', 'financial'
   ];
 
-  const POLITIEK_RISICO = [
+  const POLITIEKE_NAMEN = [
     'trump', 'biden', 'rutte', 'wilders', 'zelensky', 'putin', 'xi jinping',
-    'deepfake', 'fake news', 'nepnieuws', 'complot', 'conspiracy',
-    'coverup', 'doofpot', 'ze verbergen', 'they dont want you to know',
-    'verboden', 'banned', 'censored', 'gecensureerd'
+    'erdogan', 'modi', 'macron', 'scholz', 'meloni'
   ];
 
-  const heeftPolitiekRisico = POLITIEK_RISICO.some(w => tekst.includes(w));
-  if (heeftPolitiekRisico) return 'politiek';
+  const SATIRE_SIGNALEN = [
+    'funny', 'humor', 'satire', 'meme', 'parody', 'parodie', 'comedy',
+    'lol', 'haha', 'viral', 'grappig', 'lachen', 'sketch', 'spoof',
+    'fake but funny', 'not real', 'ai generated', 'ai content'
+  ];
+
+  const NIEUWS_SIGNALEN = [
+    'breaking', 'alert', 'exclusive', 'leaked', 'uitgelekt', 'bewezen',
+    'onthulling', 'revealed', 'caught on camera', 'real footage',
+    'echt gebeurd', 'nieuws', 'news', 'live', 'urgent', 'waarschuwing'
+  ];
+
+  const MANIPULATIE_SIGNALEN = [
+    'deepfake', 'fake news', 'nepnieuws', 'complot', 'conspiracy',
+    'coverup', 'doofpot', 'ze verbergen', 'they dont want you to know',
+    'verboden', 'banned', 'censored', 'gecensureerd', 'dit verbergen ze'
+  ];
+
+  const heeftPolitiekeNaam = POLITIEKE_NAMEN.some(w => tekst.includes(w));
+  const heeftSatire = SATIRE_SIGNALEN.some(w => tekst.includes(w));
+  const heeftNieuws = NIEUWS_SIGNALEN.some(w => tekst.includes(w));
+  const heeftManipulatie = MANIPULATIE_SIGNALEN.some(w => tekst.includes(w));
+
+  // Politiek + satire signalen → satire
+  if (heeftPolitiekeNaam && heeftSatire && !heeftNieuws) return 'satire';
+
+  // Manipulatie signalen of politiek + nieuwsclaims → politiek
+  if (heeftManipulatie || (heeftPolitiekeNaam && heeftNieuws)) return 'politiek';
+
+  // Politieke naam zonder context → gemengd (voorzichtig maar niet alarm)
+  if (heeftPolitiekeNaam) return 'gemengd';
 
   const informatieScore = INFORMATIE.filter(w => tekst.includes(w)).length;
   const entertainmentScore = ENTERTAINMENT.filter(w => tekst.includes(w)).length;
@@ -333,18 +360,35 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
     // Content type bepalen
     const contentType = bepaalContentType(schoneTitel, schoneBeschrijving, schoneTags);
 
-    // Entertainment zonder politiek risico — direct hoge score teruggeven
+    // Entertainment — direct hoge score
     if (contentType === 'entertainment') {
       const aiMelding = isAiContent
         ? 'AI-gegenereerde visuals gedetecteerd — dit is creatieve entertainment content.'
         : 'Entertainmentcontent. Geen feitelijke claims gedetecteerd.';
-      const score = parseInt((schoneAbonnees || '0').replace(/[^0-9]/g, '')) > 10000 ? 82 : 72;
+      const abonneeGetal = parseInt((schoneAbonnees || '0').replace(/[^0-9]/g, '')) || 0;
+      const score = abonneeGetal > 10000 ? 82 : 72;
       return res.json({
         score,
         theme: 'Entertainment en creatieve content',
         explanation: aiMelding,
         signals: isAiContent ? ['AI-gegenereerde visuals'] : [],
         contentType: 'entertainment',
+        sources: [],
+        answer: null
+      });
+    }
+
+    // Satire — politieke humor zonder nieuwsclaims
+    if (contentType === 'satire') {
+      const aiMelding = isAiContent
+        ? 'AI-gegenereerde satirische content. Bedoeld als humor, niet als nieuws.'
+        : 'Satirische content met politieke figuren. Bedoeld als humor, niet als feitelijke berichtgeving.';
+      return res.json({
+        score: 75,
+        theme: 'Politieke satire of humor',
+        explanation: aiMelding,
+        signals: isAiContent ? ['AI-gegenereerde visuals', 'Politieke figuren in satirische context'] : ['Politieke figuren in satirische context'],
+        contentType: 'satire',
         sources: [],
         answer: null
       });

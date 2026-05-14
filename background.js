@@ -429,8 +429,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
-    // ── YouTube video — apart endpoint ───────────────────────
-    if (request.domein && (request.domein.includes("youtube.com") || request.domein.includes("youtu.be")) && request.videoContext) {
+    // ── Politieke namen detectie voor TikTok/social media ───────
+    const POLITIEKE_NAMEN = ["trump", "biden", "putin", "rutte", "wilders", "zelensky","xi jinping", "erdogan", "modi", "macron", "johnson", "scholz"];
+    const captionTekst = (request.videoContext || request.paginaTekst || "").toLowerCase();
+    const heeftPolitiekeNaam = POLITIEKE_NAMEN.some(n => captionTekst.includes(n));
+    const isTikTok = request.domein && request.domein.includes("tiktok.com");
+
+    // ── Video check — YouTube én TikTok met politieke content ────
+    if (request.domein && (request.domein.includes("youtube.com") || request.domein.includes("youtu.be") || (isTikTok && heeftPolitiekeNaam)) && request.videoContext) {
       fetch(SERVER_URL + "/api/youtube", {
         method: "POST",
         headers: SERVER_HEADERS,
@@ -450,7 +456,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .then(data => {
         const score = data.score || 50;
         const bronnen = (data.sources || []).map(r => r.url);
-        const emoji = score >= 70 ? "😊" : score >= 50 ? "😟" : "😡";
+        const contentType = data.contentType || "normaal";
+        const emoji = contentType === "satire" ? "😄"
+          : contentType === "entertainment" ? "😊"
+          : score >= 70 ? "😊" : score >= 50 ? "😟" : "😡";
         const signalen = data.signals && data.signals.length > 0
           ? " Signalen: " + data.signals.join(", ") + "."
           : "";
