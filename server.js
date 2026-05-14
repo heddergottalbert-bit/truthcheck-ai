@@ -277,7 +277,12 @@ function bepaalContentType(titel, beschrijving, tags) {
     'meditation', 'meditatie', 'nature sounds', 'sleep', 'study music',
     'psytrance', 'techno', 'trance', 'edm', 'hiphop', 'rap', 'classical',
     'sci-fi', 'fantasy', 'animation', 'animatie', 'artwork', 'timelapse',
-    'travel', 'reizen', 'cooking', 'koken', 'recipe', 'recept'
+    'travel', 'reizen', 'cooking', 'koken', 'recipe', 'recept',
+    'space', 'cosmic', 'universe', 'galaxy', 'meditative', 'binaural',
+    'frequency', 'hz', 'focus', 'sleep music', 'healing', 'drone',
+    'cinematic', 'visualization', 'journey', 'mashup', 'remix',
+    'cover', 'live set', 'dj set', 'festival', '4k', '8k',
+    'nature', 'natuur', 'wildlife', 'ocean', 'forest', 'ambient'
   ];
 
   const INFORMATIE = [
