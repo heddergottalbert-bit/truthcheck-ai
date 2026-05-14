@@ -10,9 +10,9 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 const FACTRADAR_API_KEY = process.env.FACTRADAR_API_KEY;
 
-// ── Geheime header check ──────────────────────────────────────
+// ── API sleutel check — uit body (werkt ook via YouTube/TikTok) ─
 function controleerApiKey(req, res, next) {
-  const sleutel = req.headers['x-factradar-key'];
+  const sleutel = req.body?.apiKey || req.headers['x-factradar-key'];
   if (!sleutel || sleutel !== FACTRADAR_API_KEY) {
     return res.status(403).json({ error: 'Niet geautoriseerd' });
   }

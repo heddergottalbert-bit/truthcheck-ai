@@ -3,9 +3,13 @@ const API_KEY = "fr-2026-xK9mQpL7vNs3";
 
 // ── Vaste headers voor elke server aanvraag ───────────────────
 const SERVER_HEADERS = {
-  "Content-Type": "application/json",
-  "x-factradar-key": API_KEY
+  "Content-Type": "application/json"
 };
+
+// ── Voeg API sleutel toe aan elke request body ────────────────
+function metSleutel(data) {
+  return JSON.stringify({ ...data, apiKey: API_KEY });
+}
 
 const BETROUWBARE_DOMEINEN = [
   "nos.nl", "nrc.nl", "volkskrant.nl", "trouw.nl", "ad.nl",
@@ -368,7 +372,7 @@ function extraheerThemaViaServer(titel, artikelTekst) {
   return fetch(SERVER_URL + "/api/factcheck", {
     method: "POST",
     headers: SERVER_HEADERS,
-    body: JSON.stringify({ text: titel + "\n\n" + artikelTekst })
+    body: metSleutel({ text: titel + "\n\n" + artikelTekst })
   })
   .then(res => res.json())
   .then(data => ({
@@ -383,7 +387,7 @@ function haalBronnenOp(request) {
   return fetch(SERVER_URL + "/api/factcheck", {
     method: "POST",
     headers: SERVER_HEADERS,
-    body: JSON.stringify({
+    body: metSleutel({
       text: request.text,
       artikelTekst: request.artikelTekst || "",
       domein: request.domein || ""
@@ -398,7 +402,7 @@ function checkAlleenReacties(reactiesTekst, sendResponse) {
   fetch(SERVER_URL + "/api/harmful", {
     method: "POST",
     headers: SERVER_HEADERS,
-    body: JSON.stringify({ text: reactiesTekst })
+    body: metSleutel({ text: reactiesTekst })
   })
   .then(res => res.json())
   .then(data => {
@@ -440,7 +444,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       fetch(SERVER_URL + "/api/youtube", {
         method: "POST",
         headers: SERVER_HEADERS,
-        body: JSON.stringify({
+        body: metSleutel({
           titel: request.text || "",
           kanaal: request.videoContext.match(/Kanaal:\s*([^|]+)/)?.[1]?.trim() || "",
           abonnees: request.videoContext.match(/Abonnees:\s*([^|]+)/)?.[1]?.trim() || "",
@@ -576,7 +580,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       ? fetch(SERVER_URL + "/api/factcheck", {
           method: "POST",
           headers: SERVER_HEADERS,
-          body: JSON.stringify({ text: "deepfake check: " + request.afbeeldingUrl })
+          body: metSleutel({ text: "deepfake check: " + request.afbeeldingUrl })
         })
         .then(res => res.json())
         .then(() => ({ deepfake_kans: 0, uitleg: "" }))
@@ -587,7 +591,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       ? fetch(SERVER_URL + "/api/harmful", {
           method: "POST",
           headers: SERVER_HEADERS,
-          body: JSON.stringify({ text: request.reactiesTekst })
+          body: metSleutel({ text: request.reactiesTekst })
         })
         .then(res => res.json())
         .then(data => ({ strafbaar: data.isHarmful || false, reden: data.explanation || "" }))
@@ -608,7 +612,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return fetch(SERVER_URL + "/api/factcheck", {
         method: "POST",
         headers: SERVER_HEADERS,
-        body: JSON.stringify({
+        body: metSleutel({
           text: request.text,
           artikelTekst: request.artikelTekst || "",
           domein: paginaDomein
