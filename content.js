@@ -598,6 +598,28 @@ function vindVideoContext() {
                          beschrijving.toLowerCase().includes("gemaakt met ai") ||
                          aiTag.toLowerCase().includes("ai") ||
                          tags.toLowerCase().includes("ai generated");
+    // Shorts detectie — andere DOM structuur
+    const isShort = location.pathname.startsWith('/shorts/');
+    const shortsTitel = document.querySelector('ytd-reel-video-renderer[is-active] .title, .ytd-shorts .title')?.innerText
+      || document.querySelector('h2.ytd-reel-video-renderer')?.innerText
+      || document.querySelector('.ytd-shorts h2')?.innerText
+      || document.querySelector('meta[name="title"]')?.content
+      || document.title.split(' - YouTube')[0] || '';
+    const shortsKanaal = document.querySelector('ytd-reel-video-renderer[is-active] #channel-name, .ytd-shorts #channel-name')?.innerText
+      || document.querySelector('ytd-channel-name')?.innerText || '';
+    const shortsCaption = document.querySelector('ytd-reel-video-renderer[is-active] #description, .ytd-shorts #description')?.innerText
+      || document.querySelector('meta[property="og:description"]')?.content || '';
+    if (isShort) {
+      // Muzieknaam ophalen — signaal voor entertainment/satire
+      const muziek = document.querySelector(".ytd-reel-player-overlay-renderer .title, ytd-reel-video-renderer .sound-metadata a, .ytd-shorts .sound-metadata")?.innerText || "";
+      const shortsMetadata = [shortsTitel || titel, shortsCaption, muziek].join(" ").toLowerCase();
+      // Absurde politieke titels zijn vrijwel altijd satire
+      const ABSURD_SIGNALEN = ["soup", "cooking", "dancing", "singing", "funny song", "strange", "weird", "crazy", "dansen", "koken", "grappig"];
+      const isAbsurdPolitiek = ABSURD_SIGNALEN.some(w => shortsMetadata.includes(w));
+      const satireTags = isAbsurdPolitiek ? "funny satire" : tags;
+      return `Titel: ${shortsTitel || titel} | Kanaal: ${shortsKanaal || kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? 'ja' : 'onbekend'} | Tags: ${satireTags} | Muziek: ${muziek} | Beschrijving: ${shortsCaption.substring(0, 400)}`;
+    }
+
     return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? "ja" : "onbekend"} | Tags: ${tags} | Beschrijving: ${beschrijving.substring(0, 400)}`;
   }
 
@@ -609,11 +631,34 @@ function vindVideoContext() {
     return `Titel: ${titel} | Uploader: ${uploader} | Beschrijving: ${beschrijving.substring(0, 400)}`;
   }
 
-  // TikTok
+  // TikTok — breed net gooien via meerdere selectors + meta tags
   if (location.hostname.includes("tiktok.com")) {
-    const caption   = document.querySelector("[data-e2e='browse-video-desc'], .video-meta-caption")?.innerText || "";
-    const gebruiker = document.querySelector("[data-e2e='browse-username'], .author-uniqueId")?.innerText || "";
-    return `Gebruiker: ${gebruiker} | Caption: ${caption}`;
+    // Caption — meerdere selectors want TikTok wijzigt DOM regelmatig
+    const caption = document.querySelector("[data-e2e='browse-video-desc']")?.innerText
+      || document.querySelector("[data-e2e='video-desc']")?.innerText
+      || document.querySelector(".video-meta-caption")?.innerText
+      || document.querySelector("h1")?.innerText
+      || document.querySelector('meta[property="og:description"]')?.content
+      || document.title || "";
+
+    // Gebruiker
+    const gebruiker = document.querySelector("[data-e2e='browse-username']")?.innerText
+      || document.querySelector("[data-e2e='video-author-uniqueid']")?.innerText
+      || document.querySelector(".author-uniqueId")?.innerText
+      || document.querySelector('meta[name="author"]')?.content || "";
+
+    // Volgers en likes — fallback op 0
+    const volgers = document.querySelector("[data-e2e='followers-count']")?.innerText
+      || document.querySelector("[data-e2e='user-post-item-count']")?.innerText || "";
+
+    const likes = document.querySelector("[data-e2e='like-count']")?.innerText
+      || document.querySelector("[data-e2e='undefined-count']")?.innerText || "";
+
+    // Hashtags uit caption halen
+    const hashtagMatches = caption.match(/#\w+/g) || [];
+    const tags = hashtagMatches.join(" ");
+
+    return `Titel: ${caption} | Kanaal: ${gebruiker} | Abonnees: ${volgers} | Views: ${likes} likes | Tags: ${tags} | Beschrijving: ${caption}`;
   }
 
   // Generiek — fallback voor andere videoplatforms
@@ -865,8 +910,8 @@ function isUitgesloten() {
   // Portalen met mijn. prefix — altijd uitsluiten
   if (domein.startsWith("mijn.") || domein.startsWith("my.") || domein.startsWith("portal.")) return true;
 
-  // YouTube — alleen videopagina's checken, homepage en zoeken uitsluiten
-  if ((domein === "youtube.com" || domein.endsWith(".youtube.com")) && !pad.startsWith("/watch")) return true;
+  // YouTube — videopaginas en Shorts checken, homepage en zoeken uitsluiten
+  if ((domein === "youtube.com" || domein.endsWith(".youtube.com")) && !pad.startsWith("/watch") && !pad.startsWith("/shorts")) return true;
 
   // Zoekpagina's
   const isZoekDomein = ZOEKMASCHINE_UITSLUIT.some(d => domein === d || domein.endsWith("." + d));
@@ -1013,6 +1058,17 @@ window.addEventListener("scroll", () => {
     );
   }, 500);
 });
+
+// ── YouTube reclame check — knop terugbrengen na reclame ────────
+if (location.hostname.includes('youtube.com') && !location.pathname.startsWith('/shorts')) {
+  setInterval(() => {
+    if (!isYouTubeReclame() && knop.style.display === 'none') {
+      knop.style.display = 'block';
+      toonLaadAnimatie();
+      setTimeout(() => { startCheck(); }, 1000);
+    }
+  }, 20000);
+}
 
 // ── URL verandering detecteren ────────────────────────────────
 
