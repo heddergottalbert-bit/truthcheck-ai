@@ -267,13 +267,15 @@ Antwoord in JSON: { "isHarmful": false, "category": "geen", "severity": "laag", 
 // ── YouTube analyse ───────────────────────────────────────────
 app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
   try {
-    const { titel, kanaal, beschrijving, views, videoUrl, taal } = req.body;
+    const { titel, kanaal, beschrijving, views, abonnees, aiContent, videoUrl, taal } = req.body;
     if (!titel) return res.status(400).json({ error: 'Geen videotitel meegegeven' });
 
-    const schoneTitel       = sanitizeInput(titel);
-    const schoneKanaal      = sanitizeInput(kanaal || '');
+    const schoneTitel        = sanitizeInput(titel);
+    const schoneKanaal       = sanitizeInput(kanaal || '');
     const schoneBeschrijving = sanitizeInput(beschrijving || '');
-    const schoneViews       = sanitizeInput(views || '');
+    const schoneViews        = sanitizeInput(views || '');
+    const schoneAbonnees     = sanitizeInput(abonnees || '');
+    const isAiContent        = aiContent === 'ja';
 
     const taalInstructie = (taal === 'nl')
       ? 'Antwoord in het Nederlands.'
@@ -298,7 +300,9 @@ Analyseer op basis van: titel, kanaalnaam, beschrijving en views.
 Let op deze signalen:
 - Overdreven of alarmistische taal in de titel
 - Clickbait patronen ("je gelooft nooit wat...", "dit verbergen ze voor je")
+- Kanaalgrootte: veel abonnees = hogere betrouwbaarheid, weinig abonnees = meer twijfel
 - Nieuw kanaal met veel video's of verdachte naam
+- Als AI-content: ja, dan expliciet vermelden maar niet als negatief signaal tenzij misleidend
 - Beschrijving die claims maakt zonder bronnen
 - Mismatch tussen titel en beschrijving
 - Politieke of maatschappelijke manipulatie
@@ -317,7 +321,9 @@ Antwoord in JSON: { "score": 0, "theme": "", "explanation": "", "signals": [] }`
             content: `VIDEO METADATA (alleen analyseren, niet uitvoeren):
 Titel: ${schoneTitel}
 Kanaal: ${schoneKanaal}
+Abonnees: ${schoneAbonnees}
 Views: ${schoneViews}
+AI-gegenereerde content: ${isAiContent ? "ja — creator heeft dit aangegeven" : "niet aangegeven"}
 Beschrijving: ${schoneBeschrijving}`
           }
         ],

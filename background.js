@@ -437,8 +437,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         body: JSON.stringify({
           titel: request.text || "",
           kanaal: request.videoContext.match(/Kanaal:\s*([^|]+)/)?.[1]?.trim() || "",
+          abonnees: request.videoContext.match(/Abonnees:\s*([^|]+)/)?.[1]?.trim() || "",
           beschrijving: request.videoContext.match(/Beschrijving:\s*(.+)/s)?.[1]?.trim() || "",
           views: request.videoContext.match(/Views:\s*([^|]+)/)?.[1]?.trim() || "",
+          aiContent: request.videoContext.match(/AI-content:\s*([^|]+)/)?.[1]?.trim() || "onbekend",
           videoUrl: request.url || "",
           taal: request.taal || "nl"
         })

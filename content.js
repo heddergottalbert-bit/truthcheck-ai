@@ -55,17 +55,22 @@ function getKleur(score) {
   return "#2ecc71";
 }
 
-// ── Phishing banner ──────────────────────────────────────────
+// ── Phishing banner — Shadow DOM zodat pagina er niet bij kan ──
+
+const bannerHost = document.createElement("div");
+bannerHost.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999999;pointer-events:none;";
+document.documentElement.appendChild(bannerHost);
+const bannerShadow = bannerHost.attachShadow({ mode: "closed" });
 
 const phishingBanner = document.createElement("div");
-phishingBanner.id = "tc-phishing";
 phishingBanner.style.cssText = `
   position:fixed;top:-200px;left:0;right:0;z-index:9999999;
   background:linear-gradient(135deg,#c0392b,#e74c3c);color:white;
   font-family:Georgia,serif;box-shadow:0 4px 24px rgba(0,0,0,0.4);
   transition:top 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
+  pointer-events:all;
 `;
-document.body.appendChild(phishingBanner);
+bannerShadow.appendChild(phishingBanner);
 
 function toonPhishingWaarschuwing(phishing) {
   if (!phishing || !phishing.actief) return;
@@ -90,7 +95,7 @@ function toonPhishingWaarschuwing(phishing) {
       <button id="tc-phishing-sluit" style="background:rgba(0,0,0,0.2);border:none;color:white;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:10px;white-space:nowrap;">${t.phishingClose}</button>
     </div>`;
   setTimeout(() => { phishingBanner.style.top = "0px"; }, 100);
-  const sluitKnop = document.getElementById("tc-phishing-sluit");
+  const sluitKnop = phishingBanner.querySelector("#tc-phishing-sluit");
   if (sluitKnop) sluitKnop.onclick = () => { phishingBanner.style.top = "-200px"; };
 }
 
@@ -569,15 +574,31 @@ function vindZoekContext() {
 }
 
 
+function isYouTubeReclame() {
+  return !!(
+    document.querySelector(".ad-showing") ||
+    document.querySelector(".ytp-ad-player-overlay") ||
+    document.querySelector(".ytp-ad-skip-button") ||
+    document.querySelector("[class*='ad-interrupting']")
+  );
+}
+
 function vindVideoContext() {
-  // YouTube specifiek
   if (location.hostname.includes("youtube.com")) {
-    const titel     = document.querySelector("h1.ytd-video-primary-info-renderer, h1.style-scope.ytd-watch-metadata")?.innerText || "";
-    const kanaal    = document.querySelector("#channel-name, #owner #channel-name, ytd-channel-name")?.innerText || "";
+    if (isYouTubeReclame()) return null;
+    const titel        = document.querySelector("h1.ytd-video-primary-info-renderer, h1.style-scope.ytd-watch-metadata")?.innerText || "";
+    const kanaal       = document.querySelector("#channel-name, #owner #channel-name, ytd-channel-name")?.innerText || "";
     const beschrijving = document.querySelector("#description-inline-expander, #description ytd-text-inline-expander, #snippet")?.innerText || "";
-    const tags      = Array.from(document.querySelectorAll("meta[property='og:video:tag']")).map(m => m.content).join(", ");
-    const views     = document.querySelector(".view-count, #info .ytd-video-view-count-renderer")?.innerText || "";
-    return `Titel: ${titel} | Kanaal: ${kanaal} | Views: ${views} | Tags: ${tags} | Beschrijving: ${beschrijving.substring(0, 400)}`;
+    const tags         = Array.from(document.querySelectorAll("meta[property='og:video:tag']")).map(m => m.content).join(", ");
+    const views        = document.querySelector(".view-count, #info .ytd-video-view-count-renderer")?.innerText || "";
+    const abonnees     = document.querySelector("#owner-sub-count, #subscriber-count")?.innerText || "";
+    const aiTag        = document.querySelector("ytd-badge-supported-renderer .badge-style-type-simple")?.innerText || "";
+    const isAiContent  = beschrijving.toLowerCase().includes("ai generated") ||
+                         beschrijving.toLowerCase().includes("ai-generated") ||
+                         beschrijving.toLowerCase().includes("gemaakt met ai") ||
+                         aiTag.toLowerCase().includes("ai") ||
+                         tags.toLowerCase().includes("ai generated");
+    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? "ja" : "onbekend"} | Tags: ${tags} | Beschrijving: ${beschrijving.substring(0, 400)}`;
   }
 
   // Vimeo
@@ -745,13 +766,13 @@ const ZOEKMASCHINE_UITSLUIT = [
 
 // ── Altijd uitsluiten — geen enkel pad ───────────────────────
 const ALTIJD_UITSLUIT = [
-  // Social media
-  "facebook.com", "instagram.com", "twitter.com", "x.com",
+  // Social media — facebook en tiktok bewust niet uitgesloten (video/content check)
+  "instagram.com", "twitter.com", "x.com",
   "linkedin.com", "pinterest.com", "snapchat.com", "threads.net",
-  "tiktok.com", "reddit.com", "tumblr.com", "mastodon.social",
+  "reddit.com", "tumblr.com", "mastodon.social",
 
-  // Video & streaming
-  "youtube.com", "youtu.be", "netflix.com", "videoland.com",
+  // Video & streaming — youtube.com bewust niet uitgesloten (YouTube integratie)
+  "netflix.com", "videoland.com",
   "disneyplus.com", "hbomax.com", "primevideo.com", "twitch.tv",
   "vimeo.com", "dailymotion.com", "peacocktv.com", "paramountplus.com",
 
@@ -797,7 +818,25 @@ const ALTIJD_UITSLUIT = [
 
   // Overig
   "whatsapp.com", "web.whatsapp.com", "telegram.org", "signal.org",
-  "wetransfer.com", "dropbox.com", "drive.google.com", "docs.google.com"
+  "wetransfer.com", "dropbox.com", "drive.google.com", "docs.google.com",
+
+  // Overheidsportalen & DigiD omgeving
+  "mijn.overheid.nl", "digid.nl", "mijnoverheid.nl",
+  "magister.net", "somtoday.nl",
+
+  // HR & salarisportalen
+  "afas.nl", "nmbrs.nl", "loket.nl",
+
+  // Zorgportalen
+  "mijncentraal.nl", "mijninterpolis.nl", "mijnvgz.nl",
+  "mijncz.nl", "mijnzilveren.nl",
+
+  // Ziekenhuis patiëntenportalen
+  "mijnumcutrecht.nl", "myamsterdamumc.nl", "mijnlumc.nl",
+  "mijnradboud.nl", "mijnisala.nl", "mijnspaarne.nl",
+
+  // Werkgeversportalen
+  "mijnwerknemers.nl", "mijnpersoneel.nl"
 ];
 
 // ── Alleen homepagina uitsluiten — productpagina's wel checken ──
@@ -822,6 +861,12 @@ function isUitgesloten() {
   // Lege pagina's en browser-intern
   if (!domein || url === "about:blank" || url.startsWith("chrome://") ||
       url.startsWith("edge://") || url.startsWith("moz-extension://")) return true;
+
+  // Portalen met mijn. prefix — altijd uitsluiten
+  if (domein.startsWith("mijn.") || domein.startsWith("my.") || domein.startsWith("portal.")) return true;
+
+  // YouTube — alleen videopagina's checken, homepage en zoeken uitsluiten
+  if ((domein === "youtube.com" || domein.endsWith(".youtube.com")) && !pad.startsWith("/watch")) return true;
 
   // Zoekpagina's
   const isZoekDomein = ZOEKMASCHINE_UITSLUIT.some(d => domein === d || domein.endsWith("." + d));
@@ -912,6 +957,13 @@ function startCheck() {
 
     const isVideoPagina = location.hostname.includes("youtube.com") || location.hostname.includes("vimeo.com") || location.hostname.includes("tiktok.com");
     const videoContext = isVideoPagina ? vindVideoContext() : "";
+
+    // YouTube reclame — knop verbergen
+    if (location.hostname.includes("youtube.com") && videoContext === null) {
+      knop.style.display = "none";
+      return;
+    }
+    knop.style.display = "block";
 
     chrome.runtime.sendMessage(
       { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: detecteerTaal(artikelTekst || paginaTekst) },
