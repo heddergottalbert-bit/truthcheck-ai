@@ -1,7 +1,49 @@
 const SERVER_URL = "https://truthcheck-ai-production.up.railway.app";
+const API_KEY = "fr-2026-xK9mQpL7vNs3";
 
-// ── Domeincategorieën ────────────────────────────────────────
+// ── Vaste headers voor elke server aanvraag ───────────────────
+const SERVER_HEADERS = {
+  "Content-Type": "application/json",
+  "x-factradar-key": API_KEY
+};
 
+const BETROUWBARE_DOMEINEN = [
+  "nos.nl", "nrc.nl", "volkskrant.nl", "trouw.nl", "ad.nl",
+  "rtlnieuws.nl", "nu.nl", "telegraaf.nl", "parool.nl",
+  "reuters.com", "bbc.com", "apnews.com", "theguardian.com",
+  "nytimes.com", "economist.com", "dw.com",
+  "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "who.int",
+  "rivm.nl", "mayoclinic.org", "healthline.com", "webmd.com",
+  "medicalnewstoday.com", "nih.gov", "cdc.gov", "thuisarts.nl",
+  "umcutrecht.nl", "lumc.nl", "amsterdamumc.nl",
+  "nature.com", "sciencedirect.com", "science.org",
+  "newscientist.com", "scientificamerican.com", "thelancet.com",
+  "bmj.com", "nejm.org", "cell.com", "plos.org",
+  "government.nl", "rijksoverheid.nl", "cbs.nl", "pbl.nl",
+  "knaw.nl", "nwo.nl", "gezondheidsraad.nl",
+  "un.org", "europa.eu", "worldbank.org", "imf.org",
+  "oecd.org", "unicef.org", "amnesty.org", "hrw.org",
+  "mit.edu", "stanford.edu", "arxiv.org", "ieee.org", "acm.org",
+  "ipcc.ch", "knmi.nl", "milieucentraal.nl",
+  "dnb.nl", "cpb.nl", "ftm.nl", "fd.nl",
+  "snopes.com", "factcheck.org", "politifact.com",
+  "nieuwscheckers.nl", "knack.be",
+  "state.gov", "usa.gov", "belastingdienst.nl",
+  "politie.nl", "rechtspraak.nl", "duo.nl", "svb.nl", "uwv.nl"
+];
+
+const LOKALE_NIEUWS_DOMEINEN = [
+  "nos.nl", "nu.nl", "ad.nl", "telegraaf.nl", "rtlnieuws.nl",
+  "nrc.nl", "volkskrant.nl", "trouw.nl", "parool.nl",
+  "omroepwest.nl", "omroepgelderland.nl", "omroepbrabant.nl",
+  "omroepzeeland.nl", "rtvnoord.nl", "rtvoost.nl",
+  "omroepflevoland.nl", "nhnieuws.nl", "at5.nl",
+  "omroepfriesland.nl", "rtvdrenthe.nl", "omroeplimburg.nl",
+  "hartvannederland.nl", "metronieuws.nl",
+  "reuters.com", "bbc.com", "apnews.com"
+];
+
+// ── Officiële veilige domeinen — nooit rood alarm ────────────
 const VEILIGE_OFFICIELE_DOMEINEN = [
   "belastingdienst.nl", "digid.nl", "rijksoverheid.nl",
   "uwv.nl", "svb.nl", "duo.nl", "politie.nl", "rechtspraak.nl",
@@ -12,16 +54,19 @@ const VEILIGE_OFFICIELE_DOMEINEN = [
   "microsoft.com", "apple.com", "paypal.com"
 ];
 
+// ── Zoekmaschine domeinen ────────────────────────────────────
 const ZOEKMASCHINE_DOMEINEN = [
   "google.com", "google.nl", "bing.com", "duckduckgo.com",
   "yahoo.com", "startpage.com", "ecosia.org", "brave.com"
 ];
 
+// ── Satire domeinen ──────────────────────────────────────────
 const SATIRE_DOMEINEN = [
   "speld.nl", "dedebunker.nl", "hetkannietzijn.nl",
   "theonion.com", "nieuws.nl", "ditisnieuws.nl"
 ];
 
+// ── Wetenschappelijke domeinen ────────────────────────────────
 const WETENSCHAP_DOMEINEN = [
   "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "nature.com",
   "sciencedirect.com", "science.org", "thelancet.com",
@@ -31,6 +76,7 @@ const WETENSCHAP_DOMEINEN = [
   "knaw.nl", "nwo.nl", "gezondheidsraad.nl", "ipcc.ch"
 ];
 
+// ── Nieuws domeinen ───────────────────────────────────────────
 const NIEUWS_DOMEINEN = [
   "nos.nl", "nu.nl", "ad.nl", "telegraaf.nl", "rtlnieuws.nl",
   "nrc.nl", "volkskrant.nl", "trouw.nl", "parool.nl",
@@ -39,24 +85,9 @@ const NIEUWS_DOMEINEN = [
   "omroepflevoland.nl", "nhnieuws.nl", "at5.nl",
   "omroepfriesland.nl", "rtvdrenthe.nl", "omroeplimburg.nl",
   "hartvannederland.nl", "metronieuws.nl",
-  "reuters.com", "bbc.com", "bbc.co.uk", "apnews.com",
-  "theguardian.com", "nytimes.com", "economist.com", "dw.com",
+  "reuters.com", "bbc.com", "apnews.com", "theguardian.com",
+  "nytimes.com", "economist.com", "dw.com", "bbc.co.uk",
   "ftm.nl", "fd.nl", "nieuwscheckers.nl"
-];
-
-const LIFESTYLE_DOMEINEN = [
-  "menshealth.nl", "healthline.com", "voedingscentrum.nl",
-  "gezondheidsnet.nl", "thuisarts.nl", "womanshealthmag.com",
-  "women-s-health.nl", "prevention.com", "medicalnewstoday.com",
-  "runnersworld.com", "runnersworld.nl", "bodyenfit.nl",
-  "sportrusten.nl", "fitnessmagazine.nl", "bicycling.com",
-  "triathlete.com", "cyclingnews.com",
-  "vogue.com", "vogue.nl", "glamour.com", "glamour.nl",
-  "cosmopolitan.com", "cosmopolitan.nl", "elle.com", "elle.nl",
-  "libelle.nl", "margriet.nl", "flair.nl", "nina.be",
-  "harpersbazaar.com", "instyle.com",
-  "lifestylemagazine.nl", "gezondheidskrant.nl",
-  "msn.com"
 ];
 
 const OFFICIELE_DOMEINEN = {
@@ -105,74 +136,93 @@ const EMAIL_PHISHING_WOORDEN = [
   "god bless", "bless you"
 ];
 
-function domeinCheck(tekst, sleutel) {
-  const patroon = new RegExp("\\b" + sleutel.replace(/\s+/g, "\\s+") + "\\b", "i");
-  return patroon.test(tekst);
-}
-
-function isVeiligOfficieelDomein(domein) { return VEILIGE_OFFICIELE_DOMEINEN.some(d => domein.includes(d)); }
-function isZoekmaschine(domein) { return ZOEKMASCHINE_DOMEINEN.some(d => domein.includes(d)); }
-function isSatire(domein) { return SATIRE_DOMEINEN.some(d => domein.includes(d)); }
-function isWetenschap(domein) { return WETENSCHAP_DOMEINEN.some(d => domein.includes(d)); }
-function isNieuws(domein) { return NIEUWS_DOMEINEN.some(d => domein.includes(d)); }
-function isLifestyle(domein) { return LIFESTYLE_DOMEINEN.some(d => domein.includes(d)); }
-function isYouTube(domein) { return domein.includes("youtube.com") || domein.includes("youtu.be"); }
-
-const YOUTUBE_CLICKBAIT_WOORDEN = [
-  "shocking", "you won't believe", "they don't want you to know",
-  "exposed", "banned", "censored", "truth about", "wake up",
-  "dit willen ze niet", "verboden", "gecensureerd", "de waarheid over",
-  "wat niemand je vertelt", "opgepakt", "geheim", "illuminati",
-  "schokkend", "ze verbergen", "bewijs dat", "dit is het bewijs",
-  "deepfake", "deep fake", "nep video", "fake video",
-  "ai generated", "ai gegenereerd", "niet echt", "neppe",
-  "ai downfall", "ai video", "miniverse", "ai moments",
-  "artificial intelligence generated", "made with ai", "gemaakt met ai"
-];
-
-const YOUTUBE_BETROUWBARE_KANALEN = [
-  "nos", "bbc", "reuters", "nos journaal", "nieuwsuur",
-  "tegenlicht", "vpro", "npo", "rtl nieuws", "at5",
-  "ted", "ted-ed", "vsauce", "veritasium", "kurzgesagt",
-  "national geographic", "nasa", "who", "unicef"
-];
-
+// ── Emoji bepalen op basis van score en type ─────────────────
 function bepaalEmoji(score, type) {
-  if (type === "satire")     return "😄";
-  if (type === "deepfake")   return "🤖";
-  if (type === "phishing")   return "😡";
-  if (type === "laden")      return "🤔";
+  if (type === "satire") return "😄";
+  if (type === "deepfake") return "🤖";
+  if (type === "phishing") return "😡";
+  if (type === "laden") return "🤔";
   if (type === "wetenschap") return "🎓";
-  if (type === "nieuws")     return "😊";
-  if (type === "lifestyle")  return "🌿";
-  if (type === "youtube")    return "📺";
+  if (type === "nieuws") return "😊";
   if (score >= 70) return "😊";
   if (score >= 50) return "😟";
   return "😡";
 }
 
+function domeinCheck(tekst, sleutel) {
+  const patroon = new RegExp(
+    "\\b" + sleutel.replace(/\s+/g, "\\s+") + "\\b", "i"
+  );
+  return patroon.test(tekst);
+}
+
+function isVeiligOfficieelDomein(domein) {
+  return VEILIGE_OFFICIELE_DOMEINEN.some(d => domein.includes(d));
+}
+
+function isZoekmaschine(domein) {
+  return ZOEKMASCHINE_DOMEINEN.some(d => domein.includes(d));
+}
+
+function isSatire(domein) {
+  return SATIRE_DOMEINEN.some(d => domein.includes(d));
+}
+
+function isWetenschap(domein) {
+  return WETENSCHAP_DOMEINEN.some(d => domein.includes(d));
+}
+
+function isNieuws(domein) {
+  return NIEUWS_DOMEINEN.some(d => domein.includes(d));
+}
+
 function naamMatchtDomein(afzenderNaam, afzenderDomein) {
   if (!afzenderNaam || !afzenderDomein) return true;
-  const uitzonderingen = ["noreply", "no-reply", "notifications", "mail.", "mailing.", "newsletter"];
-  if (uitzonderingen.some(u => afzenderDomein.includes(u))) return true;
-  const naamWoorden = afzenderNaam.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2);
+  if (afzenderDomein.startsWith("noreply") ||
+      afzenderDomein.includes("no-reply") ||
+      afzenderDomein.includes("notifications") ||
+      afzenderDomein.includes("mail.") ||
+      afzenderDomein.includes("mailing.") ||
+      afzenderDomein.includes("newsletter")) {
+    return true;
+  }
+  const naamWoorden = afzenderNaam
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 2);
   const domeinDelen = afzenderDomein.split(".");
-  const hoofdDomein = domeinDelen.length >= 2 ? domeinDelen[domeinDelen.length - 2] : afzenderDomein;
+  const hoofdDomein = domeinDelen.length >= 2
+    ? domeinDelen[domeinDelen.length - 2]
+    : afzenderDomein;
   const domeinTekst = afzenderDomein.replace(/\./g, " ");
-  return naamWoorden.some(w => domeinTekst.includes(w) || hoofdDomein.includes(w) || w.includes(hoofdDomein));
+  for (const woord of naamWoorden) {
+    if (domeinTekst.includes(woord) ||
+        hoofdDomein.includes(woord) ||
+        woord.includes(hoofdDomein)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function berekenPhishingWebsite(request) {
-  const paginaTekst  = (request.paginaTekst || "").toLowerCase();
-  const paginaTitel  = (request.text || "").toLowerCase();
+  const paginaTekst = (request.paginaTekst || "").toLowerCase();
+  const paginaTitel = (request.text || "").toLowerCase();
   const paginaDomein = request.domein || "";
 
-  if (isSatire(paginaDomein))    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isSatire: true };
-  if (isWetenschap(paginaDomein)) return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isWetenschap: true };
-  if (isNieuws(paginaDomein))    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isNieuws: true };
-  if (isLifestyle(paginaDomein)) return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isLifestyle: true };
-  if (isYouTube(paginaDomein))   return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isYouTube: true };
-  if (isVeiligOfficieelDomein(paginaDomein)) return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
+  if (isSatire(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isSatire: true };
+  }
+  if (isWetenschap(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isWetenschap: true };
+  }
+  if (isNieuws(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isNieuws: true };
+  }
+  if (isVeiligOfficieelDomein(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
+  }
 
   let phishingScore = 0;
   const phishingSignalen = [];
@@ -206,58 +256,138 @@ function berekenPhishingWebsite(request) {
     phishingSignalen.push("Verdacht domeinnaam patroon");
   }
 
-  const domeinZonderTLD = paginaDomein.replace(/\.(com|nl|net|org|io)$/, "");
-  const heeftUTM = (request.url || "").includes("utm_");
-  const langeMeaninglessDomein = domeinZonderTLD.length > 15 && !/^(www|mail|shop|blog|news|app)/.test(domeinZonderTLD);
-  if (heeftUTM && langeMeaninglessDomein) {
-    phishingScore += 35;
-    phishingSignalen.push("Misleidende advertentielink");
-  }
-
   if (isZoekmaschine(paginaDomein)) {
-    const heeftVerdacht = phishingScore >= 30;
-    return { actief: heeftVerdacht, score: Math.min(phishingScore, 100), signalen: [...new Set(phishingSignalen)].slice(0, 4), officieelDomein, isEmail: false, isZoekmaschine: true, niveau: heeftVerdacht ? "waarschuwing" : "veilig" };
+    const heeftVerdachteSignalen = phishingScore >= 30;
+    return {
+      actief: heeftVerdachteSignalen,
+      score: Math.min(phishingScore, 100),
+      signalen: [...new Set(phishingSignalen)].slice(0, 4),
+      officieelDomein,
+      isEmail: false,
+      isZoekmaschine: true,
+      niveau: heeftVerdachteSignalen ? "waarschuwing" : "veilig"
+    };
   }
 
-  return { actief: phishingScore >= 30, score: Math.min(phishingScore, 100), signalen: [...new Set(phishingSignalen)].slice(0, 4), officieelDomein, isEmail: false, niveau: "gevaar" };
+  return {
+    actief: phishingScore >= 30,
+    score: Math.min(phishingScore, 100),
+    signalen: [...new Set(phishingSignalen)].slice(0, 4),
+    officieelDomein,
+    isEmail: false,
+    niveau: "gevaar"
+  };
 }
 
 function berekenPhishingEmail(request) {
-  const mailTekst      = (request.paginaTekst || "").toLowerCase();
-  const afzenderNaam   = request.afzenderNaam  || "";
+  const mailTekst = (request.paginaTekst || "").toLowerCase();
+  const afzenderNaam = (request.afzenderNaam || "");
   const afzenderDomein = (request.afzenderDomein || "").toLowerCase();
-  const afzenderEmail  = (request.afzenderEmail || "").toLowerCase();
-
+  const afzenderEmail = (request.afzenderEmail || "").toLowerCase();
   let phishingScore = 0;
   const phishingSignalen = [];
 
-  if (afzenderEmail.includes("noreply") || afzenderEmail.includes("no-reply")) phishingScore += 5;
-  if (!naamMatchtDomein(afzenderNaam, afzenderDomein)) { phishingScore += 35; phishingSignalen.push("Naam past niet bij domein"); }
-  if (request.isSpam) { phishingScore += 30; phishingSignalen.push("In spammap gevonden"); }
+  if (afzenderEmail.includes("noreply") || afzenderEmail.includes("no-reply")) {
+    return { actief: false, score: 0, signalen: [], isEmail: true };
+  }
 
+  // ── Gratis emailprovider + zakelijke claim ───────────────────
+  const GRATIS_PROVIDERS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com", "icloud.com"];
+  const ZAKELIJKE_WOORDEN = ["manager", "director", "ceo", "developer", "team", "company", "services", "marketing", "sales", "support"];
+  const gebruiktGratisProvider = GRATIS_PROVIDERS.some(p => afzenderDomein === p);
+  const claimetZakelijk = ZAKELIJKE_WOORDEN.some(w => mailTekst.includes(w) || afzenderNaam.toLowerCase().includes(w));
+  if (gebruiktGratisProvider && claimetZakelijk) {
+    phishingScore += 40;
+    phishingSignalen.push("Zakelijke claim via gratis emailadres");
+  }
+
+  // ── Massamail kenmerk (bijv. "11." aan het begin) ────────────
+  if (/^\d{1,3}\.\s/.test(mailTekst.trim())) {
+    phishingScore += 25;
+    phishingSignalen.push("Massamail kenmerk gedetecteerd");
+  }
+
+  // ── Functietitel geclaimd maar geen bedrijfsnaam ─────────────
+  const BEDRIJF_PATRONEN = [
+    /\bat\s+[A-Z][a-zA-Z]+\b/,
+    /\bfrom\s+[A-Z][a-zA-Z]+\b/,
+    /\bworks?\s+(at|for)\b/,
+    /\bour\s+company\b/i,
+    /\bour\s+website\b/i
+  ];
+  const heeftBedrijfsnaam = BEDRIJF_PATRONEN.some(p => p.test(request.paginaTekst || ""));
+  const claimetFunctie = /\bi\s+am\s+\w+,?\s+(a\s+)?(marketing|sales|business|app|software|web)/i.test(request.paginaTekst || "");
+  if (claimetFunctie && !heeftBedrijfsnaam) {
+    phishingScore += 30;
+    phishingSignalen.push("Functietitel zonder bedrijfsnaam");
+  }
+
+  // ── Vraagt om gegevens te delen ──────────────────────────────
+  const DETAILS_WOORDEN = [
+    "share your", "contact details", "send us your",
+    "please share", "app requirements", "further discussion",
+    "your requirements", "get in touch"
+  ];
+  const gevondenDetails = DETAILS_WOORDEN.filter(w => mailTekst.includes(w));
+  if (gevondenDetails.length > 0) {
+    phishingScore += 20;
+    phishingSignalen.push("Vraagt om persoonlijke gegevens");
+  }
+
+  // ── Naam matcht niet met domein ──────────────────────────────
+  if (!naamMatchtDomein(afzenderNaam, afzenderDomein)) {
+    phishingScore += 60;
+    phishingSignalen.push(`"${afzenderNaam}" stuurt niet via eigen domein`);
+  }
+
+  // ── Onderwerp in hoofdletters ────────────────────────────────
+  if (request.text === request.text.toUpperCase() && request.text.length > 5) {
+    phishingScore += 25;
+    phishingSignalen.push("Onderwerp in hoofdletters");
+  }
+
+  // ── Bestaande phishing woorden ───────────────────────────────
   EMAIL_PHISHING_WOORDEN.forEach(woord => {
-    if (mailTekst.includes(woord.toLowerCase())) { phishingScore += 25; phishingSignalen.push(woord); }
+    if (mailTekst.includes(woord.toLowerCase())) {
+      phishingScore += 25;
+      phishingSignalen.push(woord);
+    }
   });
 
-  return { actief: phishingScore >= 60, score: Math.min(phishingScore, 100), signalen: [...new Set(phishingSignalen)].slice(0, 4), officieelDomein: null, isEmail: true, afzenderDomein };
+  return {
+    actief: phishingScore >= 60,
+    score: Math.min(phishingScore, 100),
+    signalen: [...new Set(phishingSignalen)].slice(0, 4),
+    officieelDomein: null,
+    isEmail: true,
+    afzenderDomein: afzenderDomein
+  };
 }
 
 function extraheerThemaViaServer(titel, artikelTekst) {
   return fetch(SERVER_URL + "/api/factcheck", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: SERVER_HEADERS,
     body: JSON.stringify({ text: titel + "\n\n" + artikelTekst })
   })
   .then(res => res.json())
-  .then(data => ({ hoofdthema: data.theme || titel.substring(0, 50), subthema: data.claim || "" }))
+  .then(data => ({
+    hoofdthema: data.theme || titel.substring(0, 50),
+    subthema: data.claim || ""
+  }))
   .catch(() => ({ hoofdthema: titel.substring(0, 50), subthema: "" }));
 }
 
+// ── Herbruikbare factcheck-call met bronnen ───────────────────
 function haalBronnenOp(request) {
   return fetch(SERVER_URL + "/api/factcheck", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: request.text, artikelTekst: request.artikelTekst || "", domein: request.domein || "", includeSources: true })
+    headers: SERVER_HEADERS,
+    body: JSON.stringify({
+      text: request.text,
+      artikelTekst: request.artikelTekst || "",
+      domein: request.domein || ""
+    })
   })
   .then(res => res.json())
   .then(data => (data.sources || []).map(r => r.url))
@@ -267,229 +397,244 @@ function haalBronnenOp(request) {
 function checkAlleenReacties(reactiesTekst, sendResponse) {
   fetch(SERVER_URL + "/api/harmful", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: SERVER_HEADERS,
     body: JSON.stringify({ text: reactiesTekst })
   })
   .then(res => res.json())
-  .then(data => { sendResponse({ status: "success", alleenReactieCheck: true, strafbareContent: data.isHarmful || false }); })
-  .catch(() => { sendResponse({ status: "success", alleenReactieCheck: true, strafbareContent: false }); });
-}
-
-
-// ── Timeout helper ────────────────────────────────────────────
-function fetchMetTimeout(url, opties, ms = 8000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  return fetch(url, { ...opties, signal: controller.signal })
-    .finally(() => clearTimeout(timer));
+  .then(data => {
+    sendResponse({
+      status: "success",
+      alleenReactieCheck: true,
+      strafbareContent: data.isHarmful || false
+    });
+  })
+  .catch(() => {
+    sendResponse({
+      status: "success",
+      alleenReactieCheck: true,
+      strafbareContent: false
+    });
+  });
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "start_check") {
 
-  // ── Feedback opslaan ─────────────────────────────────────────
-  if (request.action === "stuur_feedback") {
-    fetch("https://truthcheck-ai-production.up.railway.app/api/feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: request.url,
-        score: request.score,
-        oordeel: request.oordeel,
-        duim: request.duim,
-        tekst: request.tekst,
-        timestamp: request.timestamp
+    if (request.alleenReactieCheck) {
+      if (request.reactiesTekst && request.reactiesTekst.length > 10) {
+        checkAlleenReacties(request.reactiesTekst, sendResponse);
+      } else {
+        sendResponse({ status: "success", alleenReactieCheck: true, strafbareContent: false });
+      }
+      return true;
+    }
+
+    // ── YouTube video — apart endpoint ───────────────────────
+    if (request.domein && (request.domein.includes("youtube.com") || request.domein.includes("youtu.be")) && request.videoContext) {
+      fetch(SERVER_URL + "/api/youtube", {
+        method: "POST",
+        headers: SERVER_HEADERS,
+        body: JSON.stringify({
+          titel: request.text || "",
+          kanaal: request.videoContext.match(/Kanaal:\s*([^|]+)/)?.[1]?.trim() || "",
+          beschrijving: request.videoContext.match(/Beschrijving:\s*(.+)/s)?.[1]?.trim() || "",
+          views: request.videoContext.match(/Views:\s*([^|]+)/)?.[1]?.trim() || "",
+          videoUrl: request.url || "",
+          taal: request.taal || "nl"
+        })
       })
-    }).catch(() => {});
-    return false;
-  }
-
-  // ── Bronnen ophalen bij popup open (Tavily on-demand) ──────────
-  if (request.action === "haal_bronnen") {
-    haalBronnenOp(request).then(bronnen => {
-      sendResponse({ bronnen });
-    });
-    return true;
-  }
-
-  // ── Vraag aan AI stellen ──────────────────────────────────────
-  if (request.action === "stel_vraag") {
-    fetch("https://truthcheck-ai-production.up.railway.app/api/vraag", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        vraag: request.vraag,
-        context: request.context || "",
-        taal: request.taal || "en"
+      .then(res => res.json())
+      .then(data => {
+        const score = data.score || 50;
+        const bronnen = (data.sources || []).map(r => r.url);
+        const emoji = score >= 70 ? "😊" : score >= 50 ? "😟" : "😡";
+        const signalen = data.signals && data.signals.length > 0
+          ? " Signalen: " + data.signals.join(", ") + "."
+          : "";
+        sendResponse({
+          status: "success",
+          score: score,
+          oordeel: data.theme || "YouTube video",
+          uitleg: (data.explanation || "") + signalen,
+          bronnen: bronnen,
+          bronType: score < 50 ? "weerlegging" : "verdieping",
+          phishing: { actief: false },
+          strafbareContent: false,
+          emoji: emoji,
+          type: "youtube"
+        });
       })
-    })
-    .then(r => r.json())
-    .then(data => {
+      .catch(() => sendResponse({ status: "error", message: "YouTube analyse mislukt" }));
+      return true;
+    }
+
+    const phishing = request.isEmail
+      ? berekenPhishingEmail(request)
+      : berekenPhishingWebsite(request);
+
+    if (phishing.isSatire) {
+      haalBronnenOp(request).then(bronnen => {
+        sendResponse({
+          status: "success",
+          score: 75,
+          oordeel: "Satirische content",
+          uitleg: "Dit is een satirische website. De inhoud is bedoeld als humor en niet als feitelijke berichtgeving.",
+          bronnen: bronnen,
+          phishing: { actief: false },
+          strafbareContent: false,
+          emoji: "😄",
+          type: "satire"
+        });
+      });
+      return true;
+    }
+
+    if (phishing.isWetenschap) {
+      haalBronnenOp(request).then(bronnen => {
+        sendResponse({
+          status: "success",
+          score: 90,
+          oordeel: "Wetenschappelijke bron",
+          uitleg: "Dit is een wetenschappelijke of academische website met peer-reviewed content.",
+          bronnen: bronnen,
+          phishing: { actief: false },
+          strafbareContent: false,
+          emoji: "🎓",
+          type: "wetenschap"
+        });
+      });
+      return true;
+    }
+
+    if (phishing.isNieuws) {
+      haalBronnenOp(request).then(bronnen => {
+        sendResponse({
+          status: "success",
+          score: 85,
+          oordeel: "Betrouwbare nieuwsbron",
+          uitleg: "Dit is een bekende en betrouwbare nieuwssite. Controleer altijd meerdere bronnen voor een volledig beeld.",
+          bronnen: bronnen,
+          phishing: { actief: false },
+          strafbareContent: false,
+          emoji: "😊",
+          type: "nieuws"
+        });
+      });
+      return true;
+    }
+
+    if (phishing.actief) {
+      const isWaarschuwing = phishing.isZoekmaschine;
       sendResponse({
         status: "success",
-        antwoord: data.antwoord || "Geen antwoord gevonden.",
-        bronnen: data.bronnen || []
+        score: isWaarschuwing ? 45 : Math.max(5, 25 - phishing.score),
+        oordeel: request.isEmail
+          ? "Verdachte e-mail"
+          : isWaarschuwing ? "Let op bij klikken" : "Verdachte site",
+        uitleg: request.isEmail
+          ? "De afzender klopt niet met het e-mailadres. Reageer niet en klik op geen enkele link."
+          : isWaarschuwing
+            ? "Controleer altijd de URL voordat je klikt. Phishing sites kunnen tussen zoekresultaten staan."
+            : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
+        bronnen: [],
+        phishing: phishing,
+        strafbareContent: false,
+        emoji: "😡",
+        type: "phishing"
+      });
+      return true;
+    }
+
+    if (request.isEmail) {
+      sendResponse({
+        status: "success",
+        score: 75,
+        oordeel: "Geen gevaar gedetecteerd",
+        uitleg: "Geen phishing signalen gevonden in deze e-mail.",
+        bronnen: [],
+        phishing: { actief: false },
+        strafbareContent: false,
+        emoji: "😊",
+        type: "normaal"
+      });
+      return true;
+    }
+
+    const deepfakePromise = request.afbeeldingUrl
+      ? fetch(SERVER_URL + "/api/factcheck", {
+          method: "POST",
+          headers: SERVER_HEADERS,
+          body: JSON.stringify({ text: "deepfake check: " + request.afbeeldingUrl })
+        })
+        .then(res => res.json())
+        .then(() => ({ deepfake_kans: 0, uitleg: "" }))
+        .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
+      : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
+
+    const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
+      ? fetch(SERVER_URL + "/api/harmful", {
+          method: "POST",
+          headers: SERVER_HEADERS,
+          body: JSON.stringify({ text: request.reactiesTekst })
+        })
+        .then(res => res.json())
+        .then(data => ({ strafbaar: data.isHarmful || false, reden: data.explanation || "" }))
+        .catch(() => ({ strafbaar: false, reden: "" }))
+      : Promise.resolve({ strafbaar: false, reden: "" });
+
+    const themaPromise = extraheerThemaViaServer(
+      request.text,
+      request.artikelTekst || request.zoekContext || ""
+    );
+
+    const paginaDomein = request.domein || "";
+
+    Promise.all([deepfakePromise, strafbareContentPromise, themaPromise])
+    .then(([deepfakeResultaat, strafbaarResultaat, thema]) => {
+      const strafbareContent = strafbaarResultaat.strafbaar || false;
+
+      return fetch(SERVER_URL + "/api/factcheck", {
+        method: "POST",
+        headers: SERVER_HEADERS,
+        body: JSON.stringify({
+          text: request.text,
+          artikelTekst: request.artikelTekst || "",
+          domein: paginaDomein
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const bronnen = (data.sources || []).map(r => r.url);
+        const score = data.score || 50;
+        const oordeel = data.theme || "Onbekend";
+        const uitleg = data.explanation || "Geen uitleg beschikbaar.";
+        const bronRelevant = bronnen.length > 0;
+
+        const isDeepfake = deepfakeResultaat && deepfakeResultaat.deepfake_kans >= 50;
+        const type = isDeepfake ? "deepfake" : "normaal";
+        const emoji = bepaalEmoji(score, type);
+
+        const uitlegMetWaarschuwing = strafbareContent
+          ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
+          : uitleg;
+
+        sendResponse({
+          status: "success",
+          score: score,
+          oordeel: oordeel,
+          uitleg: uitlegMetWaarschuwing,
+          bronnen: bronnen,
+          bronRelevant: bronRelevant,
+          strafbareContent: strafbareContent,
+          phishing: { actief: false },
+          deepfake: deepfakeResultaat,
+          emoji: emoji,
+          type: type
+        });
       });
     })
-    .catch(() => sendResponse({ status: "error", antwoord: "Kon geen antwoord ophalen." }));
+    .catch(err => sendResponse({ status: "error", message: err.message }));
+
     return true;
   }
-
-  if (request.action !== "start_check") return false;
-
-  if (request.alleenReactieCheck) {
-    if (request.reactiesTekst && request.reactiesTekst.length > 10) {
-      checkAlleenReacties(request.reactiesTekst, sendResponse);
-    } else {
-      sendResponse({ status: "success", alleenReactieCheck: true, strafbareContent: false });
-    }
-    return true;
-  }
-
-  const phishing = request.isEmail ? berekenPhishingEmail(request) : berekenPhishingWebsite(request);
-
-  // ── Taal bepalen ─────────────────────────────────────────────
-  const taal = (request.taal || "en").substring(0, 2).toLowerCase();
-  const isNL = taal === "nl";
-
-  const T = {
-    satireOordeel:    isNL ? "Satirische content"        : "Satirical content",
-    satireUitleg:     isNL ? "Dit is een satirische website. De inhoud is bedoeld als humor en niet als feitelijke berichtgeving."
-                           : "This is a satirical website. The content is intended as humor, not factual reporting.",
-    wetOordeel:       isNL ? "Wetenschappelijke bron"    : "Scientific source",
-    wetUitleg:        isNL ? "Dit is een wetenschappelijke of academische website met peer-reviewed content."
-                           : "This is a scientific or academic website with peer-reviewed content.",
-    nieuwsOordeel:    isNL ? "Betrouwbare nieuwsbron"    : "Reliable news source",
-    nieuwsUitleg:     isNL ? "Dit is een bekende en betrouwbare nieuwssite. Controleer altijd meerdere bronnen voor een volledig beeld."
-                           : "This is a well-known and reliable news site. Always check multiple sources for a complete picture.",
-    lifestyleOordeel: isNL ? "Lifestyle content"         : "Lifestyle content",
-    lifestyleUitleg:  isNL ? "Dit is een lifestyle website over gezondheid, sport, mode of beauty. Controleer medische of voedingsadviezen altijd bij een professional."
-                           : "This is a lifestyle website about health, sport, fashion or beauty. Always verify medical or dietary advice with a professional."
-  };
-
-  if (phishing.isSatire) {
-    sendResponse({ status: "success", score: 75, oordeel: T.satireOordeel, uitleg: T.satireUitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "😄", type: "satire" });
-    return true;
-  }
-
-  if (phishing.isWetenschap) {
-    sendResponse({ status: "success", score: 90, oordeel: T.wetOordeel, uitleg: T.wetUitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "🎓", type: "wetenschap" });
-    return true;
-  }
-
-  if (phishing.isNieuws) {
-    sendResponse({ status: "success", score: 85, oordeel: T.nieuwsOordeel, uitleg: T.nieuwsUitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "😊", type: "nieuws" });
-    return true;
-  }
-
-  if (phishing.isLifestyle) {
-    sendResponse({ status: "success", score: 70, oordeel: T.lifestyleOordeel, uitleg: T.lifestyleUitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "🌿", type: "lifestyle" });
-    return true;
-  }
-
-  if (phishing.isYouTube) {
-    const titel = (request.text || "").toLowerCase();
-    const paginaTekst = (request.paginaTekst || "").toLowerCase();
-    const combineerd = titel + " " + paginaTekst;
-    const isBetrouwbaarKanaal = YOUTUBE_BETROUWBARE_KANALEN.some(k => combineerd.includes(k));
-    const isDeepfakeVideo = ["deepfake","deep fake","nep video","fake video","ai generated","ai gegenereerd","ai downfall","ai video","made with ai","gemaakt met ai","miniverse ai","sora","sora 2","runway ml","runway gen","gen-2","gen-3","pika labs","pika video","kling ai","hailuo","minimax video","luma dream machine","dream machine","invideo ai","stable video","stability ai video","adobe firefly video","veo","veo 2","google veo","meta movie gen","movie gen","funny ai video","ai animals","ai cat","ai dog","ai short","ai film","ai generated video","ai footage"].some(w => combineerd.includes(w));
-    const aantalClickbait = YOUTUBE_CLICKBAIT_WOORDEN.filter(w => combineerd.includes(w.toLowerCase())).length;
-
-    let score, oordeel, uitleg;
-    if (isDeepfakeVideo) { score = 20; oordeel = "Deepfake video gedetecteerd"; uitleg = "De titel geeft aan dat dit een deepfake of AI-gegenereerde video is. Het getoonde beeld is niet echt — wees voorzichtig met delen."; }
-    else if (isBetrouwbaarKanaal) { score = 85; oordeel = "Betrouwbaar YouTube kanaal"; uitleg = "Dit lijkt een gevestigd en betrouwbaar kanaal. Controleer altijd de videobeschrijving en bronnen in de comments."; }
-    else if (aantalClickbait >= 2) { score = 30; oordeel = "Mogelijke desinformatie video"; uitleg = "De titel bevat meerdere clickbait of desinformatie signalen. Controleer de claims via onafhankelijke bronnen voordat je deelt."; }
-    else if (aantalClickbait === 1) { score = 55; oordeel = "Twijfelachtige YouTube video"; uitleg = "De titel bevat een mogelijk misleidend woord. Controleer het kanaal en de bronnen."; }
-    else { score = 70; oordeel = "YouTube video"; uitleg = "Geen directe desinformatie signalen gevonden. Controleer altijd het kanaal en de bronnen bij gevoelige onderwerpen."; }
-
-    sendResponse({ status: "success", score, oordeel, uitleg, bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "📺", type: "youtube" });
-    return true;
-  }
-
-  if (phishing.actief) {
-    const isWaarschuwing = phishing.isZoekmaschine;
-    sendResponse({
-      status: "success",
-      score: isWaarschuwing ? 45 : Math.max(5, 25 - phishing.score),
-      oordeel: request.isEmail ? "Verdachte e-mail" : isWaarschuwing ? "Let op bij klikken" : "Verdachte site",
-      uitleg: request.isEmail ? "De afzender klopt niet met het e-mailadres. Reageer niet en klik op geen enkele link." : isWaarschuwing ? "Controleer altijd de URL voordat je klikt. Phishing sites kunnen tussen zoekresultaten staan." : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
-      bronnen: [], phishing, strafbareContent: false, manipulatie: [], emoji: "😡", type: "phishing"
-    });
-    return true;
-  }
-
-  if (request.isEmail) {
-    sendResponse({ status: "success", score: 75, oordeel: "Geen gevaar gedetecteerd", uitleg: "Geen phishing signalen gevonden in deze e-mail.", bronnen: [], phishing: { actief: false }, strafbareContent: false, manipulatie: [], emoji: "😊", type: "normaal" });
-    return true;
-  }
-
-  const isVideoPagina = request.afbeeldingUrl || 
-    request.domein?.includes("youtube") || 
-    request.domein?.includes("vimeo") || 
-    request.domein?.includes("tiktok");
-
-  // ── Alle calls parallel starten ─────────────────────────────
-  const factcheckPromise = fetchMetTimeout(SERVER_URL + "/api/factcheck", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: request.text, artikelTekst: request.artikelTekst || "", domein: request.domein || "", taal: request.taal || "en" })
-  }, 9000)
-  .then(res => res.json())
-  .catch(() => ({ score: 50, theme: "Onbekend", explanation: "Analyse duurde te lang.", manipulatie: [], aiTekst: 0, sources: [] }));
-
-  const deepfakePromise = isVideoPagina
-    ? fetchMetTimeout(SERVER_URL + "/api/deepfake", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          afbeeldingUrl: request.afbeeldingUrl || null,
-          titel: request.text || "",
-          domein: request.domein || "",
-          videoContext: request.videoContext || ""
-        })
-      }, 7000)
-      .then(res => res.json())
-      .then(data => ({ deepfake_kans: data.deepfake_kans || 0, uitleg: data.uitleg || "" }))
-      .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
-    : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
-
-  const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
-    ? fetchMetTimeout(SERVER_URL + "/api/harmful", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: request.reactiesTekst })
-      }, 6000)
-      .then(res => res.json())
-      .then(data => ({ strafbaar: data.isHarmful || false, reden: data.explanation || "" }))
-      .catch(() => ({ strafbaar: false, reden: "" }))
-    : Promise.resolve({ strafbaar: false, reden: "" });
-
-  Promise.all([factcheckPromise, deepfakePromise, strafbareContentPromise])
-  .then(([data, deepfakeResultaat, strafbaarResultaat]) => {
-    const bronnen      = (data.sources || []).map(r => r.url);
-    const score        = data.score || 50;
-    const oordeel      = data.theme || "Onbekend";
-    const uitleg       = data.explanation || "Geen uitleg beschikbaar.";
-    const manipulatie  = data.manipulatie || [];
-    const aiTekst      = data.aiTekst || 0;
-    const strafbareContent = strafbaarResultaat.strafbaar || false;
-    const isDeepfake   = deepfakeResultaat && deepfakeResultaat.deepfake_kans >= 50;
-    const type         = isDeepfake ? "deepfake" : "normaal";
-    const emoji        = bepaalEmoji(score, type);
-    const uitlegMetWaarschuwing = strafbareContent ? uitleg + " Let op: strafbare content gedetecteerd in de reacties." : uitleg;
-
-    sendResponse({
-      status: "success",
-      score, oordeel,
-      uitleg: uitlegMetWaarschuwing,
-      bronnen, strafbareContent,
-      phishing: { actief: false },
-      deepfake: deepfakeResultaat,
-      manipulatie,
-      aiTekst,
-      emoji, type
-    });
-  })
-  .catch(err => sendResponse({ status: "error", message: err.message }));
-
-  return true;
 });
