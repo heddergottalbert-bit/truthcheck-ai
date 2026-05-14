@@ -460,6 +460,17 @@ Beschrijving: ${schoneBeschrijving}`
       analysis = { score: 50, theme: schoneTitel.slice(0, 60), explanation: content, signals: [] };
     }
 
+    // Auto-correctie: als OpenAI zelf humor/satire detecteert, score omhoog
+    const uitlegLower = (analysis.explanation || '').toLowerCase();
+    const themaLower = (analysis.theme || '').toLowerCase();
+    const heeftHumorSignaal = ['humor', 'satire', 'humoristisch', 'grappig', 'satirisch', 'komisch', 'parodie'].some(w =>
+      uitlegLower.includes(w) || themaLower.includes(w)
+    );
+    if (heeftHumorSignaal && analysis.score < 60) {
+      analysis.score = 72;
+      analysis.contentType = 'satire';
+    }
+
     // Stap 2: Tavily zoekt verificatiebronnen op basis van de titel
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
@@ -480,6 +491,7 @@ Beschrijving: ${schoneBeschrijving}`
       theme: analysis.theme,
       explanation: analysis.explanation,
       signals: analysis.signals || [],
+      contentType: analysis.contentType || contentType,
       sources: tavilyData.results || [],
       answer: tavilyData.answer || null
     });
