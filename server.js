@@ -277,9 +277,9 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
     const schoneAbonnees     = sanitizeInput(abonnees || '');
     const isAiContent        = aiContent === 'ja';
 
-    const taalInstructie = (taal === 'nl')
-      ? 'Antwoord in het Nederlands.'
-      : 'Answer in English.';
+    const taalInstructie = (taal === 'nl' || !taal)
+      ? 'Je MOET altijd in het Nederlands antwoorden. Geen Engelse woorden in explanation of theme.'
+      : 'You MUST always answer in English.';
 
     // Stap 1: OpenAI analyseert de videometadata
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
