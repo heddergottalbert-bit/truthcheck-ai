@@ -106,7 +106,15 @@ const VERIFICATIE_DOMEINEN = [
   'nature.com', 'pubmed.ncbi.nlm.nih.gov', 'sciencedirect.com',
   'thelancet.com', 'nejm.org', 'bmj.com', 'ncbi.nlm.nih.gov',
   // Factcheckers
-  'snopes.com', 'factcheck.org', 'politifact.com', 'nieuwscheckers.nl'
+  'snopes.com', 'factcheck.org', 'politifact.com', 'nieuwscheckers.nl',
+  // Vakbonden en sectororganisaties NL
+  'fnv.nl', 'cnv.nl', 'vcp.nl', 'politiebond.nl', 'abvakabo.nl',
+  // Sectorvakbladen NL
+  'skipr.nl', 'zorgvisie.nl', 'binnenlandsbestuur.nl',
+  'salarisvanmorgen.nl', 'radar.avrotros.nl',
+  // Overige betrouwbare NL bronnen
+  'rtl.nl', 'rtlnieuws.nl', 'omroepwest.nl', 'omroepbrabant.nl',
+  'nhnieuws.nl', 'at5.nl', 'rtvnoord.nl', 'omroepgelderland.nl'
 ];
 
 // Weerleggingswoorden — bron spreekt de claim tegen
@@ -151,9 +159,9 @@ function berekenBronBonus(tavilyResultaten, beginScore, tavilyAnswer) {
       const richting = bepaalBronRichting(resultaat, tavilyAnswer);
 
       if (richting === 'weerlegt') {
-        bonus -= 2; // Bron weerlegt claim — inhoud onbetrouwbaarder
+        bonus -= 4; // Bron weerlegt claim — inhoud onbetrouwbaarder
       } else if (richting === 'bevestigt') {
-        bonus += 2; // Bron bevestigt claim — inhoud betrouwbaarder
+        bonus += 4; // Bron bevestigt claim — inhoud betrouwbaarder
       }
       // Neutraal — geen effect op score
     } catch(e) { continue; }
@@ -166,8 +174,11 @@ function berekenBronBonus(tavilyResultaten, beginScore, tavilyAnswer) {
 
 // ── Drie signalen berekenen voor popup ───────────────────────
 function berekenSignalen(kanaal, tavilyResultaten, openaiSignalen, isBetrouwbaarKanaalBool) {
-  // Signaal 1: Bron bekend?
-  const bronBekend = isBetrouwbaarKanaalBool;
+  // Signaal 1: Bron bekend? — check kanaal én domein
+  const kanaalBekend = isBetrouwbaarKanaalBool;
+  const domeinBekend = BETROUWBARE_KANALEN.some(w => normaliseerKanaal(kanaal).includes(w))
+    || VERIFICATIE_DOMEINEN.some(d => normaliseerKanaal(kanaal).includes(d));
+  const bronBekend = kanaalBekend || domeinBekend;
 
   // Signaal 2: Onderwerp verifieerbaar?
   const betrouwbareBronnen = (tavilyResultaten || []).filter(r => {
@@ -402,7 +413,9 @@ function normaliseerKanaal(kanaal) {
     .toLowerCase()
     .replace(/&amp;/g, '&')
     .replace(/&#38;/g, '&')
-    .replace(/\s+/g, ' ')
+    .replace(/\u0026amp;/g, '&')
+    .replace(/&/g, '&')
+    .replace(/[ 	]+/g, ' ')
     .trim();
 }
 
