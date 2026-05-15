@@ -109,28 +109,59 @@ const VERIFICATIE_DOMEINEN = [
   'snopes.com', 'factcheck.org', 'politifact.com', 'nieuwscheckers.nl'
 ];
 
-function berekenBronBonus(tavilyResultaten, beginScore) {
+// Weerleggingswoorden — bron spreekt de claim tegen
+const WEERLEGGING_WOORDEN = [
+  'false', 'incorrect', 'wrong', 'debunked', 'misleading', 'misinformation',
+  'not true', 'no evidence', 'claim is false', 'fact check',
+  'onjuist', 'niet waar', 'weerlegd', 'ontkracht', 'desinformatie',
+  'geen bewijs', 'misleidend', 'feitelijk onjuist', 'klopt niet'
+];
+
+// Bevestigingswoorden — bron ondersteunt de claim
+const BEVESTIGING_WOORDEN = [
+  'confirmed', 'verified', 'true', 'accurate', 'evidence shows',
+  'research confirms', 'studies show', 'experts agree',
+  'bevestigd', 'bewezen', 'klopt', 'onderzoek bevestigt',
+  'experts bevestigen', 'cijfers tonen', 'blijkt uit'
+];
+
+function bepaalBronRichting(resultaat, tavilyAnswer) {
+  // Gebruik Tavily answer + content van het resultaat voor context
+  const tekst = ((tavilyAnswer || '') + ' ' + (resultaat.content || '')).toLowerCase();
+
+  const heeftWeerlegging = WEERLEGGING_WOORDEN.some(w => tekst.includes(w));
+  const heeftBevestiging = BEVESTIGING_WOORDEN.some(w => tekst.includes(w));
+
+  if (heeftWeerlegging && !heeftBevestiging) return 'weerlegt';
+  if (heeftBevestiging && !heeftWeerlegging) return 'bevestigt';
+  return 'neutraal'; // Beide of geen — neutraal, geen effect
+}
+
+function berekenBronBonus(tavilyResultaten, beginScore, tavilyAnswer) {
   if (!tavilyResultaten || tavilyResultaten.length === 0) return 0;
 
   let bonus = 0;
-  let betrouwbareBronnen = 0;
 
   for (const resultaat of tavilyResultaten) {
     try {
       const domein = new URL(resultaat.url).hostname.replace('www.', '');
       const isBetrouwbaar = VERIFICATIE_DOMEINEN.some(d => domein.includes(d));
-      if (isBetrouwbaar) {
-        betrouwbareBronnen++;
-        bonus += 4; // 4 punten per betrouwbare bron
+      if (!isBetrouwbaar) continue;
+
+      const richting = bepaalBronRichting(resultaat, tavilyAnswer);
+
+      if (richting === 'weerlegt') {
+        bonus -= 2; // Bron weerlegt claim — inhoud onbetrouwbaarder
+      } else if (richting === 'bevestigt') {
+        bonus += 2; // Bron bevestigt claim — inhoud betrouwbaarder
       }
+      // Neutraal — geen effect op score
     } catch(e) { continue; }
   }
 
-  // Maximum bonus: 15 punten — kan score niet boven 95 brengen
-  const maxBonus = Math.min(bonus, 15);
-  const nieuweScore = Math.min(beginScore + maxBonus, 95);
-
-  return nieuweScore - beginScore; // Geef alleen de bonus terug
+  // Grenzen: score blijft tussen 5 en 95
+  const nieuweScore = Math.min(Math.max(beginScore + bonus, 5), 95);
+  return nieuweScore - beginScore;
 }
 
 // ── Drie signalen berekenen voor popup ───────────────────────
@@ -218,15 +249,18 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
     const tavilyData = await tavilyRes.json();
 
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
-    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score);
+    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score, tavilyData.answer);
     const definitieveScore = analysis.score + bronBonus;
     const signalen = berekenSignalen(domein, tavilyData.results, [], false);
+    const bonusTekst = bronBonus > 0 ? ` (Score +${bronBonus} — betrouwbare bronnen bevestigen de claim.)`
+      : bronBonus < 0 ? ` (Score ${bronBonus} — betrouwbare bronnen weerleggen de claim.)`
+      : '';
 
     res.json({
       score: definitieveScore,
       theme: analysis.theme,
       claim: analysis.claim,
-      explanation: analysis.explanation + (bronBonus > 0 ? ` (Score verhoogd met ${bronBonus} punten op basis van ${Math.round(bronBonus/4)} betrouwbare bronnen.)` : ''),
+      explanation: analysis.explanation + bonusTekst,
       sources: tavilyData.results || [],
       answer: tavilyData.answer || null,
       bronBekend: signalen.bronBekend,
@@ -663,14 +697,17 @@ Beschrijving: ${schoneBeschrijving}`
     const tavilyData = await tavilyRes.json();
 
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
-    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score);
+    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score, tavilyData.answer);
     const definitieveScore = analysis.score + bronBonus;
     const signalen = berekenSignalen(schoneKanaal, tavilyData.results, analysis.signals || [], isBetrouwbaar);
+    const bonusTekst = bronBonus > 0 ? ` (Score +${bronBonus} — betrouwbare bronnen bevestigen de claim.)`
+      : bronBonus < 0 ? ` (Score ${bronBonus} — betrouwbare bronnen weerleggen de claim.)`
+      : '';
 
     res.json({
       score: definitieveScore,
       theme: analysis.theme,
-      explanation: analysis.explanation + (bronBonus > 0 ? ` (Score verhoogd met ${bronBonus} punten op basis van ${Math.round(bronBonus/4)} betrouwbare bronnen.)` : ''),
+      explanation: analysis.explanation + bonusTekst,
       signals: analysis.signals || [],
       contentType: analysis.contentType || contentType,
       sources: tavilyData.results || [],
