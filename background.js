@@ -478,7 +478,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           phishing: { actief: false },
           strafbareContent: false,
           emoji: emoji,
-          type: "youtube"
+          type: "youtube",
+          bronBekend: data.bronBekend || false,
+          onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
+          verificatieBronnen: data.verificatieBronnen || [],
+          rodeVlaggen: data.rodeVlaggen || []
         });
       })
       .catch(() => sendResponse({ status: "error", message: "YouTube analyse mislukt" }));
@@ -646,7 +650,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           phishing: { actief: false },
           deepfake: deepfakeResultaat,
           emoji: emoji,
-          type: type
+          type: type,
+          bronBekend: data.bronBekend || false,
+          onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
+          verificatieBronnen: data.verificatieBronnen || [],
+          rodeVlaggen: data.rodeVlaggen || []
         });
       });
     })

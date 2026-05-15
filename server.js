@@ -133,6 +133,29 @@ function berekenBronBonus(tavilyResultaten, beginScore) {
   return nieuweScore - beginScore; // Geef alleen de bonus terug
 }
 
+// ── Drie signalen berekenen voor popup ───────────────────────
+function berekenSignalen(kanaal, tavilyResultaten, openaiSignalen, isBetrouwbaarKanaalBool) {
+  // Signaal 1: Bron bekend?
+  const bronBekend = isBetrouwbaarKanaalBool;
+
+  // Signaal 2: Onderwerp verifieerbaar?
+  const betrouwbareBronnen = (tavilyResultaten || []).filter(r => {
+    try {
+      const domein = new URL(r.url).hostname.replace('www.', '');
+      return VERIFICATIE_DOMEINEN.some(d => domein.includes(d));
+    } catch(e) { return false; }
+  });
+  const onderwerpVerifieerbaar = betrouwbareBronnen.length > 0;
+  const verificatieBronnen = betrouwbareBronnen.map(r => {
+    try { return new URL(r.url).hostname.replace('www.', ''); } catch(e) { return ''; }
+  }).filter(Boolean).slice(0, 3);
+
+  // Signaal 3: Rode vlaggen?
+  const rodeVlaggen = openaiSignalen || [];
+
+  return { bronBekend, onderwerpVerifieerbaar, verificatieBronnen, rodeVlaggen };
+}
+
 // ── Health check (geen auth nodig) ───────────────────────────
 app.get('/', (req, res) => {
   res.json({ status: 'TruthCheck AI server draait' });
@@ -197,14 +220,19 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
     const bronBonus = berekenBronBonus(tavilyData.results, analysis.score);
     const definitieveScore = analysis.score + bronBonus;
+    const signalen = berekenSignalen(domein, tavilyData.results, [], false);
 
     res.json({
       score: definitieveScore,
       theme: analysis.theme,
       claim: analysis.claim,
-      explanation: analysis.explanation + (bronBonus > 0 ? ` (Score verhoogd met ${bronBonus} punten op basis van ${bronBonus/4} betrouwbare bronnen.)` : ''),
+      explanation: analysis.explanation + (bronBonus > 0 ? ` (Score verhoogd met ${bronBonus} punten op basis van ${Math.round(bronBonus/4)} betrouwbare bronnen.)` : ''),
       sources: tavilyData.results || [],
-      answer: tavilyData.answer || null
+      answer: tavilyData.answer || null,
+      bronBekend: signalen.bronBekend,
+      onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
+      verificatieBronnen: signalen.verificatieBronnen,
+      rodeVlaggen: signalen.rodeVlaggen
     });
 
   } catch (err) {
@@ -637,6 +665,7 @@ Beschrijving: ${schoneBeschrijving}`
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
     const bronBonus = berekenBronBonus(tavilyData.results, analysis.score);
     const definitieveScore = analysis.score + bronBonus;
+    const signalen = berekenSignalen(schoneKanaal, tavilyData.results, analysis.signals || [], isBetrouwbaar);
 
     res.json({
       score: definitieveScore,
@@ -645,7 +674,11 @@ Beschrijving: ${schoneBeschrijving}`
       signals: analysis.signals || [],
       contentType: analysis.contentType || contentType,
       sources: tavilyData.results || [],
-      answer: tavilyData.answer || null
+      answer: tavilyData.answer || null,
+      bronBekend: signalen.bronBekend,
+      onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
+      verificatieBronnen: signalen.verificatieBronnen,
+      rodeVlaggen: signalen.rodeVlaggen
     });
 
   } catch (err) {

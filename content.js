@@ -12,6 +12,10 @@ let huidigBronType = "verdieping";
 let huidigManipulatie = [];
 let huidigAiTekst = 0;
 let huidigArtikeltekst = "";
+let huidigBronBekend = false;
+let huidigOnderwerpVerifieerbaar = false;
+let huidigVerificatieBronnen = [];
+let huidigRodeVlaggen = [];
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -198,7 +202,21 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       </div>
       <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="${t.askQuestion}">?</div>
     </div>
-    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:6px;font-family:${lettertype};">${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span></div>
+    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span></div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
+        <span style="font-size:12px;">${huidigBronBekend ? '✅' : '❓'}</span>
+        <span style="color:${tekstKleur};opacity:0.8;">Bron bekend: <strong>${huidigBronBekend ? 'Ja — staat op de whitelist' : 'Nee — onbekend kanaal of domein'}</strong></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
+        <span style="font-size:12px;">${huidigOnderwerpVerifieerbaar ? '✅' : '⚠️'}</span>
+        <span style="color:${tekstKleur};opacity:0.8;">Verifieerbaar: <strong>${huidigOnderwerpVerifieerbaar ? 'Ja — gevonden bij ' + (huidigVerificatieBronnen.slice(0,2).join(', ') || 'betrouwbare bronnen') : 'Niet bevestigd door onafhankelijke bronnen'}</strong></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
+        <span style="font-size:12px;">${huidigRodeVlaggen.length > 0 ? '🚩' : '✅'}</span>
+        <span style="color:${tekstKleur};opacity:0.8;">Rode vlaggen: <strong>${huidigRodeVlaggen.length > 0 ? huidigRodeVlaggen.slice(0,2).join(', ') : 'Geen gedetecteerd'}</strong></span>
+      </div>
+    </div>
     <div style="font-size:11px;color:${tekstKleur};line-height:1.5;margin-bottom:14px;font-family:${lettertype};">${schoneUitleg}</div>
     <div id="tc-vraag-veld" style="display:none;margin-bottom:12px;">
       <div style="display:flex;gap:6px;">
@@ -1065,6 +1083,10 @@ function startCheck() {
         huidigManipulatie = response.manipulatie || [];
         huidigAiTekst    = response.aiTekst || 0;
         huidigArtikeltekst = artikelTekst || "";
+        huidigBronBekend = response.bronBekend || false;
+        huidigOnderwerpVerifieerbaar = response.onderwerpVerifieerbaar || false;
+        huidigVerificatieBronnen = response.verificatieBronnen || [];
+        huidigRodeVlaggen = response.rodeVlaggen || [];
         huidigEmoji    = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
         if (!huidigStrafbareContent) {
           huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
