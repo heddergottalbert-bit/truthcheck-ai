@@ -397,13 +397,22 @@ const SATIRE_KANALEN = [
   'de speld', 'zondag met lubach', 'lubach', 'arjen lubach'
 ];
 
+function normaliseerKanaal(kanaal) {
+  return (kanaal || '')
+    .toLowerCase()
+    .replace(/&amp;/g, '&')
+    .replace(/&#38;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function isBetrouwbaarKanaal(kanaal) {
-  const k = (kanaal || '').toLowerCase().trim();
+  const k = normaliseerKanaal(kanaal);
   return BETROUWBARE_KANALEN.some(w => k.includes(w));
 }
 
 function isSatireKanaal(kanaal) {
-  const k = (kanaal || '').toLowerCase().trim();
+  const k = normaliseerKanaal(kanaal);
   return SATIRE_KANALEN.some(w => k.includes(w));
 }
 
