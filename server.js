@@ -521,10 +521,6 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
 
     const schoneTitel        = sanitizeInput(titel);
     const schoneKanaal       = sanitizeInput(kanaal || '');
-    // Debug — tijdelijk logging om kanaalnaam te tracen
-    console.log('KANAAL ONTVANGEN:', JSON.stringify(kanaal));
-    console.log('KANAAL GENORMALISEERD:', JSON.stringify(normaliseerKanaal(kanaal || '')));
-    console.log('IS BETROUWBAAR:', isBetrouwbaarKanaal(kanaal || ''));
     const schoneBeschrijving = sanitizeInput(beschrijving || '');
     const schoneViews        = sanitizeInput(views || '');
     const schoneAbonnees     = sanitizeInput(abonnees || '');
@@ -544,18 +540,43 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
     const abonneeGetal = parseInt((schoneAbonnees || '0').replace(/[^0-9]/g, '')) || 0;
     const isBetrouwbaar = isBetrouwbaarKanaal(schoneKanaal);
 
-    // Shorts — bewuste keuze: niet inhoudelijk analyseren
+    // Shorts — bewuste keuze: entertainment tenzij politiek onderwerp
     const isShort = (beschrijving || '').includes('IsShort: ja') || (tags || '').includes('shorts');
     if (isShort) {
-      return res.json({
-        score: 75,
-        theme: 'YouTube Short',
-        explanation: 'FactRadar analyseert Shorts niet inhoudelijk — de meeste zijn entertainmentcontent. Wil je een diepgaande check? Zoek de volledige video op.',
-        signals: [],
-        contentType: 'entertainment',
-        sources: [],
-        answer: null
-      });
+      const POLITIEKE_ONDERWERPEN = [
+        // Migratie & asiel
+        'azc', 'asiel', 'migratie', 'immigratie', 'vluchteling', 'vluchtelingen',
+        'migrant', 'migranten', 'grens', 'grenzen', 'deportatie', 'uitzetting',
+        // Politiek algemeen
+        'kabinet', 'coalitie', 'tweede kamer', 'partij', 'verkiezing', 'stemmen',
+        'premier', 'minister', 'politiek', 'politici', 'overheid', 'referendum',
+        'bezuiniging', 'bezuinigingen', 'belasting', 'toeslagen', 'uitkering',
+        // Maatschappij
+        'klimaat', 'stikstof', 'boerenprotest', 'demonstratie', 'protest', 'rellen',
+        'discriminatie', 'racisme', 'islam', 'moskee', 'shariah', 'corona', 'vaccin',
+        // Internationale politiek
+        'oorlog', 'oekraine', 'rusland', 'israel', 'palestina', 'gaza', 'navo',
+        'trump', 'biden', 'putin', 'wilders', 'rutte', 'timmermans', 'omtzigt',
+        // Complot & desinformatie signalen
+        'complot', 'conspiracy', 'deep state', 'globalisme', 'wef', 'agenda',
+        'nepnieuws', 'censuur', 'verboden', 'wat ze verbergen'
+      ];
+
+      const titelLower = (schoneTitel || '').toLowerCase();
+      const heeftPolitiekOnderwerp = POLITIEKE_ONDERWERPEN.some(w => titelLower.includes(w));
+
+      if (!heeftPolitiekOnderwerp) {
+        return res.json({
+          score: 75,
+          theme: 'YouTube Short',
+          explanation: 'FactRadar analyseert Shorts niet inhoudelijk — de meeste zijn entertainmentcontent. Wil je een diepgaande check? Zoek de volledige video op.',
+          signals: [],
+          contentType: 'entertainment',
+          sources: [],
+          answer: null
+        });
+      }
+      // Politiek onderwerp gevonden — val door naar volledige analyse
     }
 
     // Bekend satire kanaal — direct satire, ook zonder tags
@@ -618,7 +639,7 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
 
     // Kanaal bonus voor bekende betrouwbare kanalen
     const kanaalContext = isBetrouwbaar
-      ? `\nKANAALSTATUS — VERPLICHTE INSTRUCTIE: Dit kanaal staat op de whitelist van bekende betrouwbare journalistieke organisaties (publieke omroep, gevestigde nieuwsmedia). Negeer hoofdletters in de titel — die zijn standaard voor YouTube en geen indicator van misleiding. Negeer het lage abonneeaantal — publieke omroep subkanalen hebben altijd weinig abonnees. Geef een score van MINIMAAL 72. Alleen bij aantoonbare feitelijke onjuistheden mag je lager gaan.`
+      ? `\nKANAALSTATUS — VERPLICHTE INSTRUCTIE: Dit kanaal staat op de whitelist van bekende betrouwbare journalistieke organisaties (publieke omroep, gevestigde nieuwsmedia). Negeer hoofdletters in de titel — die zijn standaard voor YouTube en geen indicator van misleiding. Negeer het lage abonneeaantal — publieke omroep subkanalen hebben altijd weinig abonnees. Negeer het ontbreken van bronnen in de beschrijving — televisieprogramma's en journalistieke video's vermelden geen bronnenlijst in hun YouTube beschrijving, dat is normaal en geen negatief signaal. Geef een score van MINIMAAL 72. Alleen bij aantoonbare feitelijke onjuistheden mag je lager gaan.`
       : '';
 
     // Prompt aanpassen op content type
