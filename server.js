@@ -396,6 +396,12 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
     const schoneTags         = sanitizeInput(tags || '');
     const isAiContent        = aiContent === 'ja';
 
+    // Duur als signaal — komt mee vanuit content.js
+    const duurTekst = (beschrijving || titel || '').match(/Duur:\s*([^|]+)/)?.[1]?.trim() || '';
+    const isKort      = duurTekst.includes('kort');
+    const isMiddel    = duurTekst.includes('middellang');
+    const isLang      = duurTekst.includes('lang');
+
     const taalInstructie = (taal === 'nl' || !taal)
       ? 'Je MOET altijd in het Nederlands antwoorden. Geen Engelse woorden in explanation of theme.'
       : 'You MUST always answer in English.';
@@ -466,6 +472,15 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
       });
     }
 
+    // Duur bonus — lange video's zijn zelden desinformatie
+    const duurContext = isLang
+      ? '\nVideoduur: LANG (boven 60 minuten) — documentaires en lange films hebben zelden manipulatieve intentie. Verhoog de basis score met 10-15 punten tenzij er sterke manipulatiesignalen zijn.'
+      : isMiddel
+      ? '\nVideoduur: MIDDELLANG (15-60 minuten) — waarschijnlijk informatief of journalistiek.'
+      : isKort
+      ? '\nVideoduur: KORT (onder 15 minuten) — wees alert op clickbait patronen.'
+      : '';
+
     // Kanaal bonus voor bekende betrouwbare kanalen
     const kanaalContext = isBetrouwbaar
       ? `\nKanaalstatus: DIT IS EEN BEKEND BETROUWBAAR JOURNALISTIEK KANAAL. Geef minimaal score 65, tenzij er duidelijke manipulatiesignalen zijn.`
@@ -475,8 +490,8 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
     const promptInstructie = contentType === 'politiek'
       ? `EXTRA ALERT: Dit lijkt politieke of maatschappelijk gevoelige content.
 Let extra op: manipulatieve taal, bekende personen in misleidende context, complottheorieën, deepfake signalen.
-Score politieke content streng: claims zonder bronnen = max 40 punten.${kanaalContext}`
-      : `Dit is informatieve content. Analyseer op betrouwbaarheid van claims en bronnen.${kanaalContext}`;
+Score politieke content streng: claims zonder bronnen = max 40 punten.${kanaalContext}${duurContext}`
+      : `Dit is informatieve content. Analyseer op betrouwbaarheid van claims en bronnen.${kanaalContext}${duurContext}`;
 
     // Stap 1: OpenAI analyseert de videometadata
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {

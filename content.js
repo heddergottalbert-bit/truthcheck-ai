@@ -647,13 +647,22 @@ function vindVideoContext() {
       || document.querySelector('ytd-channel-name')?.innerText || '';
     const shortsCaption = document.querySelector('ytd-reel-video-renderer[is-active] #description, .ytd-shorts #description')?.innerText
       || document.querySelector('meta[property="og:description"]')?.content || '';
-    if (isShort) {
-      // Shorts: 80-90% entertainment — bewuste productkeuze om niet inhoudelijk te analyseren
-      // Eerlijke melding meegeven zodat popup transparant is
+    // Duur uitlezen — betrouwbaarder dan pathname check
+    const duurTekst = document.querySelector(".ytp-time-duration")?.innerText || "";
+    const duurSeconden = duurTekst.split(":").reverse().reduce((acc, v, i) => acc + parseInt(v || 0) * Math.pow(60, i), 0);
+
+    // Shorts zijn max 60 seconden — op duur, niet op pathname
+    if (isShort || duurSeconden > 0 && duurSeconden <= 60) {
       return `Titel: ${shortsTitel || titel} | Kanaal: ${shortsKanaal || kanaal} | Abonnees: ${abonnees} | Tags: entertainment shorts | IsShort: ja | Beschrijving: ${shortsCaption.substring(0, 200)}`;
     }
 
-    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? "ja" : "onbekend"} | Tags: ${tags} | Beschrijving: ${beschrijving.substring(0, 400)}`;
+    // Duur meesturen als signaal
+    const duurLabel = duurSeconden === 0 ? "onbekend"
+      : duurSeconden <= 900  ? "kort (onder 15 min)"
+      : duurSeconden <= 3600 ? "middellang (15-60 min)"
+      : "lang (boven 60 min)";
+
+    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? "ja" : "onbekend"} | Tags: ${tags} | Duur: ${duurLabel} | Beschrijving: ${beschrijving.substring(0, 400)}`;
   }
 
   // Vimeo
