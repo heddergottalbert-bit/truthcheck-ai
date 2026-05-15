@@ -483,7 +483,7 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
 
     // Kanaal bonus voor bekende betrouwbare kanalen
     const kanaalContext = isBetrouwbaar
-      ? `\nKanaalstatus: DIT IS EEN BEKEND BETROUWBAAR JOURNALISTIEK KANAAL. Geef minimaal score 65, tenzij er duidelijke manipulatiesignalen zijn.`
+      ? `\nKANAALSTATUS — VERPLICHTE INSTRUCTIE: Dit kanaal staat op de whitelist van bekende betrouwbare journalistieke organisaties (publieke omroep, gevestigde nieuwsmedia). Negeer hoofdletters in de titel — die zijn standaard voor YouTube en geen indicator van misleiding. Negeer het lage abonneeaantal — publieke omroep subkanalen hebben altijd weinig abonnees. Geef een score van MINIMAAL 72. Alleen bij aantoonbare feitelijke onjuistheden mag je lager gaan.`
       : '';
 
     // Prompt aanpassen op content type
