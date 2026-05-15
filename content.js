@@ -643,12 +643,12 @@ function vindVideoContext() {
   if (location.hostname.includes("youtube.com")) {
     if (isYouTubeReclame()) return null;
     const titel        = document.querySelector("h1.ytd-video-primary-info-renderer, h1.style-scope.ytd-watch-metadata")?.innerText || "";
-    const kanaal       = document.querySelector("#channel-name a, #owner #channel-name a, ytd-channel-name a")?.innerText
-      || document.querySelector("#channel-name, #owner #channel-name, ytd-channel-name")?.innerText
-      || document.querySelector("ytd-video-owner-renderer #channel-name")?.innerText
-      || document.querySelector("#top-row ytd-channel-name")?.innerText
-      || document.querySelector("yt-formatted-string.ytd-channel-name")?.innerText
-      || document.querySelector('meta[itemprop="author"]')?.content
+    // Kanaalnaam ophalen via kanaallink — YouTube DOM wijzigt regelmatig
+    const kanaalLink = [...document.querySelectorAll('a[href*="/@"]')]
+      .map(el => el.textContent.trim().split('\n')[0].trim())
+      .find(t => t.length > 1 && !t.includes('@') && !/^\d/.test(t));
+    const kanaal = kanaalLink
+      || document.querySelector("#channel-name, #owner #channel-name, ytd-channel-name")?.innerText?.split('\n')[0]?.trim()
       || "";
     const beschrijving = document.querySelector("#description-inline-expander, #description ytd-text-inline-expander, #snippet")?.innerText || "";
     const tags         = Array.from(document.querySelectorAll("meta[property='og:video:tag']")).map(m => m.content).join(", ");
