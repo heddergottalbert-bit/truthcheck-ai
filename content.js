@@ -643,13 +643,16 @@ function vindVideoContext() {
   if (location.hostname.includes("youtube.com")) {
     if (isYouTubeReclame()) return null;
     const titel        = document.querySelector("h1.ytd-video-primary-info-renderer, h1.style-scope.ytd-watch-metadata")?.innerText || "";
-    // Kanaalnaam ophalen via kanaallink — YouTube DOM wijzigt regelmatig
-    const kanaalLink = [...document.querySelectorAll('a[href*="/@"]')]
-      .map(el => el.textContent.trim().split('\n')[0].trim())
-      .find(t => t.length > 1 && !t.includes('@') && !/^\d/.test(t));
-    const kanaal = kanaalLink
-      || document.querySelector("#channel-name, #owner #channel-name, ytd-channel-name")?.innerText?.split('\n')[0]?.trim()
-      || "";
+    // Kanaalnaam ophalen via kanaallink — YouTube laadt DOM asynchroon
+    function haalKanaalNaam() {
+      const link = [...document.querySelectorAll('a[href*="/@"]')]
+        .map(el => el.textContent.trim().split('\n')[0].trim())
+        .find(t => t.length > 1 && !t.includes('@') && !/^\d/.test(t));
+      return link
+        || document.querySelector("#channel-name, #owner #channel-name, ytd-channel-name")?.innerText?.split('\n')[0]?.trim()
+        || "";
+    }
+    const kanaal = haalKanaalNaam();
     const beschrijving = document.querySelector("#description-inline-expander, #description ytd-text-inline-expander, #snippet")?.innerText || "";
     const tags         = Array.from(document.querySelectorAll("meta[property='og:video:tag']")).map(m => m.content).join(", ");
     const views        = document.querySelector(".view-count, #info .ytd-video-view-count-renderer")?.innerText || "";
@@ -1156,7 +1159,7 @@ setInterval(() => {
       startReactieCheck(3000);
       startReactieCheck(8000);
       startReactieCheck(12000);
-    }, 1500);
+    }, 3000);
   }
 }, 1000);
 
@@ -1166,8 +1169,12 @@ laadInstellingen((items) => {
   if (items.tc_positie_x) knop.style.right  = items.tc_positie_x;
   if (items.tc_positie_y) knop.style.bottom = items.tc_positie_y;
   toonLaadAnimatie();
-  startCheck();
-  startReactieCheck(3000);
-  startReactieCheck(8000);
-  startReactieCheck(12000);
+  // YouTube laadt kanaaldata asynchroon — extra wachttijd voor correcte kanaalnaam
+  const vertraging = location.hostname.includes("youtube.com") ? 2500 : 0;
+  setTimeout(() => {
+    startCheck();
+    startReactieCheck(3000);
+    startReactieCheck(8000);
+    startReactieCheck(12000);
+  }, vertraging);
 });
