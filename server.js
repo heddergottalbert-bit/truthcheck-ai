@@ -90,6 +90,49 @@ function sanitizeInput(tekst) {
   return schoon;
 }
 
+// ── Bronverificatie — double check op basis van Tavily resultaten ──
+const VERIFICATIE_DOMEINEN = [
+  // Nederlandse betrouwbare bronnen
+  'nos.nl', 'nrc.nl', 'volkskrant.nl', 'trouw.nl', 'ad.nl',
+  'rtlnieuws.nl', 'nu.nl', 'telegraaf.nl', 'fd.nl', 'ftm.nl',
+  'rijksoverheid.nl', 'government.nl', 'cpb.nl', 'cbs.nl', 'pbl.nl',
+  'rivm.nl', 'knaw.nl', 'uwv.nl', 'svb.nl', 'duo.nl',
+  'vpro.nl', 'npo.nl', 'human.nl', 'omroep.nl',
+  // Internationale betrouwbare bronnen
+  'bbc.com', 'bbc.co.uk', 'reuters.com', 'apnews.com',
+  'theguardian.com', 'nytimes.com', 'economist.com', 'dw.com',
+  'who.int', 'un.org', 'europa.eu', 'oecd.org', 'worldbank.org',
+  // Wetenschappelijk
+  'nature.com', 'pubmed.ncbi.nlm.nih.gov', 'sciencedirect.com',
+  'thelancet.com', 'nejm.org', 'bmj.com', 'ncbi.nlm.nih.gov',
+  // Factcheckers
+  'snopes.com', 'factcheck.org', 'politifact.com', 'nieuwscheckers.nl'
+];
+
+function berekenBronBonus(tavilyResultaten, beginScore) {
+  if (!tavilyResultaten || tavilyResultaten.length === 0) return 0;
+
+  let bonus = 0;
+  let betrouwbareBronnen = 0;
+
+  for (const resultaat of tavilyResultaten) {
+    try {
+      const domein = new URL(resultaat.url).hostname.replace('www.', '');
+      const isBetrouwbaar = VERIFICATIE_DOMEINEN.some(d => domein.includes(d));
+      if (isBetrouwbaar) {
+        betrouwbareBronnen++;
+        bonus += 4; // 4 punten per betrouwbare bron
+      }
+    } catch(e) { continue; }
+  }
+
+  // Maximum bonus: 15 punten — kan score niet boven 95 brengen
+  const maxBonus = Math.min(bonus, 15);
+  const nieuweScore = Math.min(beginScore + maxBonus, 95);
+
+  return nieuweScore - beginScore; // Geef alleen de bonus terug
+}
+
 // ── Health check (geen auth nodig) ───────────────────────────
 app.get('/', (req, res) => {
   res.json({ status: 'TruthCheck AI server draait' });
@@ -151,11 +194,15 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
 
     const tavilyData = await tavilyRes.json();
 
+    // Double check — bronbonus op basis van betrouwbare Tavily resultaten
+    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score);
+    const definitieveScore = analysis.score + bronBonus;
+
     res.json({
-      score: analysis.score,
+      score: definitieveScore,
       theme: analysis.theme,
       claim: analysis.claim,
-      explanation: analysis.explanation,
+      explanation: analysis.explanation + (bronBonus > 0 ? ` (Score verhoogd met ${bronBonus} punten op basis van ${bronBonus/4} betrouwbare bronnen.)` : ''),
       sources: tavilyData.results || [],
       answer: tavilyData.answer || null
     });
@@ -587,10 +634,14 @@ Beschrijving: ${schoneBeschrijving}`
 
     const tavilyData = await tavilyRes.json();
 
+    // Double check — bronbonus op basis van betrouwbare Tavily resultaten
+    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score);
+    const definitieveScore = analysis.score + bronBonus;
+
     res.json({
-      score: analysis.score,
+      score: definitieveScore,
       theme: analysis.theme,
-      explanation: analysis.explanation,
+      explanation: analysis.explanation + (bronBonus > 0 ? ` (Score verhoogd met ${bronBonus} punten op basis van ${Math.round(bronBonus/4)} betrouwbare bronnen.)` : ''),
       signals: analysis.signals || [],
       contentType: analysis.contentType || contentType,
       sources: tavilyData.results || [],
