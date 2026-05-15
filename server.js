@@ -521,6 +521,10 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
 
     const schoneTitel        = sanitizeInput(titel);
     const schoneKanaal       = sanitizeInput(kanaal || '');
+    // Debug — tijdelijk logging om kanaalnaam te tracen
+    console.log('KANAAL ONTVANGEN:', JSON.stringify(kanaal));
+    console.log('KANAAL GENORMALISEERD:', JSON.stringify(normaliseerKanaal(kanaal || '')));
+    console.log('IS BETROUWBAAR:', isBetrouwbaarKanaal(kanaal || ''));
     const schoneBeschrijving = sanitizeInput(beschrijving || '');
     const schoneViews        = sanitizeInput(views || '');
     const schoneAbonnees     = sanitizeInput(abonnees || '');
