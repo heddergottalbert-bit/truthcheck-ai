@@ -563,13 +563,22 @@ Beschrijving: ${schoneBeschrijving}`
       analysis.contentType = 'satire';
     }
 
-    // Stap 2: Tavily zoekt verificatiebronnen op basis van de titel
+    // Stap 2: Tavily zoekt verificatiebronnen
+    // Gebruik de claim van OpenAI als die beschikbaar is — beter dan de ruwe titel
+    // Titel opschonen: hoofdletters naar kleine letters, leestekens verwijderen
+    const schoneTitelVoorTavily = (analysis.claim || schoneTitel)
+      .toLowerCase()
+      .replace(/[|!?]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 150);
+
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: schoneTitel.slice(0, 200),
+        query: schoneTitelVoorTavily,
         search_depth: 'advanced',
         max_results: 5,
         include_answer: true
