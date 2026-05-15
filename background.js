@@ -467,11 +467,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const signalen = data.signals && data.signals.length > 0
           ? " Signalen: " + data.signals.join(", ") + "."
           : "";
+        const metadataMelding = " ℹ️ Analyse gebaseerd op metadata, niet op video-inhoud.";
         sendResponse({
           status: "success",
           score: score,
           oordeel: data.theme || "YouTube video",
-          uitleg: (data.explanation || "") + signalen,
+          uitleg: (data.explanation || "") + signalen + metadataMelding,
           bronnen: bronnen,
           bronType: score < 50 ? "weerlegging" : "verdieping",
           phishing: { actief: false },
@@ -651,6 +652,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })
     .catch(err => sendResponse({ status: "error", message: err.message }));
 
+    return true;
+  }
+
+  if (request.action === "analyseer_transcript") {
+    const videoId = (request.videoId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 20);
+    if (!videoId) {
+      sendResponse({ error: "Geen geldig video ID." });
+      return true;
+    }
+    fetch(SERVER_URL + "/api/transcript", {
+      method: "POST",
+      headers: SERVER_HEADERS,
+      body: metSleutel({ videoId, taal: request.taal || "nl" })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        sendResponse({ error: data.error });
+      } else {
+        sendResponse({
+          score: data.score,
+          oordeel: data.oordeel,
+          uitleg: data.uitleg,
+          signalen: data.signalen || []
+        });
+      }
+    })
+    .catch(() => sendResponse({ error: "Transcript analyse mislukt." }));
     return true;
   }
 });

@@ -244,9 +244,47 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       </div>
       <div id="tc-feedback-bevestiging" style="display:none;font-size:11px;color:#2ecc71;text-align:center;margin-bottom:8px;">✓ Bedankt voor je feedback!</div>
     </div>
+    ${(window.location.hostname.includes('youtube.com') && !window.location.pathname.startsWith('/shorts/'))
+      ? '<div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;"><button id="tc-transcript-knop" style="width:100%;padding:7px;background:rgba(122,179,239,0.1);border:1px solid rgba(122,179,239,0.3);border-radius:8px;color:#7ab3ef;cursor:pointer;font-size:11px;">Analyseer video-inhoud (2 credits)</button><div id="tc-transcript-resultaat" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;font-size:11px;line-height:1.5;"></div></div>'
+      : ''}
     <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">${t.close}</button>`;
 
   document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
+
+  const transcriptKnop = document.getElementById("tc-transcript-knop");
+  if (transcriptKnop) {
+    transcriptKnop.onclick = () => {
+      const resultaatDiv = document.getElementById("tc-transcript-resultaat");
+      transcriptKnop.disabled = true;
+      transcriptKnop.textContent = "Transcript laden...";
+      resultaatDiv.style.display = "block";
+      resultaatDiv.textContent = "Video-inhoud wordt geanalyseerd...";
+
+      const videoId = new URLSearchParams(window.location.search).get("v") || "";
+      chrome.runtime.sendMessage(
+        { action: "analyseer_transcript", videoId, taal: navigator.language || "nl" },
+        (response) => {
+          if (chrome.runtime.lastError || !response || response.error) {
+            const fout = (response && response.error) ? response.error : "Transcript niet beschikbaar.";
+            resultaatDiv.textContent = fout;
+            transcriptKnop.textContent = "Analyseer video-inhoud (2 credits)";
+            transcriptKnop.disabled = false;
+            return;
+          }
+          const kleur = response.score >= 70 ? "#2ecc71" : response.score >= 50 ? "#e67e22" : "#e74c3c";
+          const signalenHtml = (response.signalen && response.signalen.length > 0)
+            ? "<div style='margin-top:6px;opacity:0.6;font-size:10px;'>Signalen: " + response.signalen.join(", ") + "</div>"
+            : "";
+          resultaatDiv.innerHTML =
+            "<div style='font-size:10px;font-weight:bold;color:" + kleur + ";margin-bottom:4px;'>Inhoudsanalyse — Score: " + response.score + "/100</div>" +
+            "<div style='margin-bottom:6px;'>" + response.oordeel + "</div>" +
+            "<div style='opacity:0.8;'>" + response.uitleg + "</div>" +
+            signalenHtml;
+          transcriptKnop.style.display = "none";
+        }
+      );
+    };
+  }
 
   function verstuurFeedback(duim) {
     const tekst = document.getElementById("tc-feedback-tekst")?.value || "";
@@ -610,14 +648,9 @@ function vindVideoContext() {
     const shortsCaption = document.querySelector('ytd-reel-video-renderer[is-active] #description, .ytd-shorts #description')?.innerText
       || document.querySelector('meta[property="og:description"]')?.content || '';
     if (isShort) {
-      // Muzieknaam ophalen — signaal voor entertainment/satire
-      const muziek = document.querySelector(".ytd-reel-player-overlay-renderer .title, ytd-reel-video-renderer .sound-metadata a, .ytd-shorts .sound-metadata")?.innerText || "";
-      const shortsMetadata = [shortsTitel || titel, shortsCaption, muziek].join(" ").toLowerCase();
-      // Absurde politieke titels zijn vrijwel altijd satire
-      const ABSURD_SIGNALEN = ["soup", "cooking", "dancing", "singing", "funny song", "strange", "weird", "crazy", "dansen", "koken", "grappig"];
-      const isAbsurdPolitiek = ABSURD_SIGNALEN.some(w => shortsMetadata.includes(w));
-      const satireTags = isAbsurdPolitiek ? "funny satire" : tags;
-      return `Titel: ${shortsTitel || titel} | Kanaal: ${shortsKanaal || kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? 'ja' : 'onbekend'} | Tags: ${satireTags} | Muziek: ${muziek} | Beschrijving: ${shortsCaption.substring(0, 400)}`;
+      // Shorts: 80-90% entertainment — bewuste productkeuze om niet inhoudelijk te analyseren
+      // Eerlijke melding meegeven zodat popup transparant is
+      return `Titel: ${shortsTitel || titel} | Kanaal: ${shortsKanaal || kanaal} | Abonnees: ${abonnees} | Tags: entertainment shorts | IsShort: ja | Beschrijving: ${shortsCaption.substring(0, 200)}`;
     }
 
     return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? "ja" : "onbekend"} | Tags: ${tags} | Beschrijving: ${beschrijving.substring(0, 400)}`;
