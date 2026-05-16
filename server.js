@@ -266,7 +266,7 @@ function verwerkCheck(domein, tavilyResultaten, score) {
 
 // ── Health check (geen auth nodig) ───────────────────────────
 app.get('/', (req, res) => {
-  res.json({ status: 'TruthCheck AI server draait' });
+  res.json({ status: 'FactRadar server draait' });
 });
 
 // ── Feitencheck ───────────────────────────────────────────────
@@ -941,8 +941,23 @@ ${sanitizeInput(transcriptTekst)}`
   }
 });
 
+// ── Feedback endpoint ─────────────────────────────────────────
+app.post('/api/feedback', controleerApiKey, rateLimiter, async (req, res) => {
+  try {
+    const { url, score, oordeel, duim, tekst, timestamp } = req.body;
+    // Valideer minimale data
+    if (!url || !duim) return res.status(400).json({ error: 'Onvolledige feedback' });
+    // Log naar Railway — later vervangen door database opslag
+    console.log(`FEEDBACK: ${duim} | score: ${score} | url: ${url} | oordeel: ${oordeel} | tekst: ${tekst || '-'} | ${timestamp}`);
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Feedback fout:', err);
+    res.status(500).json({ error: 'Server fout bij feedback' });
+  }
+});
+
 // ── Start server ──────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`TruthCheck AI server draait op poort ${PORT}`);
+  console.log(`FactRadar server draait op poort ${PORT}`);
 });

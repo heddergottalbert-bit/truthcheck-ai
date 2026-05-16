@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "TruthCheck AI",
-  "version": "1.8",
+  "name": "FactRadar",
+  "version": "1.9",
   "description": "Automatically check the reliability of web pages, news and emails with AI.",
   "permissions": ["storage"],
   "host_permissions": [

@@ -861,9 +861,9 @@ function toonLimietBerikt() {
     popup.innerHTML = `
       <div style="text-align:center;padding:20px 10px;">
         <div style="font-size:36px;margin-bottom:12px;">🔒</div>
-        <div style="font-size:13px;font-weight:bold;color:#e67e22;margin-bottom:8px;">Daily limit reached</div>
-        <div style="font-size:11px;color:${tekstKleur};opacity:0.7;line-height:1.5;margin-bottom:14px;">You've used your 5 free checks for today.<br>Premium version coming soon.</div>
-        <div style="font-size:10px;color:${tekstKleur};opacity:0.4;">Resets at midnight</div>
+        <div style="font-size:13px;font-weight:bold;color:#e67e22;margin-bottom:8px;">Limiet bereikt</div>
+        <div style="font-size:11px;color:${tekstKleur};opacity:0.7;line-height:1.5;margin-bottom:14px;">Je hebt je 50 gratis checks gebruikt.<br>Premium versie komt binnenkort.</div>
+        <div style="font-size:10px;color:${tekstKleur};opacity:0.4;">Wordt binnenkort vervangen door een eenmalig creditsysteem</div>
         <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;">Close</button>
       </div>`;
     document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
@@ -1056,7 +1056,7 @@ function startCheck() {
   const vandaag = new Date().toISOString().slice(0, 10);
   chrome.storage.local.get(["tc_checks_datum", "tc_checks_aantal"], (items) => {
     let aantal = (items.tc_checks_datum === vandaag) ? (items.tc_checks_aantal || 0) : 0;
-    if (aantal >= 100) { toonLimietBerikt(); return; }
+    if (aantal >= 50) { toonLimietBerikt(); return; }
     chrome.storage.local.set({ tc_checks_datum: vandaag, tc_checks_aantal: aantal + 1 });
 
     const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");

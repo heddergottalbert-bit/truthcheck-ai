@@ -663,6 +663,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === "stuur_feedback") {
+    fetch(SERVER_URL + "/api/feedback", {
+      method: "POST",
+      headers: SERVER_HEADERS,
+      body: metSleutel({
+        url: request.url || "",
+        score: request.score || 0,
+        oordeel: request.oordeel || "",
+        duim: request.duim || "",
+        tekst: request.tekst || "",
+        timestamp: request.timestamp || new Date().toISOString()
+      })
+    })
+    .then(res => res.json())
+    .then(() => sendResponse({ status: "ok" }))
+    .catch(() => sendResponse({ status: "ok" })); // Stille fout — feedback is niet kritiek
+    return true;
+  }
+
   if (request.action === "analyseer_transcript") {
     const videoId = (request.videoId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 20);
     if (!videoId) {
