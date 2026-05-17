@@ -701,7 +701,9 @@ function vindVideoContext() {
                          beschrijving.toLowerCase().includes("ai-generated") ||
                          beschrijving.toLowerCase().includes("gemaakt met ai") ||
                          aiTag.toLowerCase().includes("ai") ||
-                         tags.toLowerCase().includes("ai generated");
+                         tags.toLowerCase().includes("ai generated") ||
+                         !!document.querySelector("ytd-watch-metadata")?.innerText?.includes("synthetisch") ||
+                         !!document.querySelector("ytd-watch-metadata")?.innerText?.includes("synthetic");
     // Shorts detectie — andere DOM structuur
     const isShort = location.pathname.startsWith('/shorts/');
     const shortsTitel = document.querySelector('ytd-reel-video-renderer[is-active] .title, .ytd-shorts .title')?.innerText
