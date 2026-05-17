@@ -718,6 +718,21 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
         ? 'AI-gegenereerde visuals gedetecteerd — dit is creatieve entertainment content.'
         : 'Entertainmentcontent. Geen feitelijke claims gedetecteerd.';
       const score = abonneeGetal > 10000 ? 82 : 72;
+
+      // Lokale AI-tekst detectie op beschrijving — geen OpenAI call nodig
+      const AI_PATRONEN = [
+        'ai-gegenereerd', 'ai generated', 'gemaakt met ai', 'created with ai',
+        'kunstmatige intelligentie', 'artificial intelligence',
+        'door ai', 'by ai', 'using ai', 'met behulp van ai',
+        'midjourney', 'stable diffusion', 'dall-e', 'sora', 'runway',
+        'neural network', 'neuraal netwerk', 'machine learning',
+        'algoritmisch', 'algorithmic', 'generatief', 'generative'
+      ];
+      const beschrijvingLower = schoneBeschrijving.toLowerCase();
+      const aiTreffers = AI_PATRONEN.filter(p => beschrijvingLower.includes(p)).length;
+      // Elke treffer telt als ~25 punten, max 95
+      const lokaleAiScore = Math.min(aiTreffers * 25, 95);
+
       return res.json({
         score,
         theme: 'Entertainment en creatieve content',
@@ -725,7 +740,8 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
         signals: isAiContent ? ['AI-gegenereerde visuals'] : [],
         contentType: 'entertainment',
         sources: [],
-        answer: null
+        answer: null,
+        aiTekst: lokaleAiScore
       });
     }
 
