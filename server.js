@@ -771,7 +771,7 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
       let lokaleAiScore = 0;
       if (heeftLabel && heeftTekstuelePatronen && openaiBevestigt) lokaleAiScore = 100;
       else if ((heeftLabel && heeftTekstuelePatronen) || (heeftLabel && openaiBevestigt) || (heeftTekstuelePatronen && openaiBevestigt)) lokaleAiScore = 75;
-      else if (openaiBevestigt) lokaleAiScore = 50;
+      else if (openaiBevestigt) lokaleAiScore = 75;  // OpenAI alleen al genoeg voor 75%
       else if (heeftLabel) lokaleAiScore = 25;
       else if (heeftTekstuelePatronen) lokaleAiScore = 50;
 
