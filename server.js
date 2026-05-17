@@ -731,6 +731,7 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
       ];
       const beschrijvingLower = schoneBeschrijving.toLowerCase();
       const aiTreffers = AI_PATRONEN.filter(p => beschrijvingLower.includes(p)).length;
+    console.log('AI TREFFERS:', AI_PATRONEN.filter(p => beschrijvingLower.includes(p)), '| SCORE:', Math.min(aiTreffers * 25, 95));
       // Elke treffer telt als ~25 punten, max 95
       const lokaleAiScore = Math.min(aiTreffers * 25, 95);
 
