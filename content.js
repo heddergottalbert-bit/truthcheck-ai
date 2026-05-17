@@ -655,7 +655,10 @@ function vindVideoContext() {
     const kanaal = haalKanaalNaam();
     // Volledige beschrijving ophalen — uitgeklapt + ingeklapt + fallback
     function haalBeschrijving() {
-      // DOM selectors — werkt na de 2500ms vertraging die al in de code zit
+      // Klik #expand zodat de volledige beschrijving in de DOM staat
+      document.querySelector("#expand")?.click();
+
+      // Dan uitlezen
       const selectors = [
         "#description-inline-expander",
         "#description ytd-text-inline-expander",
