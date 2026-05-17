@@ -655,7 +655,21 @@ function vindVideoContext() {
     const kanaal = haalKanaalNaam();
     // Volledige beschrijving ophalen — uitgeklapt + ingeklapt + fallback
     function haalBeschrijving() {
-      // Probeer eerst de volledig uitgeklapte beschrijving
+      // Stap 1: ytInitialData — volledige beschrijving altijd aanwezig, ook ingeklapt
+      try {
+        const data = window.ytInitialData;
+        const contents = data?.contents?.twoColumnWatchNextResults
+          ?.results?.results?.contents;
+        if (contents) {
+          for (const item of contents) {
+            const desc = item?.videoSecondaryInfoRenderer
+              ?.attributedDescription?.content;
+            if (desc && desc.length > 30) return desc;
+          }
+        }
+      } catch(e) {}
+
+      // Stap 2: DOM selectors als fallback
       const selectors = [
         "#description-inline-expander yt-attributed-string",
         "#description ytd-text-inline-expander yt-attributed-string",
