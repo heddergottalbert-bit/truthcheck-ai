@@ -311,37 +311,63 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       analysis = { theme: 'Onbekend', claim: schoneTekst.slice(0, 100), score: 50, explanation: content };
     }
 
+    // Tavily query opschonen — claim van OpenAI gebruiken, nooit ruwe caps lock tekst
+    const tavilyQuery = (analysis.claim || schoneTekst.slice(0, 150))
+      .replace(/['"]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120);
+
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: analysis.claim || schoneTekst.slice(0, 200),
+        query: tavilyQuery,
         search_depth: 'advanced',
         max_results: 5,
-        include_answer: true
+        include_answer: true,
+        include_domains: VERIFICATIE_DOMEINEN
       })
     });
 
     const tavilyData = await tavilyRes.json();
 
+    // Fallback zonder domeinfilter als niets gevonden
+    let tavilyResultaten = tavilyData.results || [];
+    if (tavilyResultaten.length === 0) {
+      const fallback = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: TAVILY_API_KEY,
+          query: tavilyQuery,
+          search_depth: 'basic',
+          max_results: 3,
+          include_answer: false
+        })
+      });
+      const fallbackData = await fallback.json();
+      tavilyResultaten = fallbackData.results || [];
+    }
+
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
-    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score, tavilyData.answer);
+    const bronBonus = berekenBronBonus(tavilyResultaten, analysis.score, tavilyData.answer);
     const definitieveScore = analysis.score + bronBonus;
-    const signalen = berekenSignalen(domein, tavilyData.results, [], false);
+    const signalen = berekenSignalen(domein, tavilyResultaten, [], false);
     const bonusTekst = bronBonus > 0 ? ` (Score +${bronBonus} — betrouwbare bronnen bevestigen de claim.)`
       : bronBonus < 0 ? ` (Score ${bronBonus} — betrouwbare bronnen weerleggen de claim.)`
       : '';
 
     // Whitelist leerlaag — domein bijhouden op basis van Tavily resultaten
-    verwerkCheck(domein, tavilyData.results, definitieveScore);
+    verwerkCheck(domein, tavilyResultaten, definitieveScore);
 
     res.json({
       score: definitieveScore,
       theme: analysis.theme,
       claim: analysis.claim,
       explanation: analysis.explanation + bonusTekst,
-      sources: tavilyData.results || [],
+      sources: tavilyResultaten,
       answer: tavilyData.answer || null,
       bronBekend: signalen.bronBekend,
       onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
@@ -788,15 +814,13 @@ Beschrijving: ${schoneBeschrijving}`
       analysis.contentType = 'satire';
     }
 
-    // Stap 2: Tavily zoekt verificatiebronnen
-    // Gebruik de claim van OpenAI als die beschikbaar is — beter dan de ruwe titel
-    // Titel opschonen: hoofdletters naar kleine letters, leestekens verwijderen
+    // Tavily query — OpenAI claim gebruiken, nooit ruwe caps lock titel
     const schoneTitelVoorTavily = (analysis.claim || schoneTitel)
       .toLowerCase()
-      .replace(/[|!?]/g, '')
+      .replace(/[|!?'"]/g, '')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 150);
+      .slice(0, 120);
 
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
@@ -806,19 +830,38 @@ Beschrijving: ${schoneBeschrijving}`
         query: schoneTitelVoorTavily,
         search_depth: 'advanced',
         max_results: 5,
-        include_answer: true
+        include_answer: true,
+        include_domains: VERIFICATIE_DOMEINEN
       })
     });
 
     const tavilyData = await tavilyRes.json();
 
+    // Fallback zonder domeinfilter als niets gevonden
+    let tavilyResultaten = tavilyData.results || [];
+    if (tavilyResultaten.length === 0) {
+      const fallback = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: TAVILY_API_KEY,
+          query: schoneTitelVoorTavily,
+          search_depth: 'basic',
+          max_results: 3,
+          include_answer: false
+        })
+      });
+      const fallbackData = await fallback.json();
+      tavilyResultaten = fallbackData.results || [];
+    }
+
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
-    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score, tavilyData.answer);
+    const bronBonus = berekenBronBonus(tavilyResultaten, analysis.score, tavilyData.answer);
     const definitieveScore = analysis.score + bronBonus;
-    const signalen = berekenSignalen(schoneKanaal, tavilyData.results, analysis.signals || [], isBetrouwbaar);
+    const signalen = berekenSignalen(schoneKanaal, tavilyResultaten, analysis.signals || [], isBetrouwbaar);
 
     // Whitelist leerlaag — kanaal bijhouden op basis van Tavily resultaten
-    verwerkCheck(normaliseerKanaal(schoneKanaal), tavilyData.results, definitieveScore);
+    verwerkCheck(normaliseerKanaal(schoneKanaal), tavilyResultaten, definitieveScore);
     const bonusTekst = bronBonus > 0 ? ` (Score +${bronBonus} — betrouwbare bronnen bevestigen de claim.)`
       : bronBonus < 0 ? ` (Score ${bronBonus} — betrouwbare bronnen weerleggen de claim.)`
       : '';
@@ -829,7 +872,7 @@ Beschrijving: ${schoneBeschrijving}`
       explanation: analysis.explanation + bonusTekst,
       signals: analysis.signals || [],
       contentType: analysis.contentType || contentType,
-      sources: tavilyData.results || [],
+      sources: tavilyResultaten,
       answer: tavilyData.answer || null,
       bronBekend: signalen.bronBekend,
       onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
