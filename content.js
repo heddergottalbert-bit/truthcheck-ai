@@ -655,10 +655,7 @@ function vindVideoContext() {
     const kanaal = haalKanaalNaam();
     // Volledige beschrijving ophalen — uitgeklapt + ingeklapt + fallback
     function haalBeschrijving() {
-      // Klik #expand zodat de volledige beschrijving in de DOM staat
-      document.querySelector("#expand")?.click();
-
-      // Dan uitlezen
+      // Uitlezen — #expand is al geklikt bij opstarten (1500ms vertraging)
       const selectors = [
         "#description-inline-expander",
         "#description ytd-text-inline-expander",
@@ -1098,7 +1095,7 @@ function startCheck() {
   const vandaag = new Date().toISOString().slice(0, 10);
   chrome.storage.local.get(["tc_checks_datum", "tc_checks_aantal"], (items) => {
     let aantal = (items.tc_checks_datum === vandaag) ? (items.tc_checks_aantal || 0) : 0;
-    if (aantal >= 50) { toonLimietBerikt(); return; }
+    if (aantal >= 500) { toonLimietBerikt(); return; }
     chrome.storage.local.set({ tc_checks_datum: vandaag, tc_checks_aantal: aantal + 1 });
 
     const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");
@@ -1211,6 +1208,10 @@ laadInstellingen((items) => {
   if (items.tc_positie_x) knop.style.right  = items.tc_positie_x;
   if (items.tc_positie_y) knop.style.bottom = items.tc_positie_y;
   toonLaadAnimatie();
+  // YouTube: klik #expand vroeg zodat beschrijving uitklapt voor startCheck
+  if (location.hostname.includes("youtube.com")) {
+    setTimeout(() => { document.querySelector("#expand")?.click(); }, 1500);
+  }
   // YouTube laadt kanaaldata asynchroon — extra wachttijd voor correcte kanaalnaam
   const vertraging = location.hostname.includes("youtube.com") ? 2500 : 0;
   setTimeout(() => {
