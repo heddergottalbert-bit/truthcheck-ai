@@ -655,18 +655,41 @@ function vindVideoContext() {
     const kanaal = haalKanaalNaam();
     // Volledige beschrijving ophalen — uitgeklapt + ingeklapt + fallback
     function haalBeschrijving() {
-      // Stap 1: ytInitialData — volledige beschrijving altijd aanwezig, ook ingeklapt
+      // Stap 1: script injecteren in paginacontext om ytInitialData te lezen
+      // Content scripts hebben geen toegang tot window.ytInitialData — de pagina zelf wel
       try {
-        const data = window.ytInitialData;
-        const contents = data?.contents?.twoColumnWatchNextResults
-          ?.results?.results?.contents;
-        if (contents) {
-          for (const item of contents) {
-            const desc = item?.videoSecondaryInfoRenderer
-              ?.attributedDescription?.content;
-            if (desc && desc.length > 30) return desc;
-          }
+        const bestaand = document.getElementById("tc-yt-desc");
+        if (bestaand && bestaand.dataset.desc && bestaand.dataset.desc.length > 30) {
+          return bestaand.dataset.desc;
         }
+
+        const script = document.createElement("script");
+        script.id = "tc-yt-injector";
+        script.textContent = `
+          (function() {
+            try {
+              const data = window.ytInitialData;
+              const contents = data?.contents?.twoColumnWatchNextResults?.results?.results?.contents;
+              if (contents) {
+                for (const item of contents) {
+                  const desc = item?.videoSecondaryInfoRenderer?.attributedDescription?.content;
+                  if (desc && desc.length > 30) {
+                    let el = document.getElementById("tc-yt-desc");
+                    if (!el) { el = document.createElement("div"); el.id = "tc-yt-desc"; el.style.display = "none"; document.body.appendChild(el); }
+                    el.dataset.desc = desc;
+                    break;
+                  }
+                }
+              }
+            } catch(e) {}
+          })();
+        `;
+        document.body.appendChild(script);
+        script.remove();
+
+        // Direct uitlezen na injectie
+        const el = document.getElementById("tc-yt-desc");
+        if (el && el.dataset.desc && el.dataset.desc.length > 30) return el.dataset.desc;
       } catch(e) {}
 
       // Stap 2: DOM selectors als fallback
