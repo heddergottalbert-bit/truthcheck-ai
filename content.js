@@ -701,9 +701,7 @@ function vindVideoContext() {
                          beschrijving.toLowerCase().includes("ai-generated") ||
                          beschrijving.toLowerCase().includes("gemaakt met ai") ||
                          aiTag.toLowerCase().includes("ai") ||
-                         tags.toLowerCase().includes("ai generated") ||
-                         !!document.querySelector("ytd-watch-metadata")?.innerText?.includes("synthetisch") ||
-                         !!document.querySelector("ytd-watch-metadata")?.innerText?.includes("synthetic");
+                         tags.toLowerCase().includes("ai generated");
     // Shorts detectie — andere DOM structuur
     const isShort = location.pathname.startsWith('/shorts/');
     const shortsTitel = document.querySelector('ytd-reel-video-renderer[is-active] .title, .ytd-shorts .title')?.innerText
@@ -730,7 +728,7 @@ function vindVideoContext() {
       : duurSeconden <= 3600 ? "middellang (15-60 min)"
       : "lang (boven 60 min)";
 
-    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | Tags: ${tags} | Duur: ${duurLabel} | Beschrijving: ${beschrijving.substring(0, 1500)}`;
+    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? 'ja' : 'nee'} | Tags: ${tags} | Duur: ${duurLabel} | Beschrijving: ${beschrijving.substring(0, 1500)}`;
   }
 
   // Vimeo
