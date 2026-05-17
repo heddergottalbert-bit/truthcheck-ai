@@ -639,6 +639,7 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
     const schoneTitel        = sanitizeInput(titel);
     const schoneKanaal       = sanitizeInput(kanaal || '');
     const schoneBeschrijving = sanitizeInput(beschrijving || '');
+    console.log('BESCHRIJVING LENGTE:', schoneBeschrijving.length, '| EERSTE 100:', schoneBeschrijving.substring(0, 100));
     const schoneViews        = sanitizeInput(views || '');
     const schoneAbonnees     = sanitizeInput(abonnees || '');
     const schoneTags         = sanitizeInput(tags || '');
