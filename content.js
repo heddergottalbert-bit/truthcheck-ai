@@ -1097,7 +1097,7 @@ function startCheck() {
   const vandaag = new Date().toISOString().slice(0, 10);
   chrome.storage.local.get(["tc_checks_datum", "tc_checks_aantal"], (items) => {
     let aantal = (items.tc_checks_datum === vandaag) ? (items.tc_checks_aantal || 0) : 0;
-    if (aantal >= 500) { toonLimietBerikt(); return; }
+    if (aantal >= 50) { toonLimietBerikt(); return; }
     chrome.storage.local.set({ tc_checks_datum: vandaag, tc_checks_aantal: aantal + 1 });
 
     const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");
