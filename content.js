@@ -653,7 +653,46 @@ function vindVideoContext() {
         || "";
     }
     const kanaal = haalKanaalNaam();
-    const beschrijving = document.querySelector("#description-inline-expander, #description ytd-text-inline-expander, #snippet")?.innerText || "";
+    // Volledige beschrijving ophalen — uitgeklapt + ingeklapt + fallback
+    function haalBeschrijving() {
+      // Probeer eerst de volledig uitgeklapte beschrijving
+      const selectors = [
+        "#description-inline-expander yt-attributed-string",
+        "#description ytd-text-inline-expander yt-attributed-string",
+        "#description-inline-expander",
+        "#description ytd-text-inline-expander",
+        "ytd-watch-metadata #description",
+        "#snippet",
+        "meta[name='description']"
+      ];
+      for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const tekst = sel.startsWith("meta") ? el.getAttribute("content") : el.innerText;
+        if (tekst && tekst.length > 30) return tekst;
+      }
+      return "";
+    }
+    const volledigeBeschrijving = haalBeschrijving();
+
+    // Ruis uit beschrijving filteren — alleen echte SEO-vulling eruit
+    function filterBeschrijving(tekst) {
+      if (!tekst) return "";
+      const regels = tekst.split("\n");
+      let slaOver = false;
+      const schoon = regels.filter(regel => {
+        const r = regel.trim().toLowerCase();
+        if (!r || r.length < 2) return false;
+        // Sectie headers die pure SEO-vulling inluiden — alles erna overslaan
+        if (r === "related searches:" || r === "related searches") { slaOver = true; return false; }
+        if (slaOver) return false;
+        // Call-to-action regels — kort en generiek
+        if ((r.startsWith("subscribe") || r.startsWith("like and") || r.startsWith("comment your")) && r.length < 40) return false;
+        return true;
+      });
+      return schoon.join(" ").replace(/\s+/g, " ").trim();
+    }
+    const beschrijving = filterBeschrijving(volledigeBeschrijving);
     const tags         = Array.from(document.querySelectorAll("meta[property='og:video:tag']")).map(m => m.content).join(", ");
     const views        = document.querySelector(".view-count, #info .ytd-video-view-count-renderer")?.innerText || "";
     const abonnees     = document.querySelector("#owner-sub-count, #subscriber-count")?.innerText || "";
@@ -689,7 +728,7 @@ function vindVideoContext() {
       : duurSeconden <= 3600 ? "middellang (15-60 min)"
       : "lang (boven 60 min)";
 
-    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? "ja" : "onbekend"} | Tags: ${tags} | Duur: ${duurLabel} | Beschrijving: ${beschrijving.substring(0, 400)}`;
+    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | Tags: ${tags} | Duur: ${duurLabel} | Beschrijving: ${beschrijving.substring(0, 1500)}`;
   }
 
   // Vimeo
