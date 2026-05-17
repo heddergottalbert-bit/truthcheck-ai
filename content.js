@@ -229,7 +229,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     ${deepfakeHTML}
     ${manipulatieHTML}
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
-      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">AI-gegenereerde content</div>
+      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">AI en/of digitaal gegenereerde content</div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.1);overflow:hidden;">
           <div style="height:100%;width:${huidigAiTekst}%;background:#7ab3ef;"></div>
