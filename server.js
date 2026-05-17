@@ -796,9 +796,10 @@ Geef terug:
 2. Hoofdthema van de video (1 zin)
 3. Uitleg max 2 zinnen — nooit "dit is nep", wel "claims niet bevestigd" of "kenmerken van manipulatie"
 4. Gedetecteerde signalen als lijst (max 3)
+5. aiScore 0-100 — kans dat de beschrijving AI-gegenereerd is op basis van taalpatronen. Let op: woordherhalingen, overdreven bloemrijke taal, ontbreken van concrete feiten, generieke superlatieven. 0 = zeker menselijk, 100 = zeker AI.
 
 ${taalInstructie}
-Antwoord in JSON: { "score": 0, "theme": "", "explanation": "", "signals": [] }`
+Antwoord in JSON: { "score": 0, "theme": "", "explanation": "", "signals": [], "aiScore": 0 }`
           },
           {
             role: 'user',
@@ -822,7 +823,7 @@ Beschrijving: ${schoneBeschrijving}`
     try {
       analysis = JSON.parse(content);
     } catch {
-      analysis = { score: 50, theme: schoneTitel.slice(0, 60), explanation: content, signals: [] };
+      analysis = { score: 50, theme: schoneTitel.slice(0, 60), explanation: content, signals: [], aiScore: 0 };
     }
 
     // Auto-correctie: als OpenAI zelf humor/satire detecteert, score omhoog
@@ -912,7 +913,8 @@ Beschrijving: ${schoneBeschrijving}`
       onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
       verificatieBronnen: signalen.verificatieBronnen,
       rodeVlaggen: signalen.rodeVlaggen,
-      bronType
+      bronType,
+      aiTekst: analysis.aiScore || 0
     });
 
   } catch (err) {
