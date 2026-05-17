@@ -198,6 +198,19 @@ function berekenSignalen(kanaal, tavilyResultaten, openaiSignalen, isBetrouwbaar
   return { bronBekend, onderwerpVerifieerbaar, verificatieBronnen, rodeVlaggen };
 }
 
+// ── Dedupliceer bronnen — max 1 per domein ───────────────────
+function dedupliceerBronnen(resultaten) {
+  const gezieneDomeinen = new Set();
+  return (resultaten || []).filter(r => {
+    try {
+      const domein = new URL(r.url).hostname.replace('www.', '');
+      if (gezieneDomeinen.has(domein)) return false;
+      gezieneDomeinen.add(domein);
+      return true;
+    } catch(e) { return true; }
+  });
+}
+
 // ── Whitelist leerlaag — in memory, bij 500 gebruikers naar PostgreSQL ──
 const whitelistTellers = new Map();
 
@@ -351,6 +364,9 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       tavilyResultaten = fallbackData.results || [];
     }
 
+    // Max 1 bron per domein — voorkomt 5x hetzelfde domein
+    tavilyResultaten = dedupliceerBronnen(tavilyResultaten);
+
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
     const bronBonus = berekenBronBonus(tavilyResultaten, analysis.score, tavilyData.answer);
     const definitieveScore = analysis.score + bronBonus;
@@ -481,18 +497,24 @@ Antwoord in JSON: { "isHarmful": false, "category": "geen", "severity": "laag", 
 
 // ── Whitelist bekende betrouwbare kanalen ─────────────────────
 const BETROUWBARE_KANALEN = [
-  // Publieke omroep NL
-  'nos', 'nos nieuws', 'nieuwsuur', 'nos op 3',
-  'vpro', 'vpro tegenlicht', 'vpro documentary',
-  'npo', 'npo radio 1', 'npo 1', 'npo 2', 'npo 3',
+  // Publieke omroep NL — hoofdkanalen en subkanalen
+  'nos', 'nos nieuws', 'nieuwsuur', 'nos op 3', 'nos jeugdjournaal', 'jeugdjournaal',
+  'vpro', 'vpro tegenlicht', 'vpro documentary', 'vpro 3voor12', '3voor12',
+  'npo', 'npo radio 1', 'npo 1', 'npo 2', 'npo 3', 'npo start',
   'human', 'human nl', 'zembla', 'pointer', 'argos',
-  'pauw', 'pauw & de wit', 'buitenhof',
-  'een vandaag', 'eenvandaag', 'kro-ncrv', 'avrotros',
+  'pauw', 'pauw & de wit', 'buitenhof', 'op1',
+  'een vandaag', 'eenvandaag', 'kro-ncrv', 'avrotros', 'radar avrotros',
   'omroep max', 'wnl', 'rtl nieuws', 'rtl nederland',
+  // Regionale omroep NL
+  'omroep west', 'omroep brabant', 'omroep gelderland', 'omroep zeeland',
+  'omroep friesland', 'omroep flevoland', 'omroep limburg',
+  'rtvnoord', 'rtv oost', 'nhnieuws', 'at5', 'rtv drenthe',
   // Internationaal
   'bbc news', 'bbc', 'dw news', 'dw', 'al jazeera',
   'france 24', 'nbc news', 'abc news', 'cbs news', 'pbs',
   'the guardian', 'reuters', 'ap', 'associated press',
+  // Kranten met YouTube kanaal
+  'nrc', 'volkskrant', 'trouw', 'fd', 'follow the money',
 ];
 
 const SATIRE_KANALEN = [
@@ -855,6 +877,9 @@ Beschrijving: ${schoneBeschrijving}`
       tavilyResultaten = fallbackData.results || [];
     }
 
+    // Max 1 bron per domein — voorkomt 5x hetzelfde domein
+    tavilyResultaten = dedupliceerBronnen(tavilyResultaten);
+
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
     const bronBonus = berekenBronBonus(tavilyResultaten, analysis.score, tavilyData.answer);
     const definitieveScore = analysis.score + bronBonus;
@@ -865,6 +890,15 @@ Beschrijving: ${schoneBeschrijving}`
     const bonusTekst = bronBonus > 0 ? ` (Score +${bronBonus} — betrouwbare bronnen bevestigen de claim.)`
       : bronBonus < 0 ? ` (Score ${bronBonus} — betrouwbare bronnen weerleggen de claim.)`
       : '';
+
+    // bronType bepalen — whitelist of score-gebaseerd
+    const bronType = isBetrouwbaar
+      ? 'verdieping'
+      : definitieveScore < 50
+      ? 'weerlegging'
+      : definitieveScore < 70
+      ? 'verificatie'
+      : 'verdieping';
 
     res.json({
       score: definitieveScore,
@@ -877,7 +911,8 @@ Beschrijving: ${schoneBeschrijving}`
       bronBekend: signalen.bronBekend,
       onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
       verificatieBronnen: signalen.verificatieBronnen,
-      rodeVlaggen: signalen.rodeVlaggen
+      rodeVlaggen: signalen.rodeVlaggen,
+      bronType
     });
 
   } catch (err) {
