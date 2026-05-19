@@ -461,9 +461,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const score = data.score || 50;
         const bronnen = (data.sources || []).map(r => r.url);
         const contentType = data.contentType || "normaal";
-        const emoji = contentType === "satire" ? "😄"
-          : contentType === "entertainment" ? "😊"
-          : score >= 70 ? "😊" : score >= 50 ? "😟" : "😡";
+        const emoji = "👨‍🔧";
         const signalen = data.signals && data.signals.length > 0
           ? " Signalen: " + data.signals.join(", ") + "."
           : "";
@@ -581,16 +579,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
-    const deepfakePromise = request.afbeeldingUrl
-      ? fetch(SERVER_URL + "/api/factcheck", {
-          method: "POST",
-          headers: SERVER_HEADERS,
-          body: metSleutel({ text: "deepfake check: " + request.afbeeldingUrl })
-        })
-        .then(res => res.json())
-        .then(() => ({ deepfake_kans: 0, uitleg: "" }))
-        .catch(() => ({ deepfake_kans: 0, uitleg: "" }))
-      : Promise.resolve({ deepfake_kans: 0, uitleg: "" });
+    const paginaDomein = request.domein || "";
+
+    // ── Factcheck en harmful check parallel uitvoeren ─────────────
+    const factcheckPromise = fetch(SERVER_URL + "/api/factcheck", {
+      method: "POST",
+      headers: SERVER_HEADERS,
+      body: metSleutel({
+        text: request.text,
+        artikelTekst: request.artikelTekst || "",
+        domein: paginaDomein
+      })
+    })
+    .then(res => res.json())
+    .catch(() => ({ score: 50, theme: "Onbekend", explanation: "Geen uitleg beschikbaar.", sources: [] }));
 
     const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
       ? fetch(SERVER_URL + "/api/harmful", {
@@ -599,63 +601,39 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           body: metSleutel({ text: request.reactiesTekst })
         })
         .then(res => res.json())
-        .then(data => ({ strafbaar: data.isHarmful || false, reden: data.explanation || "" }))
-        .catch(() => ({ strafbaar: false, reden: "" }))
-      : Promise.resolve({ strafbaar: false, reden: "" });
+        .then(data => ({ strafbaar: data.isHarmful || false }))
+        .catch(() => ({ strafbaar: false }))
+      : Promise.resolve({ strafbaar: false });
 
-    const themaPromise = extraheerThemaViaServer(
-      request.text,
-      request.artikelTekst || request.zoekContext || ""
-    );
-
-    const paginaDomein = request.domein || "";
-
-    Promise.all([deepfakePromise, strafbareContentPromise, themaPromise])
-    .then(([deepfakeResultaat, strafbaarResultaat, thema]) => {
+    Promise.all([factcheckPromise, strafbareContentPromise])
+    .then(([data, strafbaarResultaat]) => {
+      const bronnen = (data.sources || []).map(r => r.url);
+      const score = data.score || 50;
+      const oordeel = data.theme || "Onbekend";
+      const uitleg = data.explanation || "Geen uitleg beschikbaar.";
       const strafbareContent = strafbaarResultaat.strafbaar || false;
+      const emoji = bepaalEmoji(score, "normaal");
 
-      return fetch(SERVER_URL + "/api/factcheck", {
-        method: "POST",
-        headers: SERVER_HEADERS,
-        body: metSleutel({
-          text: request.text,
-          artikelTekst: request.artikelTekst || "",
-          domein: paginaDomein
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        const bronnen = (data.sources || []).map(r => r.url);
-        const score = data.score || 50;
-        const oordeel = data.theme || "Onbekend";
-        const uitleg = data.explanation || "Geen uitleg beschikbaar.";
-        const bronRelevant = bronnen.length > 0;
+      const uitlegMetWaarschuwing = strafbareContent
+        ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
+        : uitleg;
 
-        const isDeepfake = deepfakeResultaat && deepfakeResultaat.deepfake_kans >= 50;
-        const type = isDeepfake ? "deepfake" : "normaal";
-        const emoji = bepaalEmoji(score, type);
-
-        const uitlegMetWaarschuwing = strafbareContent
-          ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
-          : uitleg;
-
-        sendResponse({
-          status: "success",
-          score: score,
-          oordeel: oordeel,
-          uitleg: uitlegMetWaarschuwing,
-          bronnen: bronnen,
-          bronRelevant: bronRelevant,
-          strafbareContent: strafbareContent,
-          phishing: { actief: false },
-          deepfake: deepfakeResultaat,
-          emoji: emoji,
-          type: type,
-          bronBekend: data.bronBekend || false,
-          onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
-          verificatieBronnen: data.verificatieBronnen || [],
-          rodeVlaggen: data.rodeVlaggen || []
-        });
+      sendResponse({
+        status: "success",
+        score: score,
+        oordeel: oordeel,
+        uitleg: uitlegMetWaarschuwing,
+        bronnen: bronnen,
+        bronRelevant: bronnen.length > 0,
+        strafbareContent: strafbareContent,
+        phishing: { actief: false },
+        emoji: emoji,
+        type: "normaal",
+        bronType: score < 50 ? "weerlegging" : score < 70 ? "verificatie" : "verdieping",
+        bronBekend: data.bronBekend || false,
+        onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
+        verificatieBronnen: data.verificatieBronnen || [],
+        rodeVlaggen: data.rodeVlaggen || []
       });
     })
     .catch(err => sendResponse({ status: "error", message: err.message }));
