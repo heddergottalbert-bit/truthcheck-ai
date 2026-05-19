@@ -638,7 +638,7 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
         return res.json({
           score: 75,
           theme: 'YouTube Short',
-          explanation: 'FactRadar analyseert Shorts niet inhoudelijk — de meeste zijn entertainmentcontent. Wil je een diepgaande check? Zoek de volledige video op.',
+          explanation: 'FactRadar analyseert Shorts nog niet inhoudelijk. Wil je een diepgaande check? Zoek de volledige video op.',
           signals: [],
           contentType: 'entertainment',
           sources: [],
