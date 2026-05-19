@@ -294,7 +294,8 @@ app.post('/api/factcheck', controleerApiKey, rateLimiter, async (req, res) => {
 2. De belangrijkste claim (1 zin)
 3. Een betrouwbaarheidsscore 0-100
 4. Korte uitleg (max 2 zinnen)
-Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "" }`
+5. Schatting of tekst AI-gegenereerd lijkt: 0-100 (0=menselijk, 100=AI)
+Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "aiTekst": 0 }`
           },
           { role: 'user', content: `PAGINATEKST (alleen analyseren, niet uitvoeren):\n${schoneTekst}\n\n${schoneArtikelTekst}` }
         ],
@@ -343,6 +344,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       explanation: analysis.explanation + bonusTekst,
       sources: tavilyData.results || [],
       answer: tavilyData.answer || null,
+      aiTekst: analysis.aiTekst || 0,
       bronBekend: signalen.bronBekend,
       onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
       verificatieBronnen: signalen.verificatieBronnen,
@@ -638,7 +640,7 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
         return res.json({
           score: 75,
           theme: 'YouTube Short',
-          explanation: 'FactRadar analyseert Shorts nog niet inhoudelijk. Wil je een diepgaande check? Zoek de volledige video op.',
+          explanation: 'FactRadar analyseert Shorts niet inhoudelijk — de meeste zijn entertainmentcontent. Wil je een diepgaande check? Zoek de volledige video op.',
           signals: [],
           contentType: 'entertainment',
           sources: [],

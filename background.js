@@ -630,6 +630,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         emoji: emoji,
         type: "normaal",
         bronType: score < 50 ? "weerlegging" : score < 70 ? "verificatie" : "verdieping",
+        aiTekst: data.aiTekst || 0,
         bronBekend: data.bronBekend || false,
         onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
         verificatieBronnen: data.verificatieBronnen || [],

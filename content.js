@@ -203,6 +203,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="${t.askQuestion}">?</div>
     </div>
     <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span></div>
+    ${(location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) ? `
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
         <span style="font-size:12px;">${huidigBronBekend ? '✅' : '❓'}</span>
@@ -216,7 +217,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
         <span style="font-size:12px;">${huidigRodeVlaggen.length > 0 ? '🚩' : '✅'}</span>
         <span style="color:${tekstKleur};opacity:0.8;">Rode vlaggen: <strong>${huidigRodeVlaggen.length > 0 ? huidigRodeVlaggen.slice(0,2).join(', ') : 'Geen gedetecteerd'}</strong></span>
       </div>
-    </div>
+    </div>` : ''}
     <div style="font-size:11px;color:${tekstKleur};line-height:1.5;margin-bottom:14px;font-family:${lettertype};">${schoneUitleg}</div>
     <div id="tc-vraag-veld" style="display:none;margin-bottom:12px;">
       <div style="display:flex;gap:6px;">
@@ -232,9 +233,9 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">AI-gegenereerde tekst</div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.1);overflow:hidden;">
-          <div style="height:100%;width:${huidigAiTekst}%;background:linear-gradient(to right,#2ecc71,#f1c40f,#e74c3c);"></div>
+          <div style="height:100%;width:${huidigAiTekst}%;background:#7ab3ef;"></div>
         </div>
-        <div style="font-size:11px;font-weight:bold;min-width:32px;text-align:right;font-family:${lettertype};color:${huidigAiTekst >= 70 ? '#e74c3c' : huidigAiTekst >= 40 ? '#f1c40f' : '#2ecc71'};">${huidigAiTekst}%</div>
+        <div style="font-size:11px;font-weight:bold;min-width:32px;text-align:right;font-family:${lettertype};color:#7ab3ef;">${huidigAiTekst}%</div>
       </div>
     </div>
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
