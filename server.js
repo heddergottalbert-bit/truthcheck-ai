@@ -198,19 +198,6 @@ function berekenSignalen(kanaal, tavilyResultaten, openaiSignalen, isBetrouwbaar
   return { bronBekend, onderwerpVerifieerbaar, verificatieBronnen, rodeVlaggen };
 }
 
-// ── Dedupliceer bronnen — max 1 per domein ───────────────────
-function dedupliceerBronnen(resultaten) {
-  const gezieneDomeinen = new Set();
-  return (resultaten || []).filter(r => {
-    try {
-      const domein = new URL(r.url).hostname.replace('www.', '');
-      if (gezieneDomeinen.has(domein)) return false;
-      gezieneDomeinen.add(domein);
-      return true;
-    } catch(e) { return true; }
-  });
-}
-
 // ── Whitelist leerlaag — in memory, bij 500 gebruikers naar PostgreSQL ──
 const whitelistTellers = new Map();
 
@@ -324,66 +311,37 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       analysis = { theme: 'Onbekend', claim: schoneTekst.slice(0, 100), score: 50, explanation: content };
     }
 
-    // Tavily query opschonen — claim van OpenAI gebruiken, nooit ruwe caps lock tekst
-    const tavilyQuery = (analysis.claim || schoneTekst.slice(0, 150))
-      .replace(/['"]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 120);
-
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: tavilyQuery,
+        query: analysis.claim || schoneTekst.slice(0, 200),
         search_depth: 'advanced',
         max_results: 5,
-        include_answer: true,
-        include_domains: VERIFICATIE_DOMEINEN
+        include_answer: true
       })
     });
 
     const tavilyData = await tavilyRes.json();
 
-    // Fallback zonder domeinfilter als niets gevonden
-    let tavilyResultaten = tavilyData.results || [];
-    if (tavilyResultaten.length === 0) {
-      const fallback = await fetch('https://api.tavily.com/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          api_key: TAVILY_API_KEY,
-          query: tavilyQuery,
-          search_depth: 'basic',
-          max_results: 3,
-          include_answer: false
-        })
-      });
-      const fallbackData = await fallback.json();
-      tavilyResultaten = fallbackData.results || [];
-    }
-
-    // Max 1 bron per domein — voorkomt 5x hetzelfde domein
-    tavilyResultaten = dedupliceerBronnen(tavilyResultaten);
-
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
-    const bronBonus = berekenBronBonus(tavilyResultaten, analysis.score, tavilyData.answer);
+    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score, tavilyData.answer);
     const definitieveScore = analysis.score + bronBonus;
-    const signalen = berekenSignalen(domein, tavilyResultaten, [], false);
+    const signalen = berekenSignalen(domein, tavilyData.results, [], false);
     const bonusTekst = bronBonus > 0 ? ` (Score +${bronBonus} — betrouwbare bronnen bevestigen de claim.)`
       : bronBonus < 0 ? ` (Score ${bronBonus} — betrouwbare bronnen weerleggen de claim.)`
       : '';
 
     // Whitelist leerlaag — domein bijhouden op basis van Tavily resultaten
-    verwerkCheck(domein, tavilyResultaten, definitieveScore);
+    verwerkCheck(domein, tavilyData.results, definitieveScore);
 
     res.json({
       score: definitieveScore,
       theme: analysis.theme,
       claim: analysis.claim,
       explanation: analysis.explanation + bonusTekst,
-      sources: tavilyResultaten,
+      sources: tavilyData.results || [],
       answer: tavilyData.answer || null,
       bronBekend: signalen.bronBekend,
       onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
@@ -497,24 +455,18 @@ Antwoord in JSON: { "isHarmful": false, "category": "geen", "severity": "laag", 
 
 // ── Whitelist bekende betrouwbare kanalen ─────────────────────
 const BETROUWBARE_KANALEN = [
-  // Publieke omroep NL — hoofdkanalen en subkanalen
-  'nos', 'nos nieuws', 'nieuwsuur', 'nos op 3', 'nos jeugdjournaal', 'jeugdjournaal',
-  'vpro', 'vpro tegenlicht', 'vpro documentary', 'vpro 3voor12', '3voor12',
-  'npo', 'npo radio 1', 'npo 1', 'npo 2', 'npo 3', 'npo start',
+  // Publieke omroep NL
+  'nos', 'nos nieuws', 'nieuwsuur', 'nos op 3',
+  'vpro', 'vpro tegenlicht', 'vpro documentary',
+  'npo', 'npo radio 1', 'npo 1', 'npo 2', 'npo 3',
   'human', 'human nl', 'zembla', 'pointer', 'argos',
-  'pauw', 'pauw & de wit', 'buitenhof', 'op1',
-  'een vandaag', 'eenvandaag', 'kro-ncrv', 'avrotros', 'radar avrotros',
+  'pauw', 'pauw & de wit', 'buitenhof',
+  'een vandaag', 'eenvandaag', 'kro-ncrv', 'avrotros',
   'omroep max', 'wnl', 'rtl nieuws', 'rtl nederland',
-  // Regionale omroep NL
-  'omroep west', 'omroep brabant', 'omroep gelderland', 'omroep zeeland',
-  'omroep friesland', 'omroep flevoland', 'omroep limburg',
-  'rtvnoord', 'rtv oost', 'nhnieuws', 'at5', 'rtv drenthe',
   // Internationaal
   'bbc news', 'bbc', 'dw news', 'dw', 'al jazeera',
   'france 24', 'nbc news', 'abc news', 'cbs news', 'pbs',
   'the guardian', 'reuters', 'ap', 'associated press',
-  // Kranten met YouTube kanaal
-  'nrc', 'volkskrant', 'trouw', 'fd', 'follow the money',
 ];
 
 const SATIRE_KANALEN = [
@@ -714,84 +666,22 @@ app.post('/api/youtube', controleerApiKey, rateLimiter, async (req, res) => {
 
     // Entertainment — direct hoge score, geen OpenAI
     if (contentType === 'entertainment') {
-      const score = abonneeGetal > 10000 ? 82 : 72;
-
-      const AI_PATRONEN = [
-        'ai-gegenereerd', 'ai generated', 'gemaakt met ai', 'created with ai',
-        'kunstmatige intelligentie', 'artificial intelligence',
-        'door ai', 'by ai', 'using ai', 'met behulp van ai',
-        'gecre\xc3\xaberd door ai', 'gegenereerd door ai', 'generated by ai',
-        'ai kunst', 'ai art', 'ai video', 'ai beelden', 'ai visuals',
-        'ai animatie', 'ai animation', 'ai content', 'ai-beelden',
-        'midjourney', 'stable diffusion', 'dall-e', 'sora',
-        'runway', 'runwayml', 'pika', 'kling', 'luma', 'leonardo ai',
-        'digen', 'ideogram', 'adobe firefly', 'canva ai',
-        'chatgpt', 'gpt-4', 'gemini', 'copilot',
-        'flux', 'comfyui', 'automatic1111', 'controlnet',
-        'neural network', 'neuraal netwerk', 'machine learning',
-        'algoritmisch', 'algorithmic', 'generatief', 'generative',
-        'text-to-image', 'text to image', 'text-to-video', 'text to video',
-        'image-to-video', 'image to video', 'ai-gegenereerde',
-        'synthetisch', 'synthetic media', 'face swap',
-        'voice clone', 'stem klonen', 'ai stem', 'ai voice'
-      ];
-      const beschrijvingLower = schoneBeschrijving.toLowerCase();
-      const heeftTekstuelePatronen = AI_PATRONEN.some(p => beschrijvingLower.includes(p));
-
-      // OpenAI aanroepen voor AI-score
-      let openaiAiScore = 0;
-      try {
-        const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              {
-                role: 'system',
-                content: 'Bepaal of deze YouTube video AI-gegenereerd of digitaal bewerkt is. Score 0-100: 0=zeker menselijk, 50=onduidelijk, 100=zeker AI-gegenereerd. Antwoord alleen in JSON: { "aiScore": 0 }'
-              },
-              {
-                role: 'user',
-                content: `Titel: ${schoneTitel}\nKanaal: ${schoneKanaal}\nBeschrijving: ${schoneBeschrijving.substring(0, 500)}\nTags: ${schoneTags}`
-              }
-            ],
-            temperature: 0.2
-          })
-        });
-        const aiData = await aiRes.json();
-        const parsed = JSON.parse(aiData.choices[0].message.content);
-        openaiAiScore = parsed.aiScore || 0;
-      } catch(e) { openaiAiScore = 0; }
-
-      // Definitieve AI-score
-      const heeftLabel = isAiContent;
-      const openaiBevestigt = openaiAiScore >= 70;
-
-      let lokaleAiScore = 0;
-      if (heeftLabel && heeftTekstuelePatronen && openaiBevestigt) lokaleAiScore = 100;
-      else if ((heeftLabel && heeftTekstuelePatronen) || (heeftLabel && openaiBevestigt) || (heeftTekstuelePatronen && openaiBevestigt)) lokaleAiScore = 75;
-      else if (openaiBevestigt) lokaleAiScore = 75;  // OpenAI alleen al genoeg voor 75%
-      else if (heeftLabel) lokaleAiScore = 25;
-      else if (heeftTekstuelePatronen) lokaleAiScore = 50;
-
-      const aiMelding = lokaleAiScore >= 50
-        ? 'AI en/of digitaal gegenereerde content gedetecteerd \xe2\x80\x94 dit is creatieve entertainment content.'
+      const aiMelding = isAiContent
+        ? 'AI-gegenereerde visuals gedetecteerd — dit is creatieve entertainment content.'
         : 'Entertainmentcontent. Geen feitelijke claims gedetecteerd.';
-
+      const score = abonneeGetal > 10000 ? 82 : 72;
       return res.json({
         score,
         theme: 'Entertainment en creatieve content',
         explanation: aiMelding,
-        signals: lokaleAiScore >= 50 ? ['AI en/of digitaal gegenereerde content'] : [],
+        signals: isAiContent ? ['AI-gegenereerde visuals'] : [],
         contentType: 'entertainment',
         sources: [],
-        answer: null,
-        aiTekst: lokaleAiScore
+        answer: null
       });
     }
 
-        // Satire op basis van contentType
+    // Satire op basis van contentType
     if (contentType === 'satire') {
       const aiMelding = isAiContent
         ? 'AI-gegenereerde satirische content. Bedoeld als humor, niet als nieuws.'
@@ -858,10 +748,9 @@ Geef terug:
 2. Hoofdthema van de video (1 zin)
 3. Uitleg max 2 zinnen — nooit "dit is nep", wel "claims niet bevestigd" of "kenmerken van manipulatie"
 4. Gedetecteerde signalen als lijst (max 3)
-5. aiScore 0-100 — kans dat de beschrijving AI-gegenereerd is op basis van taalpatronen. Let op: woordherhalingen, overdreven bloemrijke taal, ontbreken van concrete feiten, generieke superlatieven. 0 = zeker menselijk, 100 = zeker AI.
 
 ${taalInstructie}
-Antwoord in JSON: { "score": 0, "theme": "", "explanation": "", "signals": [], "aiScore": 0 }`
+Antwoord in JSON: { "score": 0, "theme": "", "explanation": "", "signals": [] }`
           },
           {
             role: 'user',
@@ -871,7 +760,7 @@ Kanaal: ${schoneKanaal}
 Abonnees: ${schoneAbonnees}
 Views: ${schoneViews}
 Tags: ${schoneTags}
-AI en/of digitaal gegenereerde content: ${isAiContent ? "ja — creator heeft dit aangegeven" : "niet aangegeven"}
+AI-gegenereerde content: ${isAiContent ? "ja — creator heeft dit aangegeven" : "niet aangegeven"}
 Beschrijving: ${schoneBeschrijving}`
           }
         ],
@@ -885,7 +774,7 @@ Beschrijving: ${schoneBeschrijving}`
     try {
       analysis = JSON.parse(content);
     } catch {
-      analysis = { score: 50, theme: schoneTitel.slice(0, 60), explanation: content, signals: [], aiScore: 0 };
+      analysis = { score: 50, theme: schoneTitel.slice(0, 60), explanation: content, signals: [] };
     }
 
     // Auto-correctie: als OpenAI zelf humor/satire detecteert, score omhoog
@@ -899,13 +788,15 @@ Beschrijving: ${schoneBeschrijving}`
       analysis.contentType = 'satire';
     }
 
-    // Tavily query — OpenAI claim gebruiken, nooit ruwe caps lock titel
+    // Stap 2: Tavily zoekt verificatiebronnen
+    // Gebruik de claim van OpenAI als die beschikbaar is — beter dan de ruwe titel
+    // Titel opschonen: hoofdletters naar kleine letters, leestekens verwijderen
     const schoneTitelVoorTavily = (analysis.claim || schoneTitel)
       .toLowerCase()
-      .replace(/[|!?'"]/g, '')
+      .replace(/[|!?]/g, '')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 120);
+      .slice(0, 150);
 
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
@@ -915,53 +806,22 @@ Beschrijving: ${schoneBeschrijving}`
         query: schoneTitelVoorTavily,
         search_depth: 'advanced',
         max_results: 5,
-        include_answer: true,
-        include_domains: VERIFICATIE_DOMEINEN
+        include_answer: true
       })
     });
 
     const tavilyData = await tavilyRes.json();
 
-    // Fallback zonder domeinfilter als niets gevonden
-    let tavilyResultaten = tavilyData.results || [];
-    if (tavilyResultaten.length === 0) {
-      const fallback = await fetch('https://api.tavily.com/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          api_key: TAVILY_API_KEY,
-          query: schoneTitelVoorTavily,
-          search_depth: 'basic',
-          max_results: 3,
-          include_answer: false
-        })
-      });
-      const fallbackData = await fallback.json();
-      tavilyResultaten = fallbackData.results || [];
-    }
-
-    // Max 1 bron per domein — voorkomt 5x hetzelfde domein
-    tavilyResultaten = dedupliceerBronnen(tavilyResultaten);
-
     // Double check — bronbonus op basis van betrouwbare Tavily resultaten
-    const bronBonus = berekenBronBonus(tavilyResultaten, analysis.score, tavilyData.answer);
+    const bronBonus = berekenBronBonus(tavilyData.results, analysis.score, tavilyData.answer);
     const definitieveScore = analysis.score + bronBonus;
-    const signalen = berekenSignalen(schoneKanaal, tavilyResultaten, analysis.signals || [], isBetrouwbaar);
+    const signalen = berekenSignalen(schoneKanaal, tavilyData.results, analysis.signals || [], isBetrouwbaar);
 
     // Whitelist leerlaag — kanaal bijhouden op basis van Tavily resultaten
-    verwerkCheck(normaliseerKanaal(schoneKanaal), tavilyResultaten, definitieveScore);
+    verwerkCheck(normaliseerKanaal(schoneKanaal), tavilyData.results, definitieveScore);
     const bonusTekst = bronBonus > 0 ? ` (Score +${bronBonus} — betrouwbare bronnen bevestigen de claim.)`
       : bronBonus < 0 ? ` (Score ${bronBonus} — betrouwbare bronnen weerleggen de claim.)`
       : '';
-
-    // bronType bepalen — whitelist of score-gebaseerd
-    const bronType = isBetrouwbaar
-      ? 'verdieping'
-      : definitieveScore < 50
-      ? 'weerlegging'
-      : definitieveScore < 70
-      ? 'verificatie'
-      : 'verdieping';
 
     res.json({
       score: definitieveScore,
@@ -969,28 +829,12 @@ Beschrijving: ${schoneBeschrijving}`
       explanation: analysis.explanation + bonusTekst,
       signals: analysis.signals || [],
       contentType: analysis.contentType || contentType,
-      sources: tavilyResultaten,
+      sources: tavilyData.results || [],
       answer: tavilyData.answer || null,
       bronBekend: signalen.bronBekend,
       onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
       verificatieBronnen: signalen.verificatieBronnen,
-      rodeVlaggen: signalen.rodeVlaggen,
-      bronType,
-      aiTekst: (() => {
-        // Nieuwe schaal:
-        // 25% = alleen YouTube label
-        // 50% = alleen tekstuele patronen (aiScore >= 50)
-        // 75% = YouTube label + tekstuele patronen
-        // 100% = YouTube label + patronen + OpenAI bevestigt (aiScore >= 70)
-        const heeftLabel = isAiContent;
-        const heeftPatronen = (analysis.aiScore || 0) >= 30;
-        const openaiBevestigt = (analysis.aiScore || 0) >= 70;
-        if (heeftLabel && heeftPatronen && openaiBevestigt) return 100;
-        if (heeftLabel && heeftPatronen) return 75;
-        if (heeftLabel) return 25;
-        if (heeftPatronen) return 50;
-        return 0;
-      })()
+      rodeVlaggen: signalen.rodeVlaggen
     });
 
   } catch (err) {

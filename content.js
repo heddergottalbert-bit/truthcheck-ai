@@ -229,12 +229,12 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     ${deepfakeHTML}
     ${manipulatieHTML}
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
-      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">AI en/of digitaal gegenereerde content</div>
+      <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">AI-gegenereerde tekst</div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.1);overflow:hidden;">
-          <div style="height:100%;width:${huidigAiTekst}%;background:#7ab3ef;"></div>
+          <div style="height:100%;width:${huidigAiTekst}%;background:linear-gradient(to right,#2ecc71,#f1c40f,#e74c3c);"></div>
         </div>
-        <div style="font-size:11px;font-weight:bold;min-width:32px;text-align:right;font-family:${lettertype};color:#7ab3ef;">${huidigAiTekst}%</div>
+        <div style="font-size:11px;font-weight:bold;min-width:32px;text-align:right;font-family:${lettertype};color:${huidigAiTekst >= 70 ? '#e74c3c' : huidigAiTekst >= 40 ? '#f1c40f' : '#2ecc71'};">${huidigAiTekst}%</div>
       </div>
     </div>
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
@@ -653,46 +653,7 @@ function vindVideoContext() {
         || "";
     }
     const kanaal = haalKanaalNaam();
-    // Volledige beschrijving ophalen — uitgeklapt + ingeklapt + fallback
-    function haalBeschrijving() {
-      // Uitlezen — #expand is al geklikt bij opstarten (1500ms vertraging)
-      const selectors = [
-        "#description-inline-expander",
-        "#description ytd-text-inline-expander",
-        "ytd-watch-metadata #description",
-        "#description-inline-expander yt-attributed-string",
-        "#description ytd-text-inline-expander yt-attributed-string",
-        "#snippet",
-        "meta[name='description']"
-      ];
-      for (const sel of selectors) {
-        const el = document.querySelector(sel);
-        if (!el) continue;
-        const tekst = sel.startsWith("meta") ? el.getAttribute("content") : el.innerText;
-        if (tekst && tekst.length > 30) return tekst;
-      }
-      return "";
-    }
-    const volledigeBeschrijving = haalBeschrijving();
-
-    // Ruis uit beschrijving filteren — alleen echte SEO-vulling eruit
-    function filterBeschrijving(tekst) {
-      if (!tekst) return "";
-      const regels = tekst.split("\n");
-      let slaOver = false;
-      const schoon = regels.filter(regel => {
-        const r = regel.trim().toLowerCase();
-        if (!r || r.length < 2) return false;
-        // Sectie headers die pure SEO-vulling inluiden — alles erna overslaan
-        if (r === "related searches:" || r === "related searches") { slaOver = true; return false; }
-        if (slaOver) return false;
-        // Call-to-action regels — kort en generiek
-        if ((r.startsWith("subscribe") || r.startsWith("like and") || r.startsWith("comment your")) && r.length < 40) return false;
-        return true;
-      });
-      return schoon.join(" ").replace(/\s+/g, " ").trim();
-    }
-    const beschrijving = filterBeschrijving(volledigeBeschrijving);
+    const beschrijving = document.querySelector("#description-inline-expander, #description ytd-text-inline-expander, #snippet")?.innerText || "";
     const tags         = Array.from(document.querySelectorAll("meta[property='og:video:tag']")).map(m => m.content).join(", ");
     const views        = document.querySelector(".view-count, #info .ytd-video-view-count-renderer")?.innerText || "";
     const abonnees     = document.querySelector("#owner-sub-count, #subscriber-count")?.innerText || "";
@@ -701,9 +662,7 @@ function vindVideoContext() {
                          beschrijving.toLowerCase().includes("ai-generated") ||
                          beschrijving.toLowerCase().includes("gemaakt met ai") ||
                          aiTag.toLowerCase().includes("ai") ||
-                         tags.toLowerCase().includes("ai generated") ||
-                         !!document.querySelector("ytd-watch-metadata")?.innerText?.includes("synthetisch") ||
-                         !!document.querySelector("ytd-watch-metadata")?.innerText?.includes("synthetic");
+                         tags.toLowerCase().includes("ai generated");
     // Shorts detectie — andere DOM structuur
     const isShort = location.pathname.startsWith('/shorts/');
     const shortsTitel = document.querySelector('ytd-reel-video-renderer[is-active] .title, .ytd-shorts .title')?.innerText
@@ -730,7 +689,7 @@ function vindVideoContext() {
       : duurSeconden <= 3600 ? "middellang (15-60 min)"
       : "lang (boven 60 min)";
 
-    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? 'ja' : 'nee'} | Tags: ${tags} | Duur: ${duurLabel} | Beschrijving: ${beschrijving.substring(0, 1500)}`;
+    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? "ja" : "onbekend"} | Tags: ${tags} | Duur: ${duurLabel} | Beschrijving: ${beschrijving.substring(0, 400)}`;
   }
 
   // Vimeo
@@ -1210,10 +1169,6 @@ laadInstellingen((items) => {
   if (items.tc_positie_x) knop.style.right  = items.tc_positie_x;
   if (items.tc_positie_y) knop.style.bottom = items.tc_positie_y;
   toonLaadAnimatie();
-  // YouTube: klik #expand vroeg zodat beschrijving uitklapt voor startCheck
-  if (location.hostname.includes("youtube.com")) {
-    setTimeout(() => { document.querySelector("#expand")?.click(); }, 1500);
-  }
   // YouTube laadt kanaaldata asynchroon — extra wachttijd voor correcte kanaalnaam
   const vertraging = location.hostname.includes("youtube.com") ? 2500 : 0;
   setTimeout(() => {

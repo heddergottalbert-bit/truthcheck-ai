@@ -482,9 +482,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           bronBekend: data.bronBekend || false,
           onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
           verificatieBronnen: data.verificatieBronnen || [],
-          rodeVlaggen: data.rodeVlaggen || [],
-          aiTekst: data.aiTekst || 0,
-          aiLabel: data.aiLabel || false
+          rodeVlaggen: data.rodeVlaggen || []
         });
       })
       .catch(() => sendResponse({ status: "error", message: "YouTube analyse mislukt" }));
