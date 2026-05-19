@@ -581,7 +581,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     const paginaDomein = request.domein || "";
 
-    // ── Factcheck en harmful check parallel uitvoeren ─────────────
+    // ── Factcheck, harmful check en vision parallel uitvoeren ────
     const factcheckPromise = fetch(SERVER_URL + "/api/factcheck", {
       method: "POST",
       headers: SERVER_HEADERS,
@@ -592,7 +592,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       })
     })
     .then(res => res.json())
-    .catch(() => ({ score: 50, theme: "Onbekend", explanation: "Geen uitleg beschikbaar.", sources: [] }));
+    .catch(() => ({ score: 50, theme: "Onbekend", explanation: "Geen uitleg beschikbaar.", sources: [], aiTekst: 0 }));
 
     const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
       ? fetch(SERVER_URL + "/api/harmful", {
@@ -605,14 +605,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .catch(() => ({ strafbaar: false }))
       : Promise.resolve({ strafbaar: false });
 
-    Promise.all([factcheckPromise, strafbareContentPromise])
-    .then(([data, strafbaarResultaat]) => {
+    const visionPromise = request.afbeeldingUrl
+      ? fetch(SERVER_URL + "/api/vision", {
+          method: "POST",
+          headers: SERVER_HEADERS,
+          body: metSleutel({ afbeeldingUrl: request.afbeeldingUrl })
+        })
+        .then(res => res.json())
+        .catch(() => ({ aiAfbeelding: 0, uitleg: "" }))
+      : Promise.resolve({ aiAfbeelding: 0, uitleg: "" });
+
+    Promise.all([factcheckPromise, strafbareContentPromise, visionPromise])
+    .then(([data, strafbaarResultaat, visionResultaat]) => {
       const bronnen = (data.sources || []).map(r => r.url);
       const score = data.score || 50;
       const oordeel = data.theme || "Onbekend";
       const uitleg = data.explanation || "Geen uitleg beschikbaar.";
       const strafbareContent = strafbaarResultaat.strafbaar || false;
       const emoji = bepaalEmoji(score, "normaal");
+      const aiTekst = data.aiTekst || 0;
+      const aiAfbeelding = visionResultaat.aiAfbeelding || 0;
+      // Hoogste van de twee als gecombineerde AI score
+      const aiScore = Math.max(aiTekst, aiAfbeelding);
 
       const uitlegMetWaarschuwing = strafbareContent
         ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
@@ -630,7 +644,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         emoji: emoji,
         type: "normaal",
         bronType: score < 50 ? "weerlegging" : score < 70 ? "verificatie" : "verdieping",
-        aiTekst: data.aiTekst || 0,
+        aiTekst: aiScore,
         bronBekend: data.bronBekend || false,
         onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
         verificatieBronnen: data.verificatieBronnen || [],

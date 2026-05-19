@@ -958,6 +958,63 @@ app.post('/api/feedback', controleerApiKey, rateLimiter, async (req, res) => {
   }
 });
 
+// ── Vision — AI afbeelding detectie ──────────────────────────
+app.post('/api/vision', controleerApiKey, rateLimiter, async (req, res) => {
+  try {
+    const { afbeeldingUrl } = req.body;
+    if (!afbeeldingUrl) return res.status(400).json({ error: 'Geen afbeelding URL meegegeven' });
+
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: afbeeldingUrl, detail: 'low' }
+              },
+              {
+                type: 'text',
+                text: `Analyseer deze afbeelding en geef een schatting of het AI-gegenereerd is.
+Let op: perfecte huid, onnatuurlijke achtergronden, vreemde vingers of handen, te symmetrische gezichten, overdreven details, surreële elementen zijn signalen van AI.
+Antwoord alleen in JSON: { "aiAfbeelding": 0, "uitleg": "" }
+aiAfbeelding is 0-100 (0 = zeker echt, 100 = zeker AI-gegenereerd).`
+              }
+            ]
+          }
+        ],
+        max_tokens: 150,
+        temperature: 0.2
+      })
+    });
+
+    const data = await openaiRes.json();
+    const content = data.choices?.[0]?.message?.content || '{}';
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch {
+      result = { aiAfbeelding: 0, uitleg: '' };
+    }
+
+    res.json({
+      aiAfbeelding: result.aiAfbeelding || 0,
+      uitleg: result.uitleg || ''
+    });
+
+  } catch (err) {
+    console.error('Vision fout:', err);
+    res.json({ aiAfbeelding: 0, uitleg: '' }); // Stille fout — niet kritiek
+  }
+});
+
 // ── Start server ──────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
