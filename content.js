@@ -1020,8 +1020,52 @@ function isActieveZoekopdracht() {
     && (zoekParam.has("q") || zoekParam.has("query") || zoekParam.has("search"));
 }
 
+// ── Sociale media timer ───────────────────────────────────────
+const SOCIALE_MEDIA_DOMEINEN = ["facebook.com", "instagram.com", "tiktok.com"];
+let socialeTijdStart = null;
+let socialeTimerInterval = null;
+
+function isSocialMedia() {
+  const domein = location.hostname.replace("www.", "");
+  return SOCIALE_MEDIA_DOMEINEN.some(d => domein === d || domein.endsWith("." + d));
+}
+
+function startSocialeMediaModus() {
+  knop.style.display = "block";
+  socialeTijdStart = socialeTijdStart || Date.now();
+
+  function updateSocialeEmoji() {
+    const minuten = Math.floor((Date.now() - socialeTijdStart) / 60000);
+    if (minuten >= 20) {
+      huidigEmoji = "🤯";
+      huidigOordeel = "Tijd voor een pauze!";
+      huidigUitleg = "Je scrolt al meer dan 20 minuten. Misschien tijd voor iets anders?";
+    } else if (minuten >= 10) {
+      huidigEmoji = "🧘‍♀️";
+      huidigOordeel = "Even rust voor je ogen?";
+      huidigUitleg = "Je scrolt al meer dan 10 minuten. Rust even uit van je scherm.";
+    } else {
+      huidigEmoji = "💃🕺";
+      huidigOordeel = "Geniet van het scrollen";
+      huidigUitleg = "FactRadar beschermt je als je doorklikt naar externe pagina's.";
+    }
+    huidigBronnen = [];
+    huidigScore = 100;
+    updateMiniBarometer(huidigScore, false, huidigEmoji);
+    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, [], null, false, huidigEmoji, "verdieping");
+  }
+
+  updateSocialeEmoji();
+  if (!socialeTimerInterval) {
+    socialeTimerInterval = setInterval(updateSocialeEmoji, 60000);
+  }
+}
+
 function startCheck() {
   if (location.hostname.includes("mail.google.com")) { initialiseerGmail(); return; }
+
+  // ── Sociale media — neutrale modus met timer ─────────────────
+  if (isSocialMedia()) { startSocialeMediaModus(); return; }
 
   // Zoekpagina met actieve query — alleen phishing check, geen factcheck
   if (isActieveZoekopdracht()) {
