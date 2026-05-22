@@ -347,7 +347,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     antwoordDiv.textContent = "⏳ Even wachten...";
 
     const context = [huidigArtikeltekst, huidigUitleg, huidigBronnen.join(" ")]
-      .filter(Boolean).join(" ").substring(0, 1500);
+      .filter(Boolean).join(" ").substring(0, 4000);
 
     chrome.runtime.sendMessage(
       { action: "stel_vraag", vraag, context: context, taal: navigator.language || "en" },
@@ -579,7 +579,7 @@ function vindArtikelTekst() {
   for (const sel of artikelSelectors) {
     const els = filterRuis(document.querySelectorAll(sel));
     if (els.length > 0) {
-      const tekst = els.slice(0, 15).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 2500);
+      const tekst = els.slice(0, 30).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 5000);
       if (tekst.length > 100) return tekst;
     }
   }
@@ -592,7 +592,7 @@ function vindArtikelTekst() {
   for (const sel of bredeSelectors) {
     const els = filterRuis(document.querySelectorAll(sel));
     if (els.length > 0) {
-      const tekst = els.slice(0, 15).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 2500);
+      const tekst = els.slice(0, 30).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 5000);
       if (tekst.length > 100) return tekst;
     }
   }
@@ -600,17 +600,17 @@ function vindArtikelTekst() {
   // Stap 3: alle p tags — ook gefilterd
   const alleTekst = filterRuis(document.querySelectorAll("p"))
     .filter(p => isSchoneTekst(p.innerText))
-    .slice(0, 15).map(p => p.innerText).join(" ").substring(0, 2500);
+    .slice(0, 30).map(p => p.innerText).join(" ").substring(0, 5000);
   if (alleTekst.length > 100) return alleTekst;
 
   // Stap 4: li elementen — ook gefilterd
   const liTekst = filterRuis(document.querySelectorAll("li"))
     .filter(li => isSchoneTekst(li.innerText))
-    .slice(0, 15).map(li => li.innerText).join(" ").substring(0, 2500);
+    .slice(0, 30).map(li => li.innerText).join(" ").substring(0, 5000);
   if (liTekst.length > 100) return liTekst;
 
   // Stap 5: body.innerText als laatste redmiddel
-  return (document.body.innerText || "").replace(/\s+/g, " ").substring(0, 2500);
+  return (document.body.innerText || "").replace(/\s+/g, " ").substring(0, 5000);
 }
 
 function vindZoekContext() {

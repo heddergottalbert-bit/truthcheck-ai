@@ -1039,7 +1039,7 @@ app.post('/api/vraag', async (req, res) => {
           { role: 'user', content: `Context: ${context}\n\nVraag: ${vraag}` }
         ],
         temperature: 0.3,
-        max_tokens: 200
+        max_tokens: 400
       })
     });
 
