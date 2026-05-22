@@ -322,10 +322,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       'libelle.nl', 'margriet.nl', 'flair.nl', 'lifestylemagazine.nl',
       'msn.com', 'seniorweb.nl', 'gezondheidsplein.nl', 'gezondnu.nl'
     ];
-    const isLifestyleDomein = LIFESTYLE_DOMEINEN_SERVER.some(d => (domein || '').includes(d));
-    const tavilyQuery = isLifestyleDomein
-      ? (analysis.theme || analysis.claim || schoneTekst.slice(0, 100)) + ' gezondheid voeding'
-      : analysis.claim || schoneTekst.slice(0, 200);
+    const tavilyQuery = analysis.claim || schoneTekst.slice(0, 200);
 
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
