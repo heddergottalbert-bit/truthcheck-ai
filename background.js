@@ -94,6 +94,22 @@ const NIEUWS_DOMEINEN = [
   "ftm.nl", "fd.nl", "nieuwscheckers.nl"
 ];
 
+// ── Lifestyle domeinen ────────────────────────────────────────
+const LIFESTYLE_DOMEINEN = [
+  "menshealth.nl", "healthline.com", "voedingscentrum.nl",
+  "gezondheidsnet.nl", "thuisarts.nl", "womanshealthmag.com",
+  "women-s-health.nl", "prevention.com", "medicalnewstoday.com",
+  "runnersworld.com", "runnersworld.nl", "bodyenfit.nl",
+  "sportrusten.nl", "fitnessmagazine.nl", "bicycling.com",
+  "triathlete.com", "cyclingnews.com",
+  "vogue.com", "vogue.nl", "glamour.com", "glamour.nl",
+  "cosmopolitan.com", "cosmopolitan.nl", "elle.com", "elle.nl",
+  "libelle.nl", "margriet.nl", "flair.nl", "nina.be",
+  "harpersbazaar.com", "instyle.com",
+  "lifestylemagazine.nl", "gezondheidskrant.nl",
+  "msn.com"
+];
+
 const OFFICIELE_DOMEINEN = {
   "green card": "dvprogram.state.gov",
   "diversity visa": "dvprogram.state.gov",
@@ -148,6 +164,7 @@ function bepaalEmoji(score, type) {
   if (type === "laden") return "🤔";
   if (type === "wetenschap") return "🎓";
   if (type === "nieuws") return "😊";
+  if (type === "lifestyle") return "🌿";
   if (score >= 70) return "😊";
   if (score >= 50) return "😟";
   return "😡";
@@ -179,6 +196,8 @@ function isWetenschap(domein) {
 function isNieuws(domein) {
   return NIEUWS_DOMEINEN.some(d => domein.includes(d));
 }
+
+function isLifestyle(domein) { return LIFESTYLE_DOMEINEN.some(d => domein.includes(d)); }
 
 function naamMatchtDomein(afzenderNaam, afzenderDomein) {
   if (!afzenderNaam || !afzenderDomein) return true;
@@ -223,6 +242,9 @@ function berekenPhishingWebsite(request) {
   }
   if (isNieuws(paginaDomein)) {
     return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isNieuws: true };
+  }
+  if (isLifestyle(paginaDomein)) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isLifestyle: true };
   }
   if (isVeiligOfficieelDomein(paginaDomein)) {
     return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
@@ -538,6 +560,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           emoji: "😊",
           type: "nieuws"
         });
+      });
+      return true;
+    }
+
+    if (phishing.isLifestyle) {
+      haalBronnenOp(request).then(bronnen => {
+        sendResponse({ status: "success", score: 70, oordeel: "Lifestyle content", uitleg: "Dit is een lifestyle website over gezondheid, sport, mode of beauty. Controleer medische of voedingsadviezen altijd bij een professional.", bronnen: bronnen, phishing: { actief: false }, strafbareContent: false, emoji: "🌿", type: "lifestyle" });
       });
       return true;
     }
