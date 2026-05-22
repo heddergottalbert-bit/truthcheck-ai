@@ -312,12 +312,27 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       analysis = { theme: 'Onbekend', claim: schoneTekst.slice(0, 100), score: 50, explanation: content };
     }
 
+    // ── Lifestyle domeinen — specifiekere Tavily query ─────────
+    const LIFESTYLE_DOMEINEN_SERVER = [
+      'menshealth.nl', 'healthline.com', 'voedingscentrum.nl',
+      'gezondheidsnet.nl', 'thuisarts.nl', 'medicalnewstoday.com',
+      'runnersworld.com', 'runnersworld.nl', 'bodyenfit.nl',
+      'vogue.com', 'vogue.nl', 'glamour.com', 'glamour.nl',
+      'cosmopolitan.com', 'cosmopolitan.nl', 'elle.com', 'elle.nl',
+      'libelle.nl', 'margriet.nl', 'flair.nl', 'lifestylemagazine.nl',
+      'msn.com', 'seniorweb.nl', 'gezondheidsplein.nl', 'gezondnu.nl'
+    ];
+    const isLifestyleDomein = LIFESTYLE_DOMEINEN_SERVER.some(d => (domein || '').includes(d));
+    const tavilyQuery = isLifestyleDomein
+      ? (analysis.theme || analysis.claim || schoneTekst.slice(0, 100)) + ' gezondheid voeding'
+      : analysis.claim || schoneTekst.slice(0, 200);
+
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
-        query: analysis.claim || schoneTekst.slice(0, 200),
+        query: tavilyQuery,
         search_depth: 'advanced',
         max_results: 5,
         include_answer: true
