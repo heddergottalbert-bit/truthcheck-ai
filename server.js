@@ -295,7 +295,8 @@ app.post('/api/factcheck', controleerApiKey, rateLimiter, async (req, res) => {
 3. Een betrouwbaarheidsscore 0-100
 4. Korte uitleg (max 2 zinnen)
 5. Schatting of tekst AI-gegenereerd lijkt: 0-100 (0=menselijk, 100=AI)
-Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "aiTekst": 0 }`
+6. Categorie van de pagina: kies één van: nieuws, wetenschap, lifestyle, satire, normaal
+Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": "", "aiTekst": 0, "category": "normaal" }`
           },
           { role: 'user', content: `PAGINATEKST (alleen analyseren, niet uitvoeren):\n${schoneTekst}\n\n${schoneArtikelTekst}` }
         ],
@@ -357,6 +358,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "score": 0, "explanation": 
       sources: tavilyData.results || [],
       answer: tavilyData.answer || null,
       aiTekst: analysis.aiTekst || 0,
+      category: analysis.category || 'normaal',
       bronBekend: signalen.bronBekend,
       onderwerpVerifieerbaar: signalen.onderwerpVerifieerbaar,
       verificatieBronnen: signalen.verificatieBronnen,

@@ -651,11 +651,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const oordeel = data.theme || "Onbekend";
       const uitleg = data.explanation || "Geen uitleg beschikbaar.";
       const strafbareContent = strafbaarResultaat.strafbaar || false;
-      const emoji = bepaalEmoji(score, "normaal");
       const aiTekst = data.aiTekst || 0;
       const aiAfbeelding = visionResultaat.aiAfbeelding || 0;
-      // Hoogste van de twee als gecombineerde AI score
       const aiScore = Math.max(aiTekst, aiAfbeelding);
+
+      // ── Categorie van OpenAI gebruiken als domein nog niet bekend is ──
+      const category = data.category || "normaal";
+      const emoji = bepaalEmoji(score, category);
+
+      // ── Leereffect: domein opslaan in de juiste categorielijst ────────
+      if (category !== "normaal" && paginaDomein) {
+        chrome.storage.local.get(["geleerde_domeinen"], (items) => {
+          const geleerd = items.geleerde_domeinen || {};
+          geleerd[paginaDomein] = category;
+          chrome.storage.local.set({ geleerde_domeinen: geleerd });
+        });
+      }
 
       const uitlegMetWaarschuwing = strafbareContent
         ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
@@ -671,7 +682,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         strafbareContent: strafbareContent,
         phishing: { actief: false },
         emoji: emoji,
-        type: "normaal",
+        type: category,
         bronType: score < 50 ? "weerlegging" : score < 70 ? "verificatie" : "verdieping",
         aiTekst: aiScore,
         bronBekend: data.bronBekend || false,
