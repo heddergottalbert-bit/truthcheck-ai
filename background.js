@@ -702,4 +702,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .catch(() => sendResponse({ error: "Transcript analyse mislukt." }));
     return true;
   }
+
+  // ── Vraagtekenfunctie ─────────────────────────────────────────
+  if (request.action === "stel_vraag") {
+    const { vraag, context, taal } = request;
+    if (!vraag) { sendResponse({ antwoord: "Geen vraag ontvangen." }); return true; }
+
+    fetch(SERVER_URL + "/api/vraag", {
+      method: "POST",
+      headers: SERVER_HEADERS,
+      body: metSleutel({ vraag, context: context || "", taal: taal || "nl" })
+    })
+    .then(res => res.json())
+    .then(data => sendResponse({ antwoord: data.antwoord || "Geen antwoord gevonden." }))
+    .catch(() => sendResponse({ antwoord: "Kon geen antwoord ophalen." }));
+    return true;
+  }
 });

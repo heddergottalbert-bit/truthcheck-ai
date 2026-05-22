@@ -1015,6 +1015,44 @@ aiAfbeelding is 0-100 (0 = zeker echt, 100 = zeker AI-gegenereerd).`
   }
 });
 
+
+// ── Vraagtekenfunctie ─────────────────────────────────────────
+app.post('/api/vraag', async (req, res) => {
+  try {
+    const { vraag, context, taal } = req.body;
+    if (!vraag) return res.status(400).json({ error: 'Geen vraag meegegeven' });
+
+    const systeemTekst = taal === 'nl'
+      ? `Je bent een feitenchecker die vragen beantwoordt over webpagina-inhoud. Geef een kort, feitelijk antwoord van maximaal 3 zinnen. Gebruik de meegeleverde context. Als je het niet weet, zeg dat dan eerlijk.`
+      : `You are a fact-checker answering questions about web page content. Give a short, factual answer of maximum 3 sentences. Use the provided context. If you don't know, say so honestly.`;
+
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systeemTekst },
+          { role: 'user', content: `Context: ${context}\n\nVraag: ${vraag}` }
+        ],
+        temperature: 0.3,
+        max_tokens: 200
+      })
+    });
+
+    const data = await openaiRes.json();
+    const antwoord = data.choices?.[0]?.message?.content || 'Geen antwoord gevonden.';
+    res.json({ antwoord });
+
+  } catch (err) {
+    console.error('Vraag fout:', err);
+    res.status(500).json({ error: 'Server fout bij vraag' });
+  }
+});
+
 // ── Start server ──────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
