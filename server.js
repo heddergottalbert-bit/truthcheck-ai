@@ -162,10 +162,9 @@ function berekenVerificatieScore(tavilyResultaten, tavilyAnswer) {
 
       if (richting === 'weerlegt') {
         bonus -= 10; // Bron weerlegt claim
-      } else if (richting === 'bevestigt') {
-        bonus += 10; // Bron bevestigt claim
+      } else {
+        bonus += 10; // Bron gevonden — bevestiging of neutraal, beide tellen als verificatie
       }
-      // Neutraal — geen effect
     } catch(e) { continue; }
   }
 
