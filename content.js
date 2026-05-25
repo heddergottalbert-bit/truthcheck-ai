@@ -103,8 +103,29 @@ function toonPhishingWaarschuwing(phishing) {
   if (sluitKnop) sluitKnop.onclick = () => { phishingBanner.style.top = "-200px"; };
 }
 
-// ── Zwevende knop ────────────────────────────────────────────
+// ── Zoekresultaten waarschuwing — oranje, vriendelijker ──────
+function toonZoekWaarschuwing(officieelDomein) {
+  const officieelHTML = officieelDomein
+    ? `<a href="https://${officieelDomein}" target="_blank" style="color:white;font-weight:bold;text-decoration:underline;">Ga naar officiële site: ${officieelDomein}</a>`
+    : "";
+  phishingBanner.style.background = "linear-gradient(135deg,#e67e22,#f39c12)";
+  phishingBanner.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px;max-width:100%;">
+      <div style="display:flex;align-items:flex-start;gap:14px;flex:1;">
+        <div style="font-size:28px;line-height:1;">😦</div>
+        <div>
+          <div style="font-size:14px;font-weight:bold;margin-bottom:4px;">Let op: mogelijk nep-site in zoekresultaten</div>
+          ${officieelHTML}
+        </div>
+      </div>
+      <button id="tc-zoek-sluit" style="background:rgba(0,0,0,0.2);border:none;color:white;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:10px;white-space:nowrap;">✕ Sluiten</button>
+    </div>`;
+  setTimeout(() => { phishingBanner.style.top = "0px"; }, 100);
+  const sluitKnop = phishingBanner.querySelector("#tc-zoek-sluit");
+  if (sluitKnop) sluitKnop.onclick = () => { phishingBanner.style.top = "-200px"; };
+}
 
+// ── Zwevende knop ────────────────────────────────────────────
 const knop = document.createElement("div");
 knop.id = "tc-knop";
 knop.style.cssText = `
@@ -499,7 +520,8 @@ document.addEventListener("mouseup", () => {
 
 knop.addEventListener("click", (e) => {
   if (heeftGesleept) return;
-  if (isZoekpagina()) return; // Geen actie op uitgesloten pagina's
+  if (isZoekpagina() && !isActieveZoekopdracht()) return; // Geen actie op uitgesloten pagina's
+  if (isActieveZoekopdracht() && huidigEmoji !== "😡") return; // Alleen openen bij verdachte link
   popupOpen = !popupOpen;
   popup.style.display = popupOpen ? "block" : "none";
   if (popupOpen) {
@@ -1062,28 +1084,71 @@ function startSocialeMediaModus() {
   }
 }
 
+// ── Scan zoekresultaten op verdachte domeinen ────────────────
+function vindVerdachteZoekLink() {
+  const verdachtPatroon = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle|-inloggen|-portal)/i;
+  const officieleSleutels = [
+    { woord: "belastingdienst", domein: "belastingdienst.nl" },
+    { woord: "digid", domein: "digid.nl" },
+    { woord: "rijksoverheid", domein: "rijksoverheid.nl" },
+    { woord: "uwv", domein: "uwv.nl" },
+    { woord: "svb", domein: "svb.nl" },
+    { woord: "duo", domein: "duo.nl" },
+    { woord: "ing", domein: "ing.nl" },
+    { woord: "abnamro", domein: "abnamro.nl" },
+    { woord: "rabobank", domein: "rabobank.nl" },
+    { woord: "paypal", domein: "paypal.com" },
+    { woord: "apple", domein: "apple.com" },
+    { woord: "microsoft", domein: "microsoft.com" },
+    { woord: "amazon", domein: "amazon.com" }
+  ];
+
+  const links = Array.from(document.querySelectorAll("a[href]"));
+  for (const link of links) {
+    const href = link.href || "";
+    if (!href.startsWith("http")) continue;
+    let domein = "";
+    try { domein = new URL(href).hostname.replace("www.", "").toLowerCase(); } catch { continue; }
+
+    // Check of domein op officiële site lijkt maar het niet is
+    for (const { woord, domein: offDomein } of officieleSleutels) {
+      // Domein moet beginnen met het woord of het woord als eerste segment hebben
+      const hoofdDomein = domein.split(".")[0];
+      if (hoofdDomein === woord || hoofdDomein.startsWith(woord + "-") || hoofdDomein.endsWith("-" + woord)) {
+        if (!domein.includes(offDomein)) {
+          return { verdacht: domein, officieel: offDomein };
+        }
+      }
+    }
+
+    // Check verdacht patroon in domeinnaam
+    if (verdachtPatroon.test(domein)) return { verdacht: domein, officieel: null };
+  }
+  return null;
+}
+
 function startCheck() {
   if (location.hostname.includes("mail.google.com")) { initialiseerGmail(); return; }
 
   // ── Sociale media — neutrale modus met timer ─────────────────
   if (isSocialMedia()) { startSocialeMediaModus(); return; }
 
-  // Zoekpagina met actieve query — alleen phishing check, geen factcheck
+  // Zoekpagina met actieve query — scan links op verdachte domeinen
   if (isActieveZoekopdracht()) {
-    knop.style.display = "block";
-    chrome.runtime.sendMessage(
-      { action: "start_check", text: document.title, domein: location.hostname, paginaTekst: (document.body.innerText || "").substring(0, 1000).toLowerCase(), artikelTekst: "", reactiesTekst: "", zoekContext: "", afbeeldingUrl: null, videoContext: "", taal: "nl", alleenPhishing: true },
-      (response) => {
-        if (chrome.runtime.lastError || !response || response.status !== "success") return;
-        huidigScore   = response.score;
-        huidigOordeel = response.oordeel;
-        huidigUitleg  = response.uitleg;
-        huidigBronnen = [];
-        huidigEmoji   = response.emoji || "🤔";
-        updateMiniBarometer(huidigScore, false, huidigEmoji);
-        if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
-      }
-    );
+    knop.style.display = "none"; // Standaard verborgen
+    const resultaat = vindVerdachteZoekLink();
+    if (resultaat) {
+      knop.style.display = "block";
+      huidigScore   = 20;
+      huidigOordeel = "Verdachte link in zoekresultaten";
+      huidigUitleg  = resultaat.officieel
+        ? `Let op: mogelijk nep-site in zoekresultaten. Ga naar de officiële site: ${resultaat.officieel}`
+        : "Let op: een zoekresultaat bevat een verdacht domein. Wees voorzichtig met klikken.";
+      huidigEmoji   = "😦";
+      huidigBronnen = [];
+      updateMiniBarometer(huidigScore, false, huidigEmoji);
+      toonZoekWaarschuwing(resultaat.officieel);
+    }
     return;
   }
 
@@ -1101,7 +1166,7 @@ function startCheck() {
   const vandaag = new Date().toISOString().slice(0, 10);
   chrome.storage.local.get(["tc_checks_datum", "tc_checks_aantal"], (items) => {
     let aantal = (items.tc_checks_datum === vandaag) ? (items.tc_checks_aantal || 0) : 0;
-    if (aantal >= 60) { toonLimietBerikt(); return; }
+    if (aantal >= 500) { toonLimietBerikt(); return; }
     chrome.storage.local.set({ tc_checks_datum: vandaag, tc_checks_aantal: aantal + 1 });
 
     const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");

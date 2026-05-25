@@ -372,6 +372,18 @@ function berekenPhishingEmail(request) {
     phishingSignalen.push("Onderwerp in hoofdletters");
   }
 
+  // ── Financiële spam woorden ──────────────────────────────────
+  const FINANCIELE_WOORDEN = [
+    "loan", "funding", "investment", "financing", "withdrawal",
+    "cryptocurrency", "wallet", "portfolio", "trading", "investors",
+    "capital", "debt financing", "angel investors", "business loan"
+  ];
+  const gevondenFinancieel = FINANCIELE_WOORDEN.filter(w => mailTekst.includes(w));
+  if (gevondenFinancieel.length >= 2) {
+    phishingScore += 40;
+    phishingSignalen.push("Financiële spam gedetecteerd");
+  }
+
   // ── Bestaande phishing woorden ───────────────────────────────
   EMAIL_PHISHING_WOORDEN.forEach(woord => {
     if (mailTekst.includes(woord.toLowerCase())) {
