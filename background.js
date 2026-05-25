@@ -161,13 +161,11 @@ function bepaalEmoji(score, type) {
   if (type === "satire") return "😄";
   if (type === "deepfake") return "🤖";
   if (type === "phishing") return "😡";
-  if (type === "laden") return "🤔";
+  if (type === "laden") return "😐";
   if (type === "wetenschap") return "🎓";
-  if (type === "nieuws") return "😊";
-  if (type === "lifestyle") return "🌿";
   if (score >= 70) return "😊";
-  if (score >= 50) return "😟";
-  return "😡";
+  if (score >= 40) return "😐";
+  return "😦";
 }
 
 function domeinCheck(tekst, sleutel) {
@@ -526,59 +524,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       : berekenPhishingWebsite(request);
 
     if (phishing.isSatire) {
-      haalBronnenOp(request).then(bronnen => {
-        sendResponse({
-          status: "success",
-          score: 75,
-          oordeel: "Satirische content",
-          uitleg: "Dit is een satirische website. De inhoud is bedoeld als humor en niet als feitelijke berichtgeving.",
-          bronnen: bronnen,
-          phishing: { actief: false },
-          strafbareContent: false,
-          emoji: "😄",
-          type: "satire"
-        });
+      sendResponse({
+        status: "success", score: 50, oordeel: "Satirische content",
+        uitleg: "Dit is een satirische website. De inhoud is bedoeld als humor en niet als feitelijke berichtgeving.",
+        bronnen: [], phishing: { actief: false }, strafbareContent: false, emoji: "😄", type: "satire", claim: ""
       });
       return true;
     }
 
     if (phishing.isWetenschap) {
-      haalBronnenOp(request).then(bronnen => {
-        sendResponse({
-          status: "success",
-          score: 90,
-          oordeel: "Wetenschappelijke bron",
-          uitleg: "Dit is een wetenschappelijke of academische website met peer-reviewed content.",
-          bronnen: bronnen,
-          phishing: { actief: false },
-          strafbareContent: false,
-          emoji: "🎓",
-          type: "wetenschap"
-        });
+      sendResponse({
+        status: "success", score: 50, oordeel: "Wetenschappelijke bron",
+        uitleg: "Dit is een wetenschappelijke of academische website. Verificatiescore gebaseerd op beschikbare bronnen.",
+        bronnen: [], phishing: { actief: false }, strafbareContent: false, emoji: "🎓", type: "wetenschap", claim: ""
       });
       return true;
     }
 
     if (phishing.isNieuws) {
-      haalBronnenOp(request).then(bronnen => {
-        sendResponse({
-          status: "success",
-          score: 85,
-          oordeel: "Betrouwbare nieuwsbron",
-          uitleg: "Dit is een bekende en betrouwbare nieuwssite. Controleer altijd meerdere bronnen voor een volledig beeld.",
-          bronnen: bronnen,
-          phishing: { actief: false },
-          strafbareContent: false,
-          emoji: "😊",
-          type: "nieuws"
-        });
+      sendResponse({
+        status: "success", score: 50, oordeel: "Nieuwsbron",
+        uitleg: "Dit is een nieuwssite. Verificatiescore gebaseerd op onafhankelijke bronnen over deze specifieke claim.",
+        bronnen: [], phishing: { actief: false }, strafbareContent: false, emoji: "😐", type: "nieuws", claim: ""
       });
       return true;
     }
 
     if (phishing.isLifestyle) {
-      haalBronnenOp(request).then(bronnen => {
-        sendResponse({ status: "success", score: 70, oordeel: "Lifestyle content", uitleg: "Dit is een lifestyle website over gezondheid, sport, mode of beauty. Controleer medische of voedingsadviezen altijd bij een professional.", bronnen: bronnen, phishing: { actief: false }, strafbareContent: false, emoji: "🌿", type: "lifestyle" });
+      sendResponse({
+        status: "success", score: 50, oordeel: "Lifestyle content",
+        uitleg: "Dit is een lifestyle website. Controleer medische of voedingsadviezen altijd bij een professional.",
+        bronnen: [], phishing: { actief: false }, strafbareContent: false, emoji: "🌿", type: "lifestyle", claim: ""
       });
       return true;
     }
@@ -622,18 +598,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     const paginaDomein = request.domein || "";
 
-    // ── Factcheck, harmful check en vision parallel uitvoeren ────
-    const factcheckPromise = fetch(SERVER_URL + "/api/factcheck", {
+    // ── Analyse bij laden — alleen OpenAI, snel ──────────────────
+    const analysePromise = fetch(SERVER_URL + "/api/analyse", {
       method: "POST",
       headers: SERVER_HEADERS,
       body: metSleutel({
         text: request.text,
-        artikelTekst: request.artikelTekst || "",
-        domein: paginaDomein
+        artikelTekst: request.artikelTekst || ""
       })
     })
     .then(res => res.json())
-    .catch(() => ({ score: 50, theme: "Onbekend", explanation: "Geen uitleg beschikbaar.", sources: [], aiTekst: 0 }));
+    .catch(() => ({ score: 50, theme: "Onbekend", explanation: "Geen uitleg beschikbaar.", sources: [], aiTekst: 0, category: "normaal", claim: "" }));
 
     const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
       ? fetch(SERVER_URL + "/api/harmful", {
@@ -656,10 +631,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         .catch(() => ({ aiAfbeelding: 0, uitleg: "" }))
       : Promise.resolve({ aiAfbeelding: 0, uitleg: "" });
 
-    Promise.all([factcheckPromise, strafbareContentPromise, visionPromise])
+    Promise.all([analysePromise, strafbareContentPromise, visionPromise])
     .then(([data, strafbaarResultaat, visionResultaat]) => {
-      const bronnen = (data.sources || []).map(r => r.url);
-      const score = data.score || 50;
+      const score = 50; // Neutraal — verificatiescore komt bij popup openen
       const oordeel = data.theme || "Onbekend";
       const uitleg = data.explanation || "Geen uitleg beschikbaar.";
       const strafbareContent = strafbaarResultaat.strafbaar || false;
@@ -667,12 +641,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const aiAfbeelding = visionResultaat.aiAfbeelding || 0;
       const aiScore = Math.max(aiTekst, aiAfbeelding);
 
-      // ── Categorie van OpenAI gebruiken als domein nog niet bekend is ──
       const category = data.category || "normaal";
-      const emoji = bepaalEmoji(score, category);
+      const emoji = "😐"; // Altijd neutraal bij laden
 
-      // ── Leereffect: domein opslaan in de juiste categorielijst ────────
-      // ── Leereffect: alle domeinen opslaan behalve uitsluitlijst ────
+      // ── Leereffect: domein opslaan ────────────────────────────
       const LEER_UITSLUIT = [
         "google.com", "google.nl", "google.be", "google.de", "google.fr",
         "bing.com", "duckduckgo.com", "yahoo.com", "startpage.com",
@@ -704,18 +676,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         score: score,
         oordeel: oordeel,
         uitleg: uitlegMetWaarschuwing,
-        bronnen: bronnen,
-        bronRelevant: bronnen.length > 0,
+        bronnen: [],
+        bronRelevant: false,
         strafbareContent: strafbareContent,
         phishing: { actief: false },
         emoji: emoji,
         type: category,
-        bronType: score < 50 ? "weerlegging" : score < 70 ? "verificatie" : "verdieping",
+        bronType: "verificatie",
         aiTekst: aiScore,
-        bronBekend: data.bronBekend || false,
-        onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
-        verificatieBronnen: data.verificatieBronnen || [],
-        rodeVlaggen: data.rodeVlaggen || []
+        claim: data.claim || "", // Opslaan voor popup
+        bronBekend: false,
+        onderwerpVerifieerbaar: false,
+        verificatieBronnen: [],
+        rodeVlaggen: []
       });
     })
     .catch(err => sendResponse({ status: "error", message: err.message }));
@@ -767,6 +740,38 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     })
     .catch(() => sendResponse({ error: "Transcript analyse mislukt." }));
+    return true;
+  }
+
+  // ── Bronnen ophalen bij popup — Tavily verificatiescore ──────
+  if (request.action === "haal_bronnen") {
+    fetch(SERVER_URL + "/api/factcheck", {
+      method: "POST",
+      headers: SERVER_HEADERS,
+      body: metSleutel({
+        text: request.text || "",
+        claim: request.claim || "",
+        artikelTekst: request.artikelTekst || "",
+        domein: request.domein || ""
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      const bronnen = (data.sources || []).map(r => r.url);
+      const score = data.score || 50;
+      const emoji = bepaalEmoji(score, "normaal");
+      sendResponse({
+        bronnen: bronnen,
+        score: score,
+        emoji: emoji,
+        uitleg: data.explanation || "",
+        bronBekend: data.bronBekend || false,
+        onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
+        verificatieBronnen: data.verificatieBronnen || [],
+        rodeVlaggen: data.rodeVlaggen || []
+      });
+    })
+    .catch(() => sendResponse({ bronnen: [], score: 50 }));
     return true;
   }
 

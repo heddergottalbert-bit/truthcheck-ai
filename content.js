@@ -7,11 +7,12 @@ let huidigUitleg = "";
 let huidigBronnen = [];
 let huidigDeepfake = null;
 let huidigStrafbareContent = false;
-let huidigEmoji = "🤔";
-let huidigBronType = "verdieping";
+let huidigEmoji = "😐";
+let huidigBronType = "verificatie";
 let huidigManipulatie = [];
 let huidigAiTekst = 0;
 let huidigArtikeltekst = "";
+let huidigClaim = "";
 let huidigBronBekend = false;
 let huidigOnderwerpVerifieerbaar = false;
 let huidigVerificatieBronnen = [];
@@ -140,7 +141,7 @@ function toonLaadAnimatie() {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   knop.innerHTML = `
     <div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;">
-      <span style="font-size:36px;line-height:1;">🤔</span>
+      <span style="font-size:36px;line-height:1;">😐</span>
     </div>`;
 }
 
@@ -223,7 +224,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       </div>
       <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="${t.askQuestion}">?</div>
     </div>
-    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span></div>
+    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span> <span style="font-size:9px;opacity:0.5;">(verificatiescore)</span></div>
     ${(location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) ? `
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
@@ -526,13 +527,18 @@ knop.addEventListener("click", (e) => {
   popup.style.display = popupOpen ? "block" : "none";
   if (popupOpen) {
     updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
-    // ── Bronnen ophalen als die er nog niet zijn (Tavily on-demand) ──
+    // ── Verificatiescore ophalen via Tavily bij popup openen ──────
     if (huidigBronnen.length === 0 && chrome.runtime && chrome.runtime.sendMessage) {
       chrome.runtime.sendMessage(
-        { action: "haal_bronnen", text: huidigOordeel, artikelTekst: huidigArtikeltekst, domein: window.location.hostname.replace("www.", "") },
+        { action: "haal_bronnen", text: huidigOordeel, claim: huidigClaim || "", artikelTekst: huidigArtikeltekst, domein: window.location.hostname.replace("www.", "") },
         (response) => {
           if (chrome.runtime.lastError || !response || !response.bronnen) return;
           huidigBronnen = response.bronnen;
+          if (response.score) {
+            huidigScore = response.score;
+            huidigEmoji = response.emoji || huidigEmoji;
+            huidigUitleg = response.uitleg || huidigUitleg;
+          }
           if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
         }
       );
@@ -1198,15 +1204,16 @@ function startCheck() {
         huidigUitleg   = response.uitleg;
         huidigBronnen  = response.bronnen || [];
         huidigDeepfake = response.deepfake || null;
-        huidigBronType = response.bronType || (response.score < 50 ? "weerlegging" : response.score < 70 ? "verificatie" : "verdieping");
+        huidigBronType = response.bronType || "verificatie";
         huidigManipulatie = response.manipulatie || [];
         huidigAiTekst    = response.aiTekst || 0;
         huidigArtikeltekst = artikelTekst || "";
+        huidigClaim    = response.claim || "";
         huidigBronBekend = response.bronBekend || false;
         huidigOnderwerpVerifieerbaar = response.onderwerpVerifieerbaar || false;
         huidigVerificatieBronnen = response.verificatieBronnen || [];
         huidigRodeVlaggen = response.rodeVlaggen || [];
-        huidigEmoji    = response.emoji || (huidigScore >= 70 ? "😊" : huidigScore >= 50 ? "😟" : "😡");
+        huidigEmoji    = response.emoji || "😐";
         if (!huidigStrafbareContent) {
           huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
         }
