@@ -126,6 +126,22 @@ function toonZoekWaarschuwing(officieelDomein) {
   if (sluitKnop) sluitKnop.onclick = () => { phishingBanner.style.top = "-200px"; };
 }
 
+// ── Shadow DOM host voor knop, popup en menu ────────────────
+const uiHost = document.createElement("div");
+uiHost.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;z-index:999997;pointer-events:none;";
+document.documentElement.appendChild(uiHost);
+const uiShadow = uiHost.attachShadow({ mode: "closed" });
+
+// Basis styles in Shadow DOM
+const uiStyle = document.createElement("style");
+uiStyle.textContent = `
+  * { box-sizing: border-box; }
+  a { color: #7ab3ef; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  input, button, textarea { font-family: inherit; }
+`;
+uiShadow.appendChild(uiStyle);
+
 // ── Zwevende knop ────────────────────────────────────────────
 const knop = document.createElement("div");
 knop.id = "tc-knop";
@@ -133,9 +149,9 @@ knop.style.cssText = `
   position:fixed;bottom:20px;right:20px;width:64px;height:64px;border-radius:50%;
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   border:1px solid rgba(255,255,255,0.12);cursor:grab;z-index:999998;
-  box-shadow:0 4px 24px rgba(0,0,0,0.35);user-select:none;
+  box-shadow:0 4px 24px rgba(0,0,0,0.35);user-select:none;pointer-events:all;
 `;
-document.body.appendChild(knop);
+uiShadow.appendChild(knop);
 
 function toonLaadAnimatie() {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
@@ -166,9 +182,9 @@ popup.style.cssText = `
   position:fixed;bottom:94px;right:20px;width:275px;
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border-radius:18px;padding:18px;z-index:999999;
-  box-shadow:0 8px 40px rgba(0,0,0,0.45);display:none;
+  box-shadow:0 8px 40px rgba(0,0,0,0.45);display:none;pointer-events:all;
 `;
-document.body.appendChild(popup);
+uiShadow.appendChild(popup);
 
 function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent, emoji, bronType) {
   const kleur = getKleur(score);
@@ -290,12 +306,12 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       : ''}
     <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">${t.close}</button>`;
 
-  document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
+  uiShadow.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
 
-  const transcriptKnop = document.getElementById("tc-transcript-knop");
+  const transcriptKnop = uiShadow.getElementById("tc-transcript-knop");
   if (transcriptKnop) {
     transcriptKnop.onclick = () => {
-      const resultaatDiv = document.getElementById("tc-transcript-resultaat");
+      const resultaatDiv = uiShadow.getElementById("tc-transcript-resultaat");
       transcriptKnop.disabled = true;
       transcriptKnop.textContent = "Transcript laden...";
       resultaatDiv.style.display = "block";
@@ -328,7 +344,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
   }
 
   function verstuurFeedback(duim) {
-    const tekst = document.getElementById("tc-feedback-tekst")?.value || "";
+    const tekst = uiShadow.getElementById("tc-feedback-tekst")?.value || "";
     chrome.runtime.sendMessage({
       action: "stuur_feedback",
       url: window.location.href,
@@ -338,30 +354,30 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       tekst,
       timestamp: new Date().toISOString()
     });
-    document.getElementById("tc-duim-op").style.opacity = duim === "op" ? "1" : "0.3";
-    document.getElementById("tc-duim-neer").style.opacity = duim === "neer" ? "1" : "0.3";
-    document.getElementById("tc-feedback-bevestiging").style.display = "block";
-    document.getElementById("tc-feedback-veld").style.display = "none";
+    uiShadow.getElementById("tc-duim-op").style.opacity = duim === "op" ? "1" : "0.3";
+    uiShadow.getElementById("tc-duim-neer").style.opacity = duim === "neer" ? "1" : "0.3";
+    uiShadow.getElementById("tc-feedback-bevestiging").style.display = "block";
+    uiShadow.getElementById("tc-feedback-veld").style.display = "none";
   }
 
-  document.getElementById("tc-duim-op").onclick = () => {
-    document.getElementById("tc-feedback-veld").style.display = "none";
+  uiShadow.getElementById("tc-duim-op").onclick = () => {
+    uiShadow.getElementById("tc-feedback-veld").style.display = "none";
     verstuurFeedback("op");
   };
-  document.getElementById("tc-duim-neer").onclick = () => {
-    document.getElementById("tc-feedback-veld").style.display = "block";
-    document.getElementById("tc-feedback-tekst").focus();
+  uiShadow.getElementById("tc-duim-neer").onclick = () => {
+    uiShadow.getElementById("tc-feedback-veld").style.display = "block";
+    uiShadow.getElementById("tc-feedback-tekst").focus();
   };
-  document.getElementById("tc-feedback-verstuur").onclick = () => verstuurFeedback("neer");
-  document.getElementById("tc-vraag-knop").onclick = () => {
-    const veld = document.getElementById("tc-vraag-veld");
+  uiShadow.getElementById("tc-feedback-verstuur").onclick = () => verstuurFeedback("neer");
+  uiShadow.getElementById("tc-vraag-knop").onclick = () => {
+    const veld = uiShadow.getElementById("tc-vraag-veld");
     veld.style.display = veld.style.display === "none" ? "block" : "none";
-    if (veld.style.display === "block") document.getElementById("tc-vraag-input").focus();
+    if (veld.style.display === "block") uiShadow.getElementById("tc-vraag-input").focus();
   };
 
   function verstuurVraag() {
-    const input = document.getElementById("tc-vraag-input");
-    const antwoordDiv = document.getElementById("tc-vraag-antwoord");
+    const input = uiShadow.getElementById("tc-vraag-input");
+    const antwoordDiv = uiShadow.getElementById("tc-vraag-antwoord");
     const vraag = input.value.trim();
     if (!vraag) return;
 
@@ -381,7 +397,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
         antwoordDiv.innerHTML = '<span style="font-size:9px;letter-spacing:1px;text-transform:uppercase;opacity:0.5;display:block;margin-bottom:4px;">💬 Antwoord</span>' + (response.antwoord || 'Geen antwoord gevonden.');
 
         // Alle bestaande bronnen oplichten bij een antwoord
-        const bronLinks = document.querySelectorAll("#tc-popup a[href]");
+        const bronLinks = uiShadow.querySelectorAll("#tc-popup a[href]");
         bronLinks.forEach(link => {
           link.style.background = "rgba(46,204,113,0.2)";
           link.style.border = "1px solid rgba(46,204,113,0.6)";
@@ -391,8 +407,8 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     );
   }
 
-  document.getElementById("tc-vraag-verstuur").onclick = verstuurVraag;
-  document.getElementById("tc-vraag-input").onkeydown = (e) => { if (e.key === "Enter") verstuurVraag(); };
+  uiShadow.getElementById("tc-vraag-verstuur").onclick = verstuurVraag;
+  uiShadow.getElementById("tc-vraag-input").onkeydown = (e) => { if (e.key === "Enter") verstuurVraag(); };
 
   // ── Deel knoppen ──────────────────────────────────────────────
   function maakDeelTekst() {
@@ -407,22 +423,22 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       `Geanalyseerd met FactRadar`;
   }
 
-  document.getElementById("tc-deel-klembord").onclick = () => {
+  uiShadow.getElementById("tc-deel-klembord").onclick = () => {
     navigator.clipboard.writeText(maakDeelTekst()).then(() => {
-      const bevestiging = document.getElementById("tc-deel-bevestiging");
+      const bevestiging = uiShadow.getElementById("tc-deel-bevestiging");
       bevestiging.style.display = "block";
       setTimeout(() => { bevestiging.style.display = "none"; }, 2500);
     });
   };
 
-  document.getElementById("tc-deel-mail").onclick = () => {
+  uiShadow.getElementById("tc-deel-mail").onclick = () => {
     const tekst = maakDeelTekst();
     const onderwerp = encodeURIComponent("FactRadar: " + huidigOordeel);
     const body = encodeURIComponent(tekst);
     window.open(`mailto:?subject=${onderwerp}&body=${body}`, "_blank");
   };
 
-  document.getElementById("tc-deel-whatsapp").onclick = () => {
+  uiShadow.getElementById("tc-deel-whatsapp").onclick = () => {
     const tekst = encodeURIComponent(maakDeelTekst());
     window.open(`https://wa.me/?text=${tekst}`, "_blank");
   };
@@ -436,7 +452,7 @@ menu.style.cssText = `
   position:fixed;width:240px;background:rgba(18,18,35,0.97);
   border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;
   z-index:9999999;font-family:Georgia,serif;color:#eee;
-  box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;pointer-events:all;
 `;
 menu.innerHTML = `
   <div style="font-size:9px;letter-spacing:2px;color:#555;text-transform:uppercase;margin-bottom:14px;">${t.settingsTitle}</div>
@@ -458,9 +474,9 @@ menu.innerHTML = `
       .map(([f,n]) => `<button data-font="${f}" style="padding:4px 8px;border-radius:6px;cursor:pointer;font-size:10px;border:1px solid rgba(255,255,255,0.2);background:#2a2a3a;color:#eee;font-family:${f};">${n}</button>`).join("")}
   </div>
   <button id="tc-menu-sluit" style="width:100%;padding:7px;background:rgba(255,255,255,0.06);border:1px solid #333;border-radius:8px;color:#888;cursor:pointer;font-size:11px;">${t.settingsClose}</button>`;
-document.body.appendChild(menu);
+uiShadow.appendChild(menu);
 
-document.getElementById("tc-trans").oninput = (e) => {
+uiShadow.getElementById("tc-trans").oninput = (e) => {
   transparantie = parseFloat(e.target.value);
   updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
   if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
@@ -488,7 +504,7 @@ menu.querySelectorAll("[data-font]").forEach(btn => {
     slaInstellingenOp();
   };
 });
-document.getElementById("tc-menu-sluit").onclick = () => { menu.style.display = "none"; };
+uiShadow.getElementById("tc-menu-sluit").onclick = () => { menu.style.display = "none"; };
 document.addEventListener("click", (e) => {
   if (!menu.contains(e.target) && e.target !== knop) menu.style.display = "none";
 });
@@ -895,7 +911,7 @@ function toonLimietBerikt() {
         <div style="font-size:10px;color:${tekstKleur};opacity:0.4;">Wordt binnenkort vervangen door een eenmalig creditsysteem</div>
         <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;">Close</button>
       </div>`;
-    document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
+    uiShadow.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
   }
 }
 
