@@ -233,7 +233,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       </div>
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
         <span style="font-size:12px;">${huidigOnderwerpVerifieerbaar ? '✅' : '⚠️'}</span>
-        <span style="color:${tekstKleur};opacity:0.8;">Verifieerbaar: <strong>${huidigOnderwerpVerifieerbaar ? 'Ja — gevonden bij ' + (huidigVerificatieBronnen.slice(0,2).join(', ') || 'betrouwbare bronnen') : 'Niet bevestigd door onafhankelijke bronnen'}</strong></span>
+        <span style="color:${tekstKleur};opacity:0.8;">Verifieerbaar: <strong>${huidigOnderwerpVerifieerbaar ? 'Ja — gevonden bij ' + (huidigVerificatieBronnen.slice(0,2).join(', ') || 'onafhankelijke bronnen') : 'Niet bevestigd door onafhankelijke bronnen'}</strong></span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
         <span style="font-size:12px;">${huidigRodeVlaggen.length > 0 ? '🚩' : '✅'}</span>

@@ -644,29 +644,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const category = data.category || "normaal";
       const emoji = "😐"; // Altijd neutraal bij laden
 
-      // ── Leereffect: domein opslaan ────────────────────────────
-      const LEER_UITSLUIT = [
-        "google.com", "google.nl", "google.be", "google.de", "google.fr",
-        "bing.com", "duckduckgo.com", "yahoo.com", "startpage.com",
-        "ecosia.org", "brave.com", "yandex.com", "baidu.com",
-        "belastingdienst.nl", "digid.nl", "rijksoverheid.nl",
-        "uwv.nl", "svb.nl", "duo.nl", "politie.nl", "rechtspraak.nl",
-        "ind.nl", "cak.nl", "rdw.nl", "kvk.nl", "rvo.nl",
-        "government.nl", "europa.eu", "ing.nl", "abnamro.nl",
-        "rabobank.nl", "microsoft.com", "apple.com", "paypal.com",
-        "mail.google.com", "youtube.com", "instagram.com", "twitter.com",
-        "x.com", "linkedin.com", "facebook.com", "tiktok.com",
-        "netflix.com", "spotify.com", "github.com", "railway.app"
-      ];
-      const domeinOpUitsluitlijst = LEER_UITSLUIT.some(d => paginaDomein.includes(d));
-      if (paginaDomein && !domeinOpUitsluitlijst) {
-        chrome.storage.local.get(["geleerde_domeinen"], (items) => {
-          const geleerd = items.geleerde_domeinen || {};
-          geleerd[paginaDomein] = category;
-          chrome.storage.local.set({ geleerde_domeinen: geleerd });
-        });
-      }
-
       const uitlegMetWaarschuwing = strafbareContent
         ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
         : uitleg;
