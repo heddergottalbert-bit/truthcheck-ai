@@ -441,14 +441,20 @@ function checkAlleenReacties(reactiesTekst, sendResponse) {
     sendResponse({
       status: "success",
       alleenReactieCheck: true,
-      strafbareContent: data.isHarmful || false
+      strafbareContent: data.isHarmful || false,
+      strafbaarArtikel: data.artikel || "",
+      strafbaarCitaat: data.citaat || "",
+      strafbaarUitleg: data.explanation || ""
     });
   })
   .catch(() => {
     sendResponse({
       status: "success",
       alleenReactieCheck: true,
-      strafbareContent: false
+      strafbareContent: false,
+      strafbaarArtikel: "",
+      strafbaarCitaat: "",
+      strafbaarUitleg: ""
     });
   });
 }
@@ -617,8 +623,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           body: metSleutel({ text: request.reactiesTekst })
         })
         .then(res => res.json())
-        .then(data => ({ strafbaar: data.isHarmful || false }))
-        .catch(() => ({ strafbaar: false }))
+        .then(data => ({ strafbaar: data.isHarmful || false, artikel: data.artikel || "", citaat: data.citaat || "", uitleg: data.explanation || "" }))
+        .catch(() => ({ strafbaar: false, artikel: "", citaat: "", uitleg: "" }))
       : Promise.resolve({ strafbaar: false });
 
     const visionPromise = request.afbeeldingUrl
@@ -633,16 +639,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     Promise.all([analysePromise, strafbareContentPromise, visionPromise])
     .then(([data, strafbaarResultaat, visionResultaat]) => {
-      const score = 50; // Neutraal — verificatiescore komt bij popup openen
+      const score = 50;
       const oordeel = data.theme || "Onbekend";
       const uitleg = data.explanation || "Geen uitleg beschikbaar.";
       const strafbareContent = strafbaarResultaat.strafbaar || false;
+      const strafbaarArtikel = strafbaarResultaat.artikel || "";
+      const strafbaarCitaat = strafbaarResultaat.citaat || "";
+      const strafbaarUitleg = strafbaarResultaat.uitleg || "";
       const aiTekst = data.aiTekst || 0;
       const aiAfbeelding = visionResultaat.aiAfbeelding || 0;
       const aiScore = Math.max(aiTekst, aiAfbeelding);
 
       const category = data.category || "normaal";
-      const emoji = "😐"; // Altijd neutraal bij laden
+      const emoji = "😐";
 
       const uitlegMetWaarschuwing = strafbareContent
         ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
@@ -656,12 +665,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         bronnen: [],
         bronRelevant: false,
         strafbareContent: strafbareContent,
+        strafbaarArtikel: strafbaarArtikel,
+        strafbaarCitaat: strafbaarCitaat,
+        strafbaarUitleg: strafbaarUitleg,
         phishing: { actief: false },
         emoji: emoji,
         type: category,
         bronType: "verificatie",
         aiTekst: aiScore,
-        claim: data.claim || "", // Opslaan voor popup
+        claim: data.claim || "",
         bronBekend: false,
         onderwerpVerifieerbaar: false,
         verificatieBronnen: [],

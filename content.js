@@ -7,6 +7,9 @@ let huidigUitleg = "";
 let huidigBronnen = [];
 let huidigDeepfake = null;
 let huidigStrafbareContent = false;
+let huidigStrafbaarArtikel = "";
+let huidigStrafbaarCitaat = "";
+let huidigStrafbaarUitleg = "";
 let huidigEmoji = "😐";
 let huidigBronType = "verificatie";
 let huidigManipulatie = [];
@@ -217,7 +220,8 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
   const strafbareHTML = strafbareContent
     ? `<div style="margin-top:12px;padding:10px;background:rgba(128,0,128,0.15);border:1px solid rgba(128,0,128,0.4);border-radius:8px;">
         <div style="font-size:10px;font-weight:bold;color:#cc66ff;margin-bottom:4px;">${t.harmfulTitle}</div>
-        <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">${t.harmfulBody}</div>
+        ${huidigStrafbaarCitaat ? `<div style="font-size:10px;color:${tekstKleur};opacity:0.9;margin-bottom:4px;font-style:italic;">"${huidigStrafbaarCitaat}"</div>` : ""}
+        <div style="font-size:10px;color:${tekstKleur};opacity:0.8;">${huidigStrafbaarUitleg || t.harmfulBody}${huidigStrafbaarArtikel && huidigStrafbaarArtikel !== "geen" ? ` (${huidigStrafbaarArtikel})` : ""}</div>
        </div>`
     : "";
 
@@ -822,6 +826,9 @@ function startReactieCheck(vertraging) {
         if (!response || !response.alleenReactieCheck) return;
         if (response.strafbareContent && !huidigStrafbareContent) {
           huidigStrafbareContent = true;
+          huidigStrafbaarArtikel = response.strafbaarArtikel || "";
+          huidigStrafbaarCitaat = response.strafbaarCitaat || "";
+          huidigStrafbaarUitleg = response.strafbaarUitleg || "";
           updateMiniBarometer(huidigScore, true, huidigEmoji);
           if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji, huidigBronType);
         }
@@ -1232,6 +1239,9 @@ function startCheck() {
         huidigEmoji    = response.emoji || "😐";
         if (!huidigStrafbareContent) {
           huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
+        huidigStrafbaarArtikel = response.strafbaarArtikel || "";
+        huidigStrafbaarCitaat = response.strafbaarCitaat || "";
+        huidigStrafbaarUitleg = response.strafbaarUitleg || "";
         }
         updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
         if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
@@ -1257,6 +1267,9 @@ window.addEventListener("scroll", () => {
         if (chrome.runtime.lastError || !response || !response.alleenReactieCheck) return;
         if (response.strafbareContent && !huidigStrafbareContent) {
           huidigStrafbareContent = true;
+          huidigStrafbaarArtikel = response.strafbaarArtikel || "";
+          huidigStrafbaarCitaat = response.strafbaarCitaat || "";
+          huidigStrafbaarUitleg = response.strafbaarUitleg || "";
           updateMiniBarometer(huidigScore, true, huidigEmoji);
           if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji, huidigBronType);
         }
