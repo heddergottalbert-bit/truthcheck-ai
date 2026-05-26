@@ -154,16 +154,12 @@ function berekenVerificatieScore(tavilyResultaten, tavilyAnswer) {
 
   for (const resultaat of tavilyResultaten) {
     try {
-      const domein = new URL(resultaat.url).hostname.replace('www.', '');
-      const isBetrouwbaar = VERIFICATIE_DOMEINEN.some(d => domein.includes(d));
-      if (!isBetrouwbaar) continue;
-
       const richting = bepaalBronRichting(resultaat, tavilyAnswer);
 
       if (richting === 'weerlegt') {
-        bonus -= 10; // Bron weerlegt claim
+        bonus -= 10;
       } else {
-        bonus += 10; // Bron gevonden — bevestiging of neutraal, beide tellen als verificatie
+        bonus += 10; // Een bron is een bron
       }
     } catch(e) { continue; }
   }
@@ -385,7 +381,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
         query: tavilyQuery,
-        search_depth: 'advanced',
+        search_depth: 'basic',
         max_results: 5,
         include_answer: true
       })
@@ -395,8 +391,8 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst
 
     const verificatieScore = berekenVerificatieScore(tavilyData.results, tavilyData.answer);
     const signalen = berekenSignalen(domein, tavilyData.results, [], false);
-    const bonusTekst = verificatieScore > 50 ? ` (Verificatiescore +${verificatieScore - 50} — betrouwbare bronnen bevestigen de claim.)`
-      : verificatieScore < 50 ? ` (Verificatiescore ${verificatieScore - 50} — betrouwbare bronnen weerleggen de claim.)`
+    const bonusTekst = verificatieScore > 50 ? ` (Verificatiescore +${verificatieScore - 50} — onafhankelijke bronnen bevestigen de claim.)`
+      : verificatieScore < 50 ? ` (Verificatiescore ${verificatieScore - 50} — onafhankelijke bronnen weerleggen de claim.)`
       : ' (Geen bevestigende of weerleggende bronnen gevonden.)';
 
     res.json({
@@ -879,7 +875,7 @@ Beschrijving: ${schoneBeschrijving}`
       body: JSON.stringify({
         api_key: TAVILY_API_KEY,
         query: schoneTitelVoorTavily,
-        search_depth: 'advanced',
+        search_depth: 'basic',
         max_results: 5,
         include_answer: true
       })
@@ -893,8 +889,8 @@ Beschrijving: ${schoneBeschrijving}`
 
     // Whitelist leerlaag — kanaal bijhouden op basis van Tavily resultaten
     verwerkCheck(normaliseerKanaal(schoneKanaal), tavilyData.results, verificatieScore);
-    const bonusTekst = verificatieScore > 50 ? ` (Verificatiescore +${verificatieScore - 50} — betrouwbare bronnen bevestigen de claim.)`
-      : verificatieScore < 50 ? ` (Verificatiescore ${verificatieScore - 50} — betrouwbare bronnen weerleggen de claim.)`
+    const bonusTekst = verificatieScore > 50 ? ` (Verificatiescore +${verificatieScore - 50} — onafhankelijke bronnen bevestigen de claim.)`
+      : verificatieScore < 50 ? ` (Verificatiescore ${verificatieScore - 50} — onafhankelijke bronnen weerleggen de claim.)`
       : '';
 
     res.json({
