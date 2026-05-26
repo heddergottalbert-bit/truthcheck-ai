@@ -128,7 +128,7 @@ function toonZoekWaarschuwing(officieelDomein) {
 
 // ── Shadow DOM host voor knop, popup en menu ────────────────
 const uiHost = document.createElement("div");
-uiHost.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;z-index:999997;pointer-events:none;";
+uiHost.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;z-index:999997;pointer-events:none;";
 document.documentElement.appendChild(uiHost);
 const uiShadow = uiHost.attachShadow({ mode: "closed" });
 
