@@ -145,27 +145,66 @@ function bepaalBronRichting(resultaat, tavilyAnswer) {
   return 'neutraal'; // Beide of geen — neutraal, geen effect
 }
 
-function berekenVerificatieScore(tavilyResultaten, tavilyAnswer) {
+async function berekenVerificatieScore(tavilyResultaten, tavilyAnswer, claim) {
   // Beginpunt altijd 50 — neutraal
   const beginScore = 50;
   if (!tavilyResultaten || tavilyResultaten.length === 0) return beginScore;
 
-  let bonus = 0;
+  // Bronnen samenvatten voor OpenAI
+  const bronnenTekst = tavilyResultaten.map((r, i) => {
+    const domein = (() => { try { return new URL(r.url).hostname.replace('www.', ''); } catch(e) { return r.url; } })();
+    const snippet = (r.content || r.snippet || '').substring(0, 300);
+    return `Bron ${i+1} (${domein}): ${snippet}`;
+  }).join('\n\n');
 
-  for (const resultaat of tavilyResultaten) {
+  try {
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `Je bent een bronverificator. Gegeven een claim en een lijst bronnen, beoordeel per bron of die de claim bevestigt, weerlegt of neutraal is.
+Antwoord ALLEEN in JSON: { "beoordelingen": [{"bron": 1, "richting": "bevestigt"}, {"bron": 2, "richting": "weerlegt"}, ...] }
+Mogelijke waarden voor richting: "bevestigt", "weerlegt", "neutraal"`
+          },
+          {
+            role: 'user',
+            content: `Claim: ${claim || 'onbekend'}\n\nBronnen:\n${bronnenTekst}`
+          }
+        ],
+        temperature: 0.1
+      })
+    });
+
+    const data = await openaiRes.json();
+    const content = data.choices[0].message.content;
+    let beoordelingen;
     try {
-      const richting = bepaalBronRichting(resultaat, tavilyAnswer);
+      const parsed = JSON.parse(content);
+      beoordelingen = parsed.beoordelingen || [];
+    } catch {
+      // Fallback: alle bronnen tellen als +10
+      return Math.min(Math.max(beginScore + (tavilyResultaten.length * 10), 10), 90);
+    }
 
-      if (richting === 'weerlegt') {
-        bonus -= 10; // Bron weerlegt claim
-      } else {
-        bonus += 10; // Bron gevonden — een bron is een bron
-      }
-    } catch(e) { continue; }
+    let bonus = 0;
+    for (const b of beoordelingen) {
+      if (b.richting === 'weerlegt') bonus -= 10;
+      else if (b.richting === 'bevestigt' || b.richting === 'neutraal') bonus += 10;
+    }
+
+    return Math.min(Math.max(beginScore + bonus, 10), 90);
+
+  } catch(e) {
+    // Fallback bij fout: alle bronnen tellen als +10
+    return Math.min(Math.max(beginScore + (tavilyResultaten.length * 10), 10), 90);
   }
-
-  // Grenzen: max 90, min 10
-  return Math.min(Math.max(beginScore + bonus, 10), 90);
 }
 
 // ── Drie signalen berekenen voor popup ───────────────────────
@@ -389,7 +428,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst
 
     const tavilyData = await tavilyRes.json();
 
-    const verificatieScore = berekenVerificatieScore(tavilyData.results, tavilyData.answer);
+    const verificatieScore = await berekenVerificatieScore(tavilyData.results, tavilyData.answer, analysis.claim || '');
     const signalen = berekenSignalen(domein, tavilyData.results, [], false);
     const bonusTekst = verificatieScore > 50 ? ` (Verificatiescore +${verificatieScore - 50} — onafhankelijke bronnen bevestigen de claim.)`
       : verificatieScore < 50 ? ` (Verificatiescore ${verificatieScore - 50} — onafhankelijke bronnen weerleggen de claim.)`
@@ -874,7 +913,7 @@ Beschrijving: ${schoneBeschrijving}`
     const tavilyData = await tavilyRes.json();
 
     // Verificatiescore op basis van Tavily bronnen
-    const verificatieScore = berekenVerificatieScore(tavilyData.results, tavilyData.answer);
+    const verificatieScore = await berekenVerificatieScore(tavilyData.results, tavilyData.answer, analysis.claim || '');
     const signalen = berekenSignalen(schoneKanaal, tavilyData.results, analysis.signals || [], isBetrouwbaar);
 
     // Whitelist leerlaag — kanaal bijhouden op basis van Tavily resultaten
