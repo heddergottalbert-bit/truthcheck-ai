@@ -441,20 +441,14 @@ function checkAlleenReacties(reactiesTekst, sendResponse) {
     sendResponse({
       status: "success",
       alleenReactieCheck: true,
-      strafbareContent: data.isHarmful || false,
-      strafbaarArtikel: data.artikel || "",
-      strafbaarCitaat: data.citaat || "",
-      strafbaarUitleg: data.explanation || ""
+      strafbareContent: data.isHarmful || false
     });
   })
   .catch(() => {
     sendResponse({
       status: "success",
       alleenReactieCheck: true,
-      strafbareContent: false,
-      strafbaarArtikel: "",
-      strafbaarCitaat: "",
-      strafbaarUitleg: ""
+      strafbareContent: false
     });
   });
 }
@@ -623,8 +617,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           body: metSleutel({ text: request.reactiesTekst })
         })
         .then(res => res.json())
-        .then(data => ({ strafbaar: data.isHarmful || false, artikel: data.artikel || "", citaat: data.citaat || "", uitleg: data.explanation || "" }))
-        .catch(() => ({ strafbaar: false, artikel: "", citaat: "", uitleg: "" }))
+        .then(data => ({ strafbaar: data.isHarmful || false }))
+        .catch(() => ({ strafbaar: false }))
       : Promise.resolve({ strafbaar: false });
 
     const visionPromise = request.afbeeldingUrl
@@ -639,19 +633,39 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     Promise.all([analysePromise, strafbareContentPromise, visionPromise])
     .then(([data, strafbaarResultaat, visionResultaat]) => {
-      const score = 50;
+      const score = 50; // Neutraal — verificatiescore komt bij popup openen
       const oordeel = data.theme || "Onbekend";
       const uitleg = data.explanation || "Geen uitleg beschikbaar.";
       const strafbareContent = strafbaarResultaat.strafbaar || false;
-      const strafbaarArtikel = strafbaarResultaat.artikel || "";
-      const strafbaarCitaat = strafbaarResultaat.citaat || "";
-      const strafbaarUitleg = strafbaarResultaat.uitleg || "";
       const aiTekst = data.aiTekst || 0;
       const aiAfbeelding = visionResultaat.aiAfbeelding || 0;
       const aiScore = Math.max(aiTekst, aiAfbeelding);
 
       const category = data.category || "normaal";
-      const emoji = "😐";
+      const emoji = "😐"; // Altijd neutraal bij laden
+
+      // ── Leereffect: domein opslaan ────────────────────────────
+      const LEER_UITSLUIT = [
+        "google.com", "google.nl", "google.be", "google.de", "google.fr",
+        "bing.com", "duckduckgo.com", "yahoo.com", "startpage.com",
+        "ecosia.org", "brave.com", "yandex.com", "baidu.com",
+        "belastingdienst.nl", "digid.nl", "rijksoverheid.nl",
+        "uwv.nl", "svb.nl", "duo.nl", "politie.nl", "rechtspraak.nl",
+        "ind.nl", "cak.nl", "rdw.nl", "kvk.nl", "rvo.nl",
+        "government.nl", "europa.eu", "ing.nl", "abnamro.nl",
+        "rabobank.nl", "microsoft.com", "apple.com", "paypal.com",
+        "mail.google.com", "youtube.com", "instagram.com", "twitter.com",
+        "x.com", "linkedin.com", "facebook.com", "tiktok.com",
+        "netflix.com", "spotify.com", "github.com", "railway.app"
+      ];
+      const domeinOpUitsluitlijst = LEER_UITSLUIT.some(d => paginaDomein.includes(d));
+      if (paginaDomein && !domeinOpUitsluitlijst) {
+        chrome.storage.local.get(["geleerde_domeinen"], (items) => {
+          const geleerd = items.geleerde_domeinen || {};
+          geleerd[paginaDomein] = category;
+          chrome.storage.local.set({ geleerde_domeinen: geleerd });
+        });
+      }
 
       const uitlegMetWaarschuwing = strafbareContent
         ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
@@ -665,15 +679,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         bronnen: [],
         bronRelevant: false,
         strafbareContent: strafbareContent,
-        strafbaarArtikel: strafbaarArtikel,
-        strafbaarCitaat: strafbaarCitaat,
-        strafbaarUitleg: strafbaarUitleg,
         phishing: { actief: false },
         emoji: emoji,
         type: category,
         bronType: "verificatie",
         aiTekst: aiScore,
-        claim: data.claim || "",
+        claim: data.claim || "", // Opslaan voor popup
         bronBekend: false,
         onderwerpVerifieerbaar: false,
         verificatieBronnen: [],
