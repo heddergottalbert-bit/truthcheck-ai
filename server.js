@@ -1065,8 +1065,8 @@ app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
 
     const schoneClaim = sanitizeInput(claim);
     const taalInstructie = (taal === 'nl' || !taal)
-      ? 'Antwoord altijd in het Nederlands.'
-      : 'Always answer in English.';
+      ? 'Je MOET altijd in het Nederlands antwoorden — ook als de bronnen in het Engels zijn. Vertaal je bevindingen naar het Nederlands.'
+      : 'You MUST always answer in English — even if the sources are in another language.';
 
     // Bouw een beknopte samenvatting van de bronnen
     const bronSamenvatting = bronnen
