@@ -194,71 +194,7 @@ function berekenSignalen(kanaal, tavilyResultaten, openaiSignalen, isBetrouwbaar
   return { bronBekend, onderwerpVerifieerbaar, verificatieBronnen, rodeVlaggen };
 }
 
-// ── Whitelist leerlaag — in memory, bij 500 gebruikers naar PostgreSQL ──
-const whitelistTellers = new Map();
 
-function verwerkCheck(domein, tavilyResultaten, score) {
-  if (!domein) return;
-
-  // Normaliseer domein — haal www. weg
-  const schoonDomein = domein.replace(/^www\./, '').toLowerCase().trim();
-
-  // Sla officiële domeinen en bekende whitelistdomeinen over
-  const isAlBekend = VERIFICATIE_DOMEINEN.some(d => schoonDomein.includes(d));
-  if (isAlBekend) return;
-
-  if (!whitelistTellers.has(schoonDomein)) {
-    whitelistTellers.set(schoonDomein, { teller: 0, status: 'onbekend' });
-  }
-
-  const entry = whitelistTellers.get(schoonDomein);
-
-  // Geblokkeerde domeinen niet meer verwerken
-  if (entry.status === 'geblokkeerd') return;
-
-  // Score rood → reset
-  if (score < 30) {
-    entry.teller = 0;
-    entry.status = 'onbekend';
-    whitelistTellers.set(schoonDomein, entry);
-    return;
-  }
-
-  // Bepaal patroon op basis van Tavily resultaten
-  const bronnen = tavilyResultaten || [];
-  const heeftOnafhankelijkeBron = bronnen.some(r => {
-    try {
-      const d = new URL(r.url).hostname.replace('www.', '');
-      return VERIFICATIE_DOMEINEN.some(v => d.includes(v));
-    } catch(e) { return false; }
-  });
-
-  const heeftWeerlegging = bronnen.some(r => {
-    const tekst = (r.content || '').toLowerCase();
-    return WEERLEGGING_WOORDEN.some(w => tekst.includes(w));
-  });
-
-  // Patroon 2 — weerleggingsbronnen → reset
-  if (heeftWeerlegging) {
-    entry.teller = 0;
-    entry.status = 'onbekend';
-    whitelistTellers.set(schoonDomein, entry);
-    return;
-  }
-
-  // Patroon 3 — geen onafhankelijke bronnen → niets doen
-  if (!heeftOnafhankelijkeBron) return;
-
-  // Patroon 1 — onafhankelijke bronnen, geen weerlegging → teller +1
-  entry.teller += 1;
-
-  if (entry.teller >= 3 && entry.status !== 'kandidaat') {
-    entry.status = 'kandidaat';
-    console.log(`WHITELIST KANDIDAAT: ${schoonDomein} — teller: ${entry.teller}`);
-  }
-
-  whitelistTellers.set(schoonDomein, entry);
-}
 
 // ── Health check (geen auth nodig) ───────────────────────────
 app.get('/', (req, res) => {
@@ -887,8 +823,6 @@ Beschrijving: ${schoneBeschrijving}`
     const verificatieScore = berekenVerificatieScore(tavilyData.results, tavilyData.answer);
     const signalen = berekenSignalen(schoneKanaal, tavilyData.results, analysis.signals || [], isBetrouwbaar);
 
-    // Whitelist leerlaag — kanaal bijhouden op basis van Tavily resultaten
-    verwerkCheck(normaliseerKanaal(schoneKanaal), tavilyData.results, verificatieScore);
     const bonusTekst = verificatieScore > 50 ? ` (Verificatiescore +${verificatieScore - 50} — onafhankelijke bronnen bevestigen de claim.)`
       : verificatieScore < 50 ? ` (Verificatiescore ${verificatieScore - 50} — onafhankelijke bronnen weerleggen de claim.)`
       : '';
