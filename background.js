@@ -504,32 +504,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
-    if (phishing.isWetenschap) {
-      sendResponse({
-        status: "success", score: 50, oordeel: "Wetenschappelijke bron",
-        uitleg: "Dit is een wetenschappelijke of academische website. Verificatiescore gebaseerd op beschikbare bronnen.",
-        bronnen: [], phishing: { actief: false }, strafbareContent: false, emoji: "🎓", type: "wetenschap", claim: ""
-      });
-      return true;
-    }
 
-    if (phishing.isNieuws) {
-      sendResponse({
-        status: "success", score: 50, oordeel: "Nieuwsbron",
-        uitleg: "Dit is een nieuwssite. Verificatiescore gebaseerd op onafhankelijke bronnen over deze specifieke claim.",
-        bronnen: [], phishing: { actief: false }, strafbareContent: false, emoji: "😐", type: "nieuws", claim: ""
-      });
-      return true;
-    }
-
-    if (phishing.isLifestyle) {
-      sendResponse({
-        status: "success", score: 50, oordeel: "Lifestyle content",
-        uitleg: "Dit is een lifestyle website. Controleer medische of voedingsadviezen altijd bij een professional.",
-        bronnen: [], phishing: { actief: false }, strafbareContent: false, emoji: "🌿", type: "lifestyle", claim: ""
-      });
-      return true;
-    }
 
     if (phishing.actief) {
       const isWaarschuwing = phishing.isZoekmaschine;
