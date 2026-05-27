@@ -682,10 +682,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .then(res => res.json())
     .then(data => {
       const bronnen = (data.sources || []).map(r => r.url);
+      const rawBronnen = data.sources || []; // Volledige bronnen met content voor beoordeling
       const score = data.score || 50;
       const emoji = bepaalEmoji(score, "normaal");
       sendResponse({
         bronnen: bronnen,
+        rawBronnen: rawBronnen,
         score: score,
         emoji: emoji,
         uitleg: data.explanation || "",
@@ -696,6 +698,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     })
     .catch(() => sendResponse({ bronnen: [], score: 50 }));
+    return true;
+  }
+
+  // ── Bronbeoordeling — OpenAI beoordeelt claim tegen bronnen ──
+  if (request.action === "beoordeel_bronnen") {
+    const { claim, bronnen, taal } = request;
+    if (!claim || !bronnen || bronnen.length === 0) {
+      sendResponse({ score: 50, uitleg: "", oordeel: "" });
+      return true;
+    }
+    fetch(SERVER_URL + "/api/beoordeel", {
+      method: "POST",
+      headers: SERVER_HEADERS,
+      body: metSleutel({ claim, bronnen, taal: taal || "nl" })
+    })
+    .then(res => res.json())
+    .then(data => sendResponse({
+      score: data.score || 50,
+      uitleg: data.uitleg || "",
+      oordeel: data.oordeel || ""
+    }))
+    .catch(() => sendResponse({ score: 50, uitleg: "", oordeel: "" }));
     return true;
   }
 

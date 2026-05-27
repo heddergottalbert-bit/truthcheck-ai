@@ -548,24 +548,83 @@ knop.addEventListener("click", (e) => {
     // ── Verificatiescore ophalen via Tavily bij popup openen ──────
     if (huidigBronnen.length === 0 && chrome.runtime && chrome.runtime.sendMessage) {
 
+      function toonTussenstand(claim, bronnen, bezig) {
+        popup.style.background = hexNaarRgba(achtergrondKleur, transparantie);
+        popup.style.border = `1px solid rgba(255,255,255,0.1)`;
+        popup.style.color = tekstKleur;
+        popup.style.fontFamily = lettertype;
+
+        const bronnenHTML = bronnen && bronnen.length > 0
+          ? bronnen.map(b => {
+              let domein = b.url || b;
+              try { domein = new URL(b.url || b).hostname.replace("www.", ""); } catch(e) {}
+              return `<a href="${b.url || b}" target="_blank" style="display:inline-block;color:#7ab3ef;font-size:11px;margin-top:5px;margin-right:6px;text-decoration:none;background:rgba(122,179,239,0.1);border:1px solid rgba(122,179,239,0.3);border-radius:4px;padding:2px 7px;">${domein}</a>`;
+            }).join("")
+          : "";
+
+        popup.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <span style="font-size:32px;line-height:1;">😐</span>
+            <div>
+              <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;">Feitencheck</div>
+              <div style="font-size:13px;font-weight:bold;color:${tekstKleur};opacity:0.8;">Bronnen worden gecontroleerd...</div>
+            </div>
+          </div>
+          ${claim ? `<div style="font-size:11px;color:${tekstKleur};opacity:0.8;line-height:1.5;margin-bottom:12px;padding:8px;background:rgba(255,255,255,0.05);border-radius:8px;">${claim}</div>` : ""}
+          ${bronnenHTML ? `<div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:4px;">
+            <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;">Verificatiebronnen</div>
+            ${bronnenHTML}
+          </div>` : ""}
+          ${bezig ? `<div style="font-size:10px;color:${tekstKleur};opacity:0.5;margin-top:10px;font-style:italic;">${bezig}</div>` : ""}
+          <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;">Sluiten</button>`;
+        document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
+      }
+
       function haalBronnenOp() {
+        // State 1 — claim tonen, bronnen ophalen
+        toonTussenstand(huidigClaim, [], "Bronnen worden opgezocht...");
+
         chrome.runtime.sendMessage(
           { action: "haal_bronnen", text: huidigOordeel, claim: huidigClaim || "", artikelTekst: huidigArtikeltekst, domein: window.location.hostname.replace("www.", "") },
           (response) => {
             if (chrome.runtime.lastError || !response || !response.bronnen) return;
+
+            const rawBronnen = response.rawBronnen || [];
             huidigBronnen = response.bronnen;
-            if (response.score) {
-              huidigScore = response.score;
-              huidigEmoji = response.emoji || huidigEmoji;
-              huidigUitleg = response.uitleg || huidigUitleg;
+
+            // State 2 — bronnen tonen, OpenAI beoordeelt
+            if (popupOpen) toonTussenstand(
+              huidigClaim,
+              rawBronnen.length > 0 ? rawBronnen : huidigBronnen.map(u => ({ url: u })),
+              "Bronnen worden gecontroleerd op de claim..."
+            );
+
+            // Stap 3 — OpenAI beoordeelt bronnen tegen claim
+            if (huidigClaim && rawBronnen.length > 0) {
+              chrome.runtime.sendMessage(
+                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: navigator.language || "nl" },
+                (beoordeling) => {
+                  if (chrome.runtime.lastError || !beoordeling) return;
+                  if (beoordeling.score) huidigScore = beoordeling.score;
+                  if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
+                  if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
+                  huidigEmoji = huidigScore >= 70 ? "😊" : huidigScore >= 40 ? "😐" : "😦";
+                  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+                }
+              );
+            } else {
+              if (response.score) {
+                huidigScore = response.score;
+                huidigEmoji = response.emoji || huidigEmoji;
+                huidigUitleg = response.uitleg || huidigUitleg;
+              }
+              if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
             }
-            if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
           }
         );
       }
 
       if (huidigClaim) {
-        // Claim al klaar — direct naar Tavily
         haalBronnenOp();
       } else {
         // Claim nog niet klaar — wacht op OpenAI, max 5 seconden
