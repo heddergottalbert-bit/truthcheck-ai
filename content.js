@@ -177,6 +177,22 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
   popup.style.color = tekstKleur;
   popup.style.fontFamily = lettertype;
 
+  // ── Laadstatus tonen als claim nog niet klaar is ──────────────
+  if (!huidigClaim && bronnen.length === 0) {
+    popup.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:32px;line-height:1;">😐</span>
+        <div>
+          <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;">Feitencheck</div>
+          <div style="font-size:13px;font-weight:bold;color:${tekstKleur};opacity:0.7;">Pagina wordt geanalyseerd...</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:${tekstKleur};opacity:0.5;line-height:1.5;">FactRadar haalt alle informatie op. Dit duurt een paar seconden.</div>
+      <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;">Sluiten</button>`;
+    document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
+    return;
+  }
+
   const bronnenHTML = bronnen && bronnen.length > 0
     ? bronnen.map(b => {
         let domein = b;
@@ -526,22 +542,41 @@ knop.addEventListener("click", (e) => {
   popupOpen = !popupOpen;
   popup.style.display = popupOpen ? "block" : "none";
   if (popupOpen) {
+    // ── Altijd popup tonen met laadstatus ────────────────────────
     updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+
     // ── Verificatiescore ophalen via Tavily bij popup openen ──────
     if (huidigBronnen.length === 0 && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage(
-        { action: "haal_bronnen", text: huidigOordeel, claim: huidigClaim || "", artikelTekst: huidigArtikeltekst, domein: window.location.hostname.replace("www.", "") },
-        (response) => {
-          if (chrome.runtime.lastError || !response || !response.bronnen) return;
-          huidigBronnen = response.bronnen;
-          if (response.score) {
-            huidigScore = response.score;
-            huidigEmoji = response.emoji || huidigEmoji;
-            huidigUitleg = response.uitleg || huidigUitleg;
+
+      function haalBronnenOp() {
+        chrome.runtime.sendMessage(
+          { action: "haal_bronnen", text: huidigOordeel, claim: huidigClaim || "", artikelTekst: huidigArtikeltekst, domein: window.location.hostname.replace("www.", "") },
+          (response) => {
+            if (chrome.runtime.lastError || !response || !response.bronnen) return;
+            huidigBronnen = response.bronnen;
+            if (response.score) {
+              huidigScore = response.score;
+              huidigEmoji = response.emoji || huidigEmoji;
+              huidigUitleg = response.uitleg || huidigUitleg;
+            }
+            if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
           }
-          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
-        }
-      );
+        );
+      }
+
+      if (huidigClaim) {
+        // Claim al klaar — direct naar Tavily
+        haalBronnenOp();
+      } else {
+        // Claim nog niet klaar — wacht op OpenAI, max 5 seconden
+        const laadInterval = setInterval(() => {
+          if (huidigClaim) {
+            clearInterval(laadInterval);
+            haalBronnenOp();
+          }
+        }, 300);
+        setTimeout(() => clearInterval(laadInterval), 5000);
+      }
     }
   }
 });
