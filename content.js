@@ -1118,7 +1118,7 @@ const UITSLUIT_DOMEINEN = [
   "nrc.nl", "volkskrant.nl", "trouw.nl", "parool.nl",
   "bbc.com", "bbc.co.uk", "reuters.com", "theguardian.com",
   "nytimes.com", "dw.com", "nature.com", "scientificamerican.com",
-  "newscientist.com", "fd.nl", "ftm.nl"
+  "newscientist.com", "fd.nl", "ftm.nl", "msn.com"
 ];
 
 // ── URL patronen die we altijd overslaan ─────────────────────
@@ -1314,10 +1314,12 @@ function startCheck() {
     const zoekContext   = vindZoekContext();
     const afbeeldingUrl = vindHoofdAfbeelding();
 
-    toonLaadAnimatie();
-    if (!chrome.runtime || !chrome.runtime.sendMessage) return;
-
+    // ── Geen artikeltekst gevonden — geen check starten ──────────
     const isVideoPagina = location.hostname.includes("youtube.com") || location.hostname.includes("vimeo.com") || location.hostname.includes("tiktok.com");
+    if (!isVideoPagina && artikelTekst.length < 150) {
+      knop.style.display = "none";
+      return;
+    }
     const videoContext = isVideoPagina ? vindVideoContext() : "";
 
     // YouTube reclame — knop verbergen
@@ -1326,6 +1328,8 @@ function startCheck() {
       return;
     }
     knop.style.display = "block";
+    toonLaadAnimatie();
+    if (!chrome.runtime || !chrome.runtime.sendMessage) return;
 
     huidigTaal = detecteerTaal(artikelTekst || paginaTekst);
     huidigPublicatieDatum = vindPublicatieDatum();
