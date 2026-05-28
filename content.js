@@ -591,7 +591,7 @@ knop.addEventListener("click", (e) => {
             if (chrome.runtime.lastError || !response || !response.bronnen) return;
 
             const rawBronnen = response.rawBronnen || [];
-            huidigBronnen = response.bronnen;
+            huidigBronnen = response.bronnen || rawBronnen.map(r => r.url || r);
 
             // State 2 — bronnen tonen, OpenAI beoordeelt
             if (popupOpen) toonTussenstand(
@@ -696,6 +696,7 @@ function vindArtikelTekst() {
   // Stap 1: specifieke artikel selectors
   const artikelSelectors = [
     "article p", ".article-body p", ".article__body p",
+    ".c-article-body p", ".c-article-body",
     ".content p", ".post-content p", ".article-content p",
     "main article p", ".nieuws-artikel p", ".article-text p"
   ];
