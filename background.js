@@ -235,7 +235,14 @@ function berekenPhishingWebsite(request) {
 
   // ── Officiële inlogknop check — als DigiD/iDEAL/etc. correct linkt, geen alarm ──
   const heeftOfficieleInlogLink = inlogLinks.some(link => link.isOfficieel);
-  if (heeftOfficieleInlogLink) {
+
+  // ── Extra check — officiële inlogtekst op pagina maar domein niet verdacht → geen alarm ──
+  const OFFICIELE_INLOG_TEKSTEN = ["digid", "ideal", "idin", "e-herkenning", "eherkenning", "bankid"];
+  const VERDACHT_DOMEIN_PATROON = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle|-inloggen|-portal)/i;
+  const heeftInlogTekstOpPagina = OFFICIELE_INLOG_TEKSTEN.some(t => (request.paginaTekst || "").toLowerCase().includes(t));
+  const heeftVerdachtDomein = VERDACHT_DOMEIN_PATROON.test(paginaDomein);
+
+  if ((heeftOfficieleInlogLink || heeftInlogTekstOpPagina) && !heeftVerdachtDomein) {
     return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
   }
 
