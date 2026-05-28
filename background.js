@@ -11,127 +11,10 @@ function metSleutel(data) {
   return JSON.stringify({ ...data, apiKey: API_KEY });
 }
 
-const BETROUWBARE_DOMEINEN = [
-  "nos.nl", "nrc.nl", "volkskrant.nl", "trouw.nl", "ad.nl",
-  "rtlnieuws.nl", "nu.nl", "telegraaf.nl", "parool.nl",
-  "reuters.com", "bbc.com", "apnews.com", "theguardian.com",
-  "nytimes.com", "economist.com", "dw.com",
-  "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "who.int",
-  "rivm.nl", "mayoclinic.org", "healthline.com", "webmd.com",
-  "medicalnewstoday.com", "nih.gov", "cdc.gov", "thuisarts.nl",
-  "umcutrecht.nl", "lumc.nl", "amsterdamumc.nl",
-  "nature.com", "sciencedirect.com", "science.org",
-  "newscientist.com", "scientificamerican.com", "thelancet.com",
-  "bmj.com", "nejm.org", "cell.com", "plos.org",
-  "government.nl", "rijksoverheid.nl", "cbs.nl", "pbl.nl",
-  "knaw.nl", "nwo.nl", "gezondheidsraad.nl",
-  "un.org", "europa.eu", "worldbank.org", "imf.org",
-  "oecd.org", "unicef.org", "amnesty.org", "hrw.org",
-  "mit.edu", "stanford.edu", "arxiv.org", "ieee.org", "acm.org",
-  "ipcc.ch", "knmi.nl", "milieucentraal.nl",
-  "dnb.nl", "cpb.nl", "ftm.nl", "fd.nl",
-  "snopes.com", "factcheck.org", "politifact.com",
-  "nieuwscheckers.nl", "knack.be",
-  "state.gov", "usa.gov", "belastingdienst.nl",
-  "politie.nl", "rechtspraak.nl", "duo.nl", "svb.nl", "uwv.nl"
-];
-
-const LOKALE_NIEUWS_DOMEINEN = [
-  "nos.nl", "nu.nl", "ad.nl", "telegraaf.nl", "rtlnieuws.nl",
-  "nrc.nl", "volkskrant.nl", "trouw.nl", "parool.nl",
-  "omroepwest.nl", "omroepgelderland.nl", "omroepbrabant.nl",
-  "omroepzeeland.nl", "rtvnoord.nl", "rtvoost.nl",
-  "omroepflevoland.nl", "nhnieuws.nl", "at5.nl",
-  "omroepfriesland.nl", "rtvdrenthe.nl", "omroeplimburg.nl",
-  "hartvannederland.nl", "metronieuws.nl",
-  "reuters.com", "bbc.com", "apnews.com"
-];
-
-// ── Officiële veilige domeinen — nooit rood alarm ────────────
-const VEILIGE_OFFICIELE_DOMEINEN = [
-  "belastingdienst.nl", "digid.nl", "rijksoverheid.nl",
-  "uwv.nl", "svb.nl", "duo.nl", "politie.nl", "rechtspraak.nl",
-  "ind.nl", "cak.nl", "rdw.nl", "kvk.nl", "rvo.nl",
-  "government.nl", "europa.eu", "ing.nl", "abnamro.nl",
-  "rabobank.nl", "triodos.nl", "asr.nl", "aegon.nl",
-  "google.com", "google.nl", "bing.com", "duckduckgo.com",
-  "microsoft.com", "apple.com", "paypal.com"
-];
-
-// ── Zoekmaschine domeinen ────────────────────────────────────
 const ZOEKMASCHINE_DOMEINEN = [
   "google.com", "google.nl", "bing.com", "duckduckgo.com",
   "yahoo.com", "startpage.com", "ecosia.org", "brave.com"
 ];
-
-// ── Satire domeinen ──────────────────────────────────────────
-const SATIRE_DOMEINEN = [
-  "speld.nl", "dedebunker.nl", "hetkannietzijn.nl",
-  "theonion.com", "nieuws.nl", "ditisnieuws.nl"
-];
-
-// ── Wetenschappelijke domeinen ────────────────────────────────
-const WETENSCHAP_DOMEINEN = [
-  "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "nature.com",
-  "sciencedirect.com", "science.org", "thelancet.com",
-  "bmj.com", "nejm.org", "cell.com", "plos.org",
-  "newscientist.com", "scientificamerican.com", "arxiv.org",
-  "ieee.org", "acm.org", "who.int", "rivm.nl",
-  "knaw.nl", "nwo.nl", "gezondheidsraad.nl", "ipcc.ch"
-];
-
-// ── Nieuws domeinen ───────────────────────────────────────────
-const NIEUWS_DOMEINEN = [
-  "nos.nl", "nu.nl", "ad.nl", "telegraaf.nl", "rtlnieuws.nl",
-  "nrc.nl", "volkskrant.nl", "trouw.nl", "parool.nl",
-  "omroepwest.nl", "omroepgelderland.nl", "omroepbrabant.nl",
-  "omroepzeeland.nl", "rtvnoord.nl", "rtvoost.nl",
-  "omroepflevoland.nl", "nhnieuws.nl", "at5.nl",
-  "omroepfriesland.nl", "rtvdrenthe.nl", "omroeplimburg.nl",
-  "hartvannederland.nl", "metronieuws.nl",
-  "reuters.com", "bbc.com", "apnews.com", "theguardian.com",
-  "nytimes.com", "economist.com", "dw.com", "bbc.co.uk",
-  "ftm.nl", "fd.nl", "nieuwscheckers.nl"
-];
-
-// ── Lifestyle domeinen ────────────────────────────────────────
-const LIFESTYLE_DOMEINEN = [
-  "menshealth.nl", "healthline.com", "voedingscentrum.nl",
-  "gezondheidsnet.nl", "thuisarts.nl", "womanshealthmag.com",
-  "women-s-health.nl", "prevention.com", "medicalnewstoday.com",
-  "runnersworld.com", "runnersworld.nl", "bodyenfit.nl",
-  "sportrusten.nl", "fitnessmagazine.nl", "bicycling.com",
-  "triathlete.com", "cyclingnews.com",
-  "vogue.com", "vogue.nl", "glamour.com", "glamour.nl",
-  "cosmopolitan.com", "cosmopolitan.nl", "elle.com", "elle.nl",
-  "libelle.nl", "margriet.nl", "flair.nl", "nina.be",
-  "harpersbazaar.com", "instyle.com",
-  "lifestylemagazine.nl", "gezondheidskrant.nl",
-  "msn.com"
-];
-
-const OFFICIELE_DOMEINEN = {
-  "green card": "dvprogram.state.gov",
-  "diversity visa": "dvprogram.state.gov",
-  "belastingdienst": "belastingdienst.nl",
-  "digid": "digid.nl",
-  "burger service nummer": "rijksoverheid.nl",
-  "paspoort aanvragen": "rijksoverheid.nl",
-  "ww uitkering": "uwv.nl",
-  "aow uitkering": "svb.nl",
-  "studiefinanciering": "duo.nl",
-  "politie aangifte": "politie.nl",
-  "verblijfsvergunning": "ind.nl",
-  "ing bank inloggen": "ing.nl",
-  "abn amro inloggen": "abnamro.nl",
-  "rabobank inloggen": "rabobank.nl",
-  "paypal inloggen": "paypal.com",
-  "apple id": "apple.com",
-  "microsoft account": "microsoft.com",
-  "amazon bestelling": "amazon.com",
-  "dhl pakket": "dhl.com",
-  "postnl pakket": "postnl.nl"
-};
 
 const WEBSITE_PHISHING_WOORDEN = [
   "onmiddellijk", "verloopt", "verlopen",
@@ -168,34 +51,9 @@ function bepaalEmoji(score, type) {
   return "😦";
 }
 
-function domeinCheck(tekst, sleutel) {
-  const patroon = new RegExp(
-    "\\b" + sleutel.replace(/\s+/g, "\\s+") + "\\b", "i"
-  );
-  return patroon.test(tekst);
-}
-
-function isVeiligOfficieelDomein(domein) {
-  return VEILIGE_OFFICIELE_DOMEINEN.some(d => domein.includes(d));
-}
-
 function isZoekmaschine(domein) {
   return ZOEKMASCHINE_DOMEINEN.some(d => domein.includes(d));
 }
-
-function isSatire(domein) {
-  return SATIRE_DOMEINEN.some(d => domein.includes(d));
-}
-
-function isWetenschap(domein) {
-  return WETENSCHAP_DOMEINEN.some(d => domein.includes(d));
-}
-
-function isNieuws(domein) {
-  return NIEUWS_DOMEINEN.some(d => domein.includes(d));
-}
-
-function isLifestyle(domein) { return LIFESTYLE_DOMEINEN.some(d => domein.includes(d)); }
 
 function naamMatchtDomein(afzenderNaam, afzenderDomein) {
   if (!afzenderNaam || !afzenderDomein) return true;
@@ -229,42 +87,24 @@ function naamMatchtDomein(afzenderNaam, afzenderDomein) {
 
 function berekenPhishingWebsite(request) {
   const paginaTekst = (request.paginaTekst || "").toLowerCase();
-  const paginaTitel = (request.text || "").toLowerCase();
   const paginaDomein = request.domein || "";
   const inlogLinks = request.inlogLinks || [];
 
-  // ── Officiële inlogknop check — als DigiD/iDEAL/etc. correct linkt, geen alarm ──
+  // ── Officiële inlogknop check ────────────────────────────────
   const heeftOfficieleInlogLink = inlogLinks.some(link => link.isOfficieel);
-
-  // ── Extra check — officiële inlogtekst op pagina maar domein niet verdacht → geen alarm ──
   const OFFICIELE_INLOG_TEKSTEN = ["digid", "ideal", "idin", "e-herkenning", "eherkenning", "bankid"];
   const VERDACHT_DOMEIN_PATROON = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle|-inloggen|-portal)/i;
-  const heeftInlogTekstOpPagina = OFFICIELE_INLOG_TEKSTEN.some(t => (request.paginaTekst || "").toLowerCase().includes(t));
+  const heeftInlogTekstOpPagina = OFFICIELE_INLOG_TEKSTEN.some(t => paginaTekst.includes(t));
   const heeftVerdachtDomein = VERDACHT_DOMEIN_PATROON.test(paginaDomein);
 
   if ((heeftOfficieleInlogLink || heeftInlogTekstOpPagina) && !heeftVerdachtDomein) {
     return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
   }
 
-  if (isSatire(paginaDomein)) {
-    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isSatire: true };
-  }
-  if (isWetenschap(paginaDomein)) {
-    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isWetenschap: true };
-  }
-  if (isNieuws(paginaDomein)) {
-    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isNieuws: true };
-  }
-  if (isLifestyle(paginaDomein)) {
-    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isLifestyle: true };
-  }
-  if (isVeiligOfficieelDomein(paginaDomein)) {
-    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
-  }
-
   let phishingScore = 0;
   const phishingSignalen = [];
 
+  // ── Phishing woordenlijst ────────────────────────────────────
   WEBSITE_PHISHING_WOORDEN.forEach(woord => {
     if (paginaTekst.includes(woord.toLowerCase())) {
       phishingScore += 15;
@@ -272,35 +112,25 @@ function berekenPhishingWebsite(request) {
     }
   });
 
+  // ── Verdacht domeinpatroon ───────────────────────────────────
+  if (heeftVerdachtDomein) {
+    phishingScore += 25;
+    phishingSignalen.push("Verdacht domeinnaam patroon");
+  }
+
+  // ── Titel in hoofdletters ────────────────────────────────────
   if (request.text === request.text.toUpperCase() && request.text.length > 5) {
     phishingScore += 20;
     phishingSignalen.push("Titel in hoofdletters");
   }
 
-  let officieelDomein = null;
-  Object.entries(OFFICIELE_DOMEINEN).forEach(([sleutel, domein]) => {
-    if (domeinCheck(paginaTitel, sleutel) || domeinCheck(paginaTekst, sleutel)) {
-      if (!paginaDomein.includes(domein.replace("www.", ""))) {
-        officieelDomein = domein;
-        phishingScore += 40;
-        phishingSignalen.push(`Officiële site is ${domein}`);
-      }
-    }
-  });
-
-  const verdachtPatroon = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle)/i;
-  if (verdachtPatroon.test(paginaDomein)) {
-    phishingScore += 25;
-    phishingSignalen.push("Verdacht domeinnaam patroon");
-  }
-
+  // ── Zoekmaschine — alleen waarschuwing bij verdachte signalen ─
   if (isZoekmaschine(paginaDomein)) {
     const heeftVerdachteSignalen = phishingScore >= 30;
     return {
       actief: heeftVerdachteSignalen,
       score: Math.min(phishingScore, 100),
       signalen: [...new Set(phishingSignalen)].slice(0, 4),
-      officieelDomein,
       isEmail: false,
       isZoekmaschine: true,
       niveau: heeftVerdachteSignalen ? "waarschuwing" : "veilig"
@@ -311,7 +141,6 @@ function berekenPhishingWebsite(request) {
     actief: phishingScore >= 30,
     score: Math.min(phishingScore, 100),
     signalen: [...new Set(phishingSignalen)].slice(0, 4),
-    officieelDomein,
     isEmail: false,
     niveau: "gevaar"
   };
@@ -565,11 +394,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       headers: SERVER_HEADERS,
       body: metSleutel({
         text: request.text,
-        artikelTekst: request.artikelTekst || ""
+        artikelTekst: request.artikelTekst || "",
+        url: request.url || "",
+        domein: request.domein || ""
       })
     })
     .then(res => res.json())
-    .catch(() => ({ score: 50, theme: "Onbekend", explanation: "Geen uitleg beschikbaar.", sources: [], aiTekst: 0, category: "normaal", claim: "" }));
+    .catch(() => ({ score: 50, theme: "Onbekend", explanation: "Geen uitleg beschikbaar.", sources: [], aiTekst: 0, category: "normaal", claim: "", isPhishing: false, phishingSignalen: [] }));
 
     const strafbareContentPromise = request.reactiesTekst && request.reactiesTekst.length > 10
       ? fetch(SERVER_URL + "/api/harmful", {
@@ -594,16 +425,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     Promise.all([analysePromise, strafbareContentPromise, visionPromise])
     .then(([data, strafbaarResultaat, visionResultaat]) => {
-      const score = 50; // Neutraal — verificatiescore komt bij popup openen
+      const score = 50;
       const oordeel = data.theme || "Onbekend";
       const uitleg = data.explanation || "Geen uitleg beschikbaar.";
       const strafbareContent = strafbaarResultaat.strafbaar || false;
       const aiTekst = data.aiTekst || 0;
       const aiAfbeelding = visionResultaat.aiAfbeelding || 0;
       const aiScore = Math.max(aiTekst, aiAfbeelding);
-
       const category = data.category || "normaal";
-      const emoji = "😐"; // Altijd neutraal bij laden
+      const emoji = "😐";
+
+      // ── OpenAI phishing detectie ─────────────────────────────
+      const openaiPhishing = data.isPhishing || false;
+      const openaiPhishingSignalen = data.phishingSignalen || [];
+
+      // ── Lokale phishing check — woordenlijst + regex ──────────
+      const lokalePhishing = berekenPhishingWebsite(request);
+
+      // ── Combineer — OpenAI of lokaal → alarm ─────────────────
+      const phishingActief = openaiPhishing || lokalePhishing.actief;
+      const phishingSignalen = [...new Set([...openaiPhishingSignalen, ...(lokalePhishing.signalen || [])])].slice(0, 4);
+
+      if (phishingActief) {
+        sendResponse({
+          status: "success",
+          score: 10,
+          oordeel: "Verdachte site",
+          uitleg: "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
+          bronnen: [],
+          phishing: { actief: true, signalen: phishingSignalen },
+          strafbareContent: false,
+          emoji: "😡",
+          type: "phishing",
+          claim: ""
+        });
+        return;
+      }
 
       const uitlegMetWaarschuwing = strafbareContent
         ? uitleg + " Let op: strafbare content gedetecteerd in de reacties."
@@ -622,7 +479,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         type: category,
         bronType: "verificatie",
         aiTekst: aiScore,
-        claim: data.claim || "", // Opslaan voor popup
+        claim: data.claim || "",
         bronBekend: false,
         onderwerpVerifieerbaar: false,
         verificatieBronnen: [],
