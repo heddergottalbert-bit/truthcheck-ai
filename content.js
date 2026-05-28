@@ -195,8 +195,17 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     return;
   }
 
-  const bronnenHTML = bronnen && bronnen.length > 0
-    ? bronnen.map(b => {
+  const SOCIALE_MEDIA_BRONNEN = ["linkedin.com", "facebook.com", "instagram.com", "twitter.com", "x.com", "youtube.com", "tiktok.com", "pinterest.com", "snapchat.com", "threads.net", "reddit.com", "tumblr.com"];
+
+  const gefilterdeBronnen = (bronnen || []).filter(b => {
+    try {
+      const domein = new URL(b).hostname.replace("www.", "").toLowerCase();
+      return !SOCIALE_MEDIA_BRONNEN.some(s => domein === s || domein.endsWith("." + s));
+    } catch(e) { return true; }
+  });
+
+  const bronnenHTML = gefilterdeBronnen.length > 0
+    ? gefilterdeBronnen.map(b => {
         let domein = b;
         try { domein = new URL(b).hostname.replace("www.", ""); } catch(e) {}
         return `<a href="${b}" target="_blank" style="display:inline-block;color:#7ab3ef;font-size:11px;margin-top:5px;margin-right:6px;text-decoration:none;background:rgba(122,179,239,0.1);border:1px solid rgba(122,179,239,0.3);border-radius:4px;padding:2px 7px;">${domein}</a>`;
@@ -556,8 +565,15 @@ knop.addEventListener("click", (e) => {
         popup.style.color = tekstKleur;
         popup.style.fontFamily = lettertype;
 
-        const bronnenHTML = bronnen && bronnen.length > 0
-          ? bronnen.map(b => {
+        const gefilterdeTussenBronnen = (bronnen || []).filter(b => {
+          try {
+            const domein = new URL(b.url || b).hostname.replace("www.", "").toLowerCase();
+            return !SOCIALE_MEDIA_BRONNEN.some(s => domein === s || domein.endsWith("." + s));
+          } catch(e) { return true; }
+        });
+
+        const bronnenHTML = gefilterdeTussenBronnen.length > 0
+          ? gefilterdeTussenBronnen.map(b => {
               let domein = b.url || b;
               try { domein = new URL(b.url || b).hostname.replace("www.", ""); } catch(e) {}
               return `<a href="${b.url || b}" target="_blank" style="display:inline-block;color:#7ab3ef;font-size:11px;margin-top:5px;margin-right:6px;text-decoration:none;background:rgba(122,179,239,0.1);border:1px solid rgba(122,179,239,0.3);border-radius:4px;padding:2px 7px;">${domein}</a>`;

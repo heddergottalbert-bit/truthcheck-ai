@@ -1109,8 +1109,17 @@ app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
       }
     }
 
+    // Sociale media uitsluiten als verificatiebron
+    const SOCIALE_MEDIA = ['linkedin.com', 'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'youtube.com', 'tiktok.com', 'pinterest.com', 'snapchat.com', 'threads.net', 'reddit.com', 'tumblr.com'];
+    const gefilterdeBronnen = bronnen.filter(b => {
+      try {
+        const domein = new URL(b.url || '').hostname.replace('www.', '').toLowerCase();
+        return !SOCIALE_MEDIA.some(s => domein === s || domein.endsWith('.' + s));
+      } catch(e) { return true; }
+    });
+
     // Bouw een beknopte samenvatting van de bronnen
-    const bronSamenvatting = bronnen
+    const bronSamenvatting = gefilterdeBronnen
       .slice(0, 5)
       .map((b, i) => `Bron ${i + 1} (${b.url || ''}): ${(b.content || b.snippet || '').slice(0, 300)}`)
       .join('\n\n');
