@@ -13,6 +13,7 @@ let huidigManipulatie = [];
 let huidigAiTekst = 0;
 let huidigArtikeltekst = "";
 let huidigClaim = "";
+let huidigTaal = "nl";
 let huidigBronBekend = false;
 let huidigOnderwerpVerifieerbaar = false;
 let huidigVerificatieBronnen = [];
@@ -602,7 +603,7 @@ knop.addEventListener("click", (e) => {
             // Stap 3 — OpenAI beoordeelt bronnen tegen claim
             if (huidigClaim && rawBronnen.length > 0) {
               chrome.runtime.sendMessage(
-                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: navigator.language || "nl" },
+                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: huidigTaal || "nl" },
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
                   if (beoordeling.score) huidigScore = beoordeling.score;
@@ -649,6 +650,59 @@ knop.addEventListener("contextmenu", (e) => {
 });
 
 // ── Hulpfuncties pagina ───────────────────────────────────────
+
+// ── Officiële inloglinks verzamelen ──────────────────────────
+function vindInlogLinks() {
+  const OFFICIELE_INLOG_DOMEINEN = [
+    "digid.nl",
+    "ideal.nl", "ideal.com",
+    "idin.nl",
+    "eherkenning.nl",
+    "irma.app", "privacybydesign.foundation",
+    "mijnoverheid.nl", "overheid.nl",
+    "bankid.com"
+  ];
+
+  const INLOG_TEKSTEN = [
+    "digid", "ideal", "idin", "e-herkenning", "eherkenning",
+    "inloggen met", "log in met", "login met", "aanmelden met",
+    "bankid", "irma"
+  ];
+
+  const links = Array.from(document.querySelectorAll("a[href], button[onclick], form[action]"));
+  const gevondenLinks = [];
+
+  for (const el of links) {
+    const tekst = (el.innerText || el.textContent || el.getAttribute("onclick") || "").toLowerCase();
+    const href = el.getAttribute("href") || el.getAttribute("action") || "";
+
+    const heeftInlogTekst = INLOG_TEKSTEN.some(t => tekst.includes(t));
+    if (!heeftInlogTekst) continue;
+
+    // Haal de URL op
+    let volledigeUrl = "";
+    try {
+      volledigeUrl = href.startsWith("http") ? href : new URL(href, window.location.origin).href;
+    } catch(e) {
+      volledigeUrl = href;
+    }
+
+    // Bepaal of de link naar officieel domein wijst
+    let isOfficieel = false;
+    try {
+      const linkDomein = new URL(volledigeUrl).hostname.replace("www.", "");
+      isOfficieel = OFFICIELE_INLOG_DOMEINEN.some(d => linkDomein === d || linkDomein.endsWith("." + d));
+    } catch(e) {}
+
+    gevondenLinks.push({
+      tekst: tekst.substring(0, 50),
+      url: volledigeUrl.substring(0, 200),
+      isOfficieel
+    });
+  }
+
+  return gevondenLinks;
+}
 
 function vindHoofdAfbeelding() {
   const og = document.querySelector('meta[property="og:image"]');
@@ -1289,8 +1343,9 @@ function startCheck() {
     }
     knop.style.display = "block";
 
+    huidigTaal = detecteerTaal(artikelTekst || paginaTekst);
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: detecteerTaal(artikelTekst || paginaTekst) },
+      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: huidigTaal, inlogLinks: vindInlogLinks() },
       (response) => {
         if (chrome.runtime.lastError || !response || response.status !== "success") return;
         huidigScore    = response.score;

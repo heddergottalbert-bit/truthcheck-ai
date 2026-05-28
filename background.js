@@ -231,6 +231,13 @@ function berekenPhishingWebsite(request) {
   const paginaTekst = (request.paginaTekst || "").toLowerCase();
   const paginaTitel = (request.text || "").toLowerCase();
   const paginaDomein = request.domein || "";
+  const inlogLinks = request.inlogLinks || [];
+
+  // ── Officiële inlogknop check — als DigiD/iDEAL/etc. correct linkt, geen alarm ──
+  const heeftOfficieleInlogLink = inlogLinks.some(link => link.isOfficieel);
+  if (heeftOfficieleInlogLink) {
+    return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isOfficieel: true };
+  }
 
   if (isSatire(paginaDomein)) {
     return { actief: false, score: 0, signalen: [], officieelDomein: null, isEmail: false, isSatire: true };
