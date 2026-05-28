@@ -1119,9 +1119,15 @@ app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
 
 Beoordeel of de aangeleverde bronnen de claim bevestigen of weerleggen.
 
+Bronkwaliteit — weeg bronnen als volgt:
+- Zwaar: wetenschappelijke tijdschriften (nature.com, pubmed, nejm.org, thelancet.com, sciencedirect.com), nieuwsagentschappen (reuters.com, apnews.com, bbc.com), overheid (rivm.nl, rijksoverheid.nl, who.int), factcheckers (snopes.com, nieuwscheckers.nl)
+- Gemiddeld: gevestigde kranten en omroepen (nos.nl, nrc.nl, nytimes.com, theguardian.com), wetenschapsjournalistiek (sciencenews.org, newscientist.com)
+- Licht: blogs, vakbladen, algemene websites
+- Negeer: sociale media (linkedin.com, facebook.com, twitter.com, x.com, instagram.com, tiktok.com), forums, reclamesites
+
 Geef terug:
-- score: 0-100 (50 = neutraal, hoger = meer bevestiging, lager = meer weerlegging)
-- uitleg: max 2 zinnen over wat de bronnen zeggen over de claim
+- score: 0-100 (50 = neutraal, hoger = meer bevestiging door goede bronnen, lager = meer weerlegging)
+- uitleg: max 2 zinnen — noem alleen de zwaarwegende bronnen, niet social media
 - oordeel: één zin die de claim samenvat in relatie tot de bronnen
 
 Nooit "dit is nep" — wel "bronnen bevestigen dit niet" of "bronnen weerleggen deze claim".
