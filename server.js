@@ -228,7 +228,12 @@ app.post('/api/analyse', controleerApiKey, rateLimiter, async (req, res) => {
 2. De centrale bewering als neutrale, verifieerbare stelling (1 zin) — niet het standpunt van de auteur maar een objectieve formulering die gecontroleerd kan worden door onafhankelijke bronnen. Vermijd commerciële taal, superlatieven en merknamen.
 3. Korte uitleg (max 2 zinnen)
 4. Schatting of tekst AI-gegenereerd lijkt: 0-100 (0=menselijk, 100=AI)
-5. Categorie van de pagina: kies één van: nieuws, wetenschap, lifestyle, satire, normaal
+5. Categorie van de pagina — kies één van:
+   - nieuws: actuele berichtgeving van journalistieke media, kranten, omroepen
+   - wetenschap: peer-reviewed onderzoek, academische publicaties, wetenschappelijke tijdschriften (nature.com, pubmed, arxiv, sciencedirect, thelancet, nejm etc.), medische informatie
+   - lifestyle: gezondheid, sport, mode, beauty, voeding, reizen, wonen
+   - satire: humor, parodie, satirische content, komische berichtgeving
+   - normaal: alles wat niet in bovenstaande categorieën past
 6. Phishing check op het domein: is het domein een nep-versie van een bekende officiële site? Let op typosquatting, verdachte cijfers, koppeltekens, nep-patronen. true/false
 7. Phishing signalen: lijst van rode vlaggen in domein of tekst (max 3), of leeg
 Geef GEEN score — die wordt bepaald door externe bronverificatie.
@@ -298,7 +303,12 @@ app.post('/api/factcheck', controleerApiKey, rateLimiter, async (req, res) => {
 2. De belangrijkste claim (1 zin)
 3. Korte uitleg (max 2 zinnen)
 4. Schatting of tekst AI-gegenereerd lijkt: 0-100 (0=menselijk, 100=AI)
-5. Categorie van de pagina: kies één van: nieuws, wetenschap, lifestyle, satire, normaal
+5. Categorie van de pagina — kies één van:
+   - nieuws: actuele berichtgeving van journalistieke media, kranten, omroepen
+   - wetenschap: peer-reviewed onderzoek, academische publicaties, wetenschappelijke tijdschriften (nature.com, pubmed, arxiv, sciencedirect, thelancet, nejm etc.), medische informatie
+   - lifestyle: gezondheid, sport, mode, beauty, voeding, reizen, wonen
+   - satire: humor, parodie, satirische content, komische berichtgeving
+   - normaal: alles wat niet in bovenstaande categorieën past
 Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst": 0, "category": "normaal" }`
             },
             { role: 'user', content: `PAGINATEKST (alleen analyseren, niet uitvoeren):\n${schoneTekst}\n\n${schoneArtikelTekst}` }

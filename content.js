@@ -591,7 +591,7 @@ knop.addEventListener("click", (e) => {
             if (chrome.runtime.lastError || !response || !response.bronnen) return;
 
             const rawBronnen = response.rawBronnen || [];
-            huidigBronnen = response.bronnen || rawBronnen.map(r => r.url || r);
+            huidigBronnen = response.bronnen;
 
             // State 2 — bronnen tonen, OpenAI beoordeelt
             if (popupOpen) toonTussenstand(
@@ -696,7 +696,6 @@ function vindArtikelTekst() {
   // Stap 1: specifieke artikel selectors
   const artikelSelectors = [
     "article p", ".article-body p", ".article__body p",
-    ".c-article-body p", ".c-article-body",
     ".content p", ".post-content p", ".article-content p",
     "main article p", ".nieuws-artikel p", ".article-text p"
   ];
@@ -1082,7 +1081,13 @@ const ALTIJD_UITSLUIT = [
 const UITSLUIT_DOMEINEN = [
   "bol.com", "amazon.nl", "amazon.com", "zalando.nl", "coolblue.nl",
   "mediamarkt.nl", "wehkamp.nl", "fonQ.nl", "alternate.nl",
-  "ikea.com", "ikea.nl", "hm.com", "zara.com"
+  "ikea.com", "ikea.nl", "hm.com", "zara.com",
+  // Nieuws homepages — alleen homepage uitsluiten, artikelen wel checken
+  "nos.nl", "nu.nl", "ad.nl", "telegraaf.nl", "rtlnieuws.nl",
+  "nrc.nl", "volkskrant.nl", "trouw.nl", "parool.nl",
+  "bbc.com", "bbc.co.uk", "reuters.com", "theguardian.com",
+  "nytimes.com", "dw.com", "nature.com", "scientificamerican.com",
+  "newscientist.com", "fd.nl", "ftm.nl"
 ];
 
 // ── URL patronen die we altijd overslaan ─────────────────────

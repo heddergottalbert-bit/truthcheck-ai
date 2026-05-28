@@ -42,10 +42,10 @@ const EMAIL_PHISHING_WOORDEN = [
 // ── Emoji bepalen op basis van score en type ─────────────────
 function bepaalEmoji(score, type) {
   if (type === "satire") return "😄";
-  if (type === "deepfake") return "🤖";
-  if (type === "phishing") return "😡";
-  if (type === "laden") return "😐";
   if (type === "wetenschap") return "🎓";
+  if (type === "lifestyle") return "🌿";
+  if (type === "nieuws") return "😊";
+  if (type === "laden") return "😐";
   if (score >= 70) return "😊";
   if (score >= 40) return "😐";
   return "😦";
@@ -433,7 +433,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const aiAfbeelding = visionResultaat.aiAfbeelding || 0;
       const aiScore = Math.max(aiTekst, aiAfbeelding);
       const category = data.category || "normaal";
-      const emoji = "😐";
+      const emoji = bepaalEmoji(50, category);
 
       // ── OpenAI phishing detectie ─────────────────────────────
       const openaiPhishing = data.isPhishing || false;
@@ -610,3 +610,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
