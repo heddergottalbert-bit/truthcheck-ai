@@ -14,6 +14,7 @@ let huidigAiTekst = 0;
 let huidigArtikeltekst = "";
 let huidigClaim = "";
 let huidigTaal = "nl";
+let huidigPublicatieDatum = null;
 let huidigBronBekend = false;
 let huidigOnderwerpVerifieerbaar = false;
 let huidigVerificatieBronnen = [];
@@ -603,7 +604,7 @@ knop.addEventListener("click", (e) => {
             // Stap 3 — OpenAI beoordeelt bronnen tegen claim
             if (huidigClaim && rawBronnen.length > 0) {
               chrome.runtime.sendMessage(
-                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: huidigTaal || "nl" },
+                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: huidigTaal || "nl", publicatieDatum: huidigPublicatieDatum || "" },
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
                   if (beoordeling.score) huidigScore = beoordeling.score;
@@ -1327,8 +1328,9 @@ function startCheck() {
     knop.style.display = "block";
 
     huidigTaal = detecteerTaal(artikelTekst || paginaTekst);
+    huidigPublicatieDatum = vindPublicatieDatum();
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: huidigTaal, publicatieDatum: vindPublicatieDatum() },
+      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: huidigTaal, publicatieDatum: huidigPublicatieDatum },
       (response) => {
         if (chrome.runtime.lastError || !response || response.status !== "success") return;
         huidigScore    = response.score;

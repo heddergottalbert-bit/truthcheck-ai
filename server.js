@@ -1088,7 +1088,7 @@ app.post('/api/vraag', async (req, res) => {
 // ── Bronbeoordeling — OpenAI beoordeelt Tavily bronnen op claim ──
 app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
   try {
-    const { claim, bronnen, taal } = req.body;
+    const { claim, bronnen, taal, publicatieDatum } = req.body;
     if (!claim || !bronnen || bronnen.length === 0) {
       return res.status(400).json({ error: 'Claim of bronnen ontbreken' });
     }
@@ -1097,6 +1097,17 @@ app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
     const taalInstructie = (taal === 'nl' || !taal)
       ? 'Je MOET altijd in het Nederlands antwoorden — ook als de bronnen in het Engels zijn. Vertaal je bevindingen naar het Nederlands.'
       : 'You MUST always answer in English — even if the sources are in another language.';
+
+    // Bepaal of het artikel recent is
+    let recentInstructie = '';
+    if (publicatieDatum) {
+      const publicatie = new Date(publicatieDatum);
+      const nu = new Date();
+      const verschilDagen = (nu - publicatie) / (1000 * 60 * 60 * 24);
+      if (verschilDagen <= 3) {
+        recentInstructie = '\nLET OP: Dit artikel is minder dan 3 dagen geleden gepubliceerd. Onafhankelijke bronverificatie is mogelijk nog niet beschikbaar. Geef bij twijfel een neutrale score (50) en vermeld in de uitleg dat het artikel te recent is voor volledige verificatie. Straf de score NIET af alleen omdat bronnen de claim niet bevestigen — dat kan komen doordat het nieuws te vers is.';
+      }
+    }
 
     // Bouw een beknopte samenvatting van de bronnen
     const bronSamenvatting = bronnen
@@ -1131,6 +1142,7 @@ Geef terug:
 - oordeel: één zin die de claim samenvat in relatie tot de bronnen
 
 Nooit "dit is nep" — wel "bronnen bevestigen dit niet" of "bronnen weerleggen deze claim".
+${recentInstructie}
 ${taalInstructie}
 Antwoord in JSON: { "score": 50, "uitleg": "", "oordeel": "" }`
           },
