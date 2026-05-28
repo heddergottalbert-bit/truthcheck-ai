@@ -1140,6 +1140,9 @@ function isUitgesloten() {
   // Portalen met mijn. prefix — altijd uitsluiten
   if (domein.startsWith("mijn.") || domein.startsWith("my.") || domein.startsWith("portal.")) return true;
 
+  // Homepage — geen artikel te checken
+  if (pad === "/" || pad === "") return true;
+
   // YouTube — videopaginas en Shorts checken, homepage en zoeken uitsluiten
   if ((domein === "youtube.com" || domein.endsWith(".youtube.com")) && !pad.startsWith("/watch") && !pad.startsWith("/shorts")) return true;
 
