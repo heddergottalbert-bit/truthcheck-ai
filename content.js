@@ -651,6 +651,36 @@ knop.addEventListener("contextmenu", (e) => {
 
 // ── Hulpfuncties pagina ───────────────────────────────────────
 
+function vindPublicatieDatum() {
+  // Meta tags — meest betrouwbaar
+  const metaTags = [
+    'meta[property="article:published_time"]',
+    'meta[name="publication_date"]',
+    'meta[name="date"]',
+    'meta[itemprop="datePublished"]',
+    'meta[property="og:updated_time"]'
+  ];
+  for (const sel of metaTags) {
+    const val = document.querySelector(sel)?.getAttribute("content");
+    if (val) return val.substring(0, 10); // Alleen de datum, niet de tijd
+  }
+  // Time element
+  const time = document.querySelector("time[datetime]")?.getAttribute("datetime");
+  if (time) return time.substring(0, 10);
+
+  // JSON-LD
+  try {
+    const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+    for (const script of scripts) {
+      const data = JSON.parse(script.innerText);
+      const datum = data.datePublished || data.dateModified;
+      if (datum) return datum.substring(0, 10);
+    }
+  } catch(e) {}
+
+  return null;
+}
+
 function vindHoofdAfbeelding() {
   const og = document.querySelector('meta[property="og:image"]');
   if (og) return og.getAttribute("content");
@@ -1298,7 +1328,7 @@ function startCheck() {
 
     huidigTaal = detecteerTaal(artikelTekst || paginaTekst);
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: huidigTaal },
+      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: huidigTaal, publicatieDatum: vindPublicatieDatum() },
       (response) => {
         if (chrome.runtime.lastError || !response || response.status !== "success") return;
         huidigScore    = response.score;

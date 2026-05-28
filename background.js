@@ -396,7 +396,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         text: request.text,
         artikelTekst: request.artikelTekst || "",
         url: request.url || "",
-        domein: request.domein || ""
+        domein: request.domein || "",
+        publicatieDatum: request.publicatieDatum || ""
       })
     })
     .then(res => res.json())
@@ -610,4 +611,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
-
