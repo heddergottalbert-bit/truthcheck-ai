@@ -19,6 +19,7 @@ let huidigBronBekend = false;
 let huidigOnderwerpVerifieerbaar = false;
 let huidigVerificatieBronnen = [];
 let huidigRodeVlaggen = [];
+let huidigToetsbaar = true;
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -57,6 +58,7 @@ function hexNaarRgba(hex, alpha) {
 }
 
 function getKleur(score) {
+  if (score === null || score === undefined) return "#7ab3ef"; // duiding — neutraal blauw, geen oordeel
   if (score <= 30) return "#e74c3c";
   if (score <= 70) return "#e67e22";
   return "#2ecc71";
@@ -251,7 +253,9 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       </div>
       <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="${t.askQuestion}">?</div>
     </div>
-    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span> <span style="font-size:9px;opacity:0.5;">(verificatiescore)</span></div>
+    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${huidigToetsbaar === false
+      ? `<span style="color:#7ab3ef;font-weight:bold;">Duiding</span> <span style="font-size:9px;opacity:0.5;">(geen toetsbare claim)</span>`
+      : `${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span> <span style="font-size:9px;opacity:0.5;">(verificatiescore)</span>`}</div>
     ${(location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) ? `
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
@@ -359,7 +363,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     chrome.runtime.sendMessage({
       action: "stuur_feedback",
       url: window.location.href,
-      score: huidigScore,
+      score: huidigToetsbaar === false ? "duiding" : huidigScore,
       oordeel: huidigOordeel,
       duim,
       tekst,
@@ -428,7 +432,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       : "Geen bronnen gevonden";
     return `FactRadar analyse\n\n` +
       `📄 ${window.location.href}\n` +
-      `${huidigEmoji} ${huidigOordeel} — Score: ${huidigScore}/100\n\n` +
+      `${huidigEmoji} ${huidigOordeel} — ${huidigToetsbaar === false ? "Duiding (geen toetsbare claim)" : "Score: " + huidigScore + "/100"}\n\n` +
       `${huidigUitleg}\n\n` +
       `🔗 Bronnen:\n${bronnenLijst}\n\n` +
       `Geanalyseerd met FactRadar`;
@@ -623,10 +627,19 @@ knop.addEventListener("click", (e) => {
                 { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: huidigTaal || "nl", publicatieDatum: huidigPublicatieDatum || "" },
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
-                  if (beoordeling.score) huidigScore = beoordeling.score;
-                  if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
-                  if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
-                  huidigEmoji = huidigScore >= 70 ? "😊" : huidigScore >= 40 ? "😐" : "😦";
+                  huidigToetsbaar = beoordeling.toetsbaar !== false;
+                  if (huidigToetsbaar) {
+                    if (beoordeling.score) huidigScore = beoordeling.score;
+                    if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
+                    if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
+                    huidigEmoji = huidigScore >= 70 ? "😊" : huidigScore >= 40 ? "😐" : "😦";
+                  } else {
+                    // Duiding — geen score, geen oordeel-kleur. Categorie-emoji blijft staan.
+                    huidigScore = null;
+                    if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
+                    if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
+                    // huidigEmoji blijft de categorie-emoji (📰/🌿/🎓) uit de hoofdcheck
+                  }
                   if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
                 }
               );

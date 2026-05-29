@@ -44,7 +44,7 @@ function bepaalEmoji(score, type) {
   if (type === "satire") return "😄";
   if (type === "wetenschap") return "🎓";
   if (type === "lifestyle") return "🌿";
-  if (type === "nieuws") return "😊";
+  if (type === "nieuws") return "📰";
   if (type === "laden") return "😐";
   if (score >= 70) return "😊";
   if (score >= 40) return "😐";
@@ -587,11 +587,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     })
     .then(res => res.json())
     .then(data => sendResponse({
-      score: data.score || 50,
+      toetsbaar: data.toetsbaar !== false,
+      score: data.toetsbaar === false ? null : (data.score || 50),
       uitleg: data.uitleg || "",
       oordeel: data.oordeel || ""
     }))
-    .catch(() => sendResponse({ score: 50, uitleg: "", oordeel: "" }));
+    .catch(() => sendResponse({ toetsbaar: true, score: 50, uitleg: "", oordeel: "" }));
     return true;
   }
 

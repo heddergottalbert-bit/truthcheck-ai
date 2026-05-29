@@ -1145,15 +1145,21 @@ Bronkwaliteit — weeg bronnen als volgt:
 - Licht: blogs, vakbladen, algemene websites
 - Negeer: sociale media (linkedin.com, facebook.com, twitter.com, x.com, instagram.com, tiktok.com), forums, reclamesites
 
+Bepaal eerst of de claim TOETSBAAR is:
+- toetsbaar (true): de claim bevat een feit, cijfer, gebeurtenis of verifieerbare bewering die je tegen bronnen kunt afzetten (bijv. "vezels verlagen het risico op hart- en vaatziekten met 15-30%", "8 procent van Gen Z maakt zich geen zorgen").
+- niet-toetsbaar (false): de claim is een beschrijving, trend, duiding of mening zonder verifieerbaar feit (bijv. "inzicht in de kenmerken van Generatie Z", "waarom mensen zich anders gaan gedragen"). Hier valt niets te bevestigen of te weerleggen.
+- Bij twijfel: kies true. Gebruik false alleen als er echt geen feitelijke bewering in zit.
+
 Geef terug:
-- score: 0-100 (50 = neutraal, hoger = meer bevestiging door goede bronnen, lager = meer weerlegging)
-- uitleg: max 2 zinnen — noem alleen de zwaarwegende bronnen, niet social media
+- toetsbaar: true of false
+- score: 0-100 (50 = neutraal, hoger = meer bevestiging door goede bronnen, lager = meer weerlegging). Alleen relevant als toetsbaar=true; bij false mag je 50 invullen.
+- uitleg: max 2 zinnen — noem alleen de zwaarwegende bronnen, niet social media. Bij toetsbaar=false: beschrijf kort waar het artikel over gaat, zonder bevestigen/weerleggen.
 - oordeel: één zin die de claim samenvat in relatie tot de bronnen
 
 Nooit "dit is nep" — wel "bronnen bevestigen dit niet" of "bronnen weerleggen deze claim".
 ${recentInstructie}
 ${taalInstructie}
-Antwoord in JSON: { "score": 50, "uitleg": "", "oordeel": "" }`
+Antwoord in JSON: { "toetsbaar": true, "score": 50, "uitleg": "", "oordeel": "" }`
           },
           {
             role: 'user',
@@ -1171,13 +1177,20 @@ Antwoord in JSON: { "score": 50, "uitleg": "", "oordeel": "" }`
     try {
       result = JSON.parse(content);
     } catch {
-      result = { score: 50, uitleg: content, oordeel: '' };
+      result = { toetsbaar: true, score: 50, uitleg: content, oordeel: '' };
     }
 
-    // Grenzen: max 90, min 10
-    result.score = Math.min(Math.max(result.score, 10), 90);
+    // Niet-toetsbare claim — geen score, alleen duiding
+    const isToetsbaar = result.toetsbaar !== false; // bij twijfel/ontbreken = toetsbaar
+    if (isToetsbaar) {
+      // Grenzen: max 90, min 10
+      result.score = Math.min(Math.max(result.score, 10), 90);
+    } else {
+      result.score = null; // duiding — geen verificatiescore
+    }
 
     res.json({
+      toetsbaar: isToetsbaar,
       score: result.score,
       uitleg: result.uitleg || '',
       oordeel: result.oordeel || ''
