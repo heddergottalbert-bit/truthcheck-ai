@@ -14,6 +14,7 @@ let huidigManipulatie = [];
 let huidigAiTekst = 0;
 let huidigArtikeltekst = "";
 let huidigClaim = "";
+let huidigZoekterm = "";
 let huidigTaal = "nl";
 let huidigPublicatieDatum = null;
 let huidigBronBekend = false;
@@ -610,7 +611,7 @@ knop.addEventListener("click", (e) => {
         toonTussenstand(huidigClaim, [], "Bronnen worden opgezocht...");
 
         chrome.runtime.sendMessage(
-          { action: "haal_bronnen", text: huidigOordeel, claim: huidigClaim || "", artikelTekst: huidigArtikeltekst, domein: window.location.hostname.replace("www.", "") },
+          { action: "haal_bronnen", text: huidigOordeel, claim: huidigClaim || "", zoekterm: huidigZoekterm || "", artikelTekst: huidigArtikeltekst, domein: window.location.hostname.replace("www.", "") },
           (response) => {
             if (chrome.runtime.lastError || !response || !response.bronnen) return;
 
@@ -1401,6 +1402,7 @@ function startCheck() {
         huidigAiTekst    = response.aiTekst || 0;
         huidigArtikeltekst = artikelTekst || "";
         huidigClaim    = response.claim || "";
+        huidigZoekterm = response.zoekterm || response.claim || "";
         huidigBronBekend = response.bronBekend || false;
         huidigOnderwerpVerifieerbaar = response.onderwerpVerifieerbaar || false;
         huidigVerificatieBronnen = response.verificatieBronnen || [];
