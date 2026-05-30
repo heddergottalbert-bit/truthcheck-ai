@@ -8,6 +8,7 @@ let huidigBronnen = [];
 let huidigDeepfake = null;
 let huidigStrafbareContent = false;
 let huidigEmoji = "😐";
+let knopEmoji = "😐"; // Vaste categorie-emoji voor de knop (eerste indruk, verandert nooit mee)
 let huidigBronType = "verificatie";
 let huidigManipulatie = [];
 let huidigAiTekst = 0;
@@ -142,6 +143,7 @@ knop.style.cssText = `
 document.body.appendChild(knop);
 
 function toonLaadAnimatie() {
+  knopEmoji = "😐"; // reset naar neutrale laad-emoji tot de categorie binnen is
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   knop.innerHTML = `
     <div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;">
@@ -151,7 +153,8 @@ function toonLaadAnimatie() {
 
 function updateMiniBarometer(score, strafbareContent, emoji) {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
-  const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
+  // De knop toont ALTIJD de vaste categorie-emoji (eerste indruk). Verandert nooit mee met de popup.
+  const hoofdEmoji = knopEmoji || emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
   const strafbareEmoji = strafbareContent
     ? `<span style="font-size:20px;line-height:1;position:absolute;bottom:2px;right:2px;">😈</span>`
     : "";
@@ -628,7 +631,7 @@ knop.addEventListener("click", (e) => {
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
                   huidigToetsbaar = beoordeling.toetsbaar !== false;
-                  // Categorie uit de bron-verdeling (call B) — bepaalt de emoji
+                  // POPUP-emoji = categorie uit de bron-verdeling (call B). Raakt de knop NIET.
                   const categorieEmoji = {
                     wetenschap: "🎓", nieuws: "📰", lifestyle: "🌿", satire: "😄"
                   }[beoordeling.categorie] || null;
@@ -636,18 +639,17 @@ knop.addEventListener("click", (e) => {
                     if (beoordeling.score) huidigScore = beoordeling.score;
                     if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
                     if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
-                    // Categorie-emoji uit bronnen heeft voorrang; anders score-emoji
+                    // Popup toont de bron-categorie; anders score-emoji
                     huidigEmoji = categorieEmoji
                       || (huidigScore >= 70 ? "😊" : huidigScore >= 40 ? "😐" : "😦");
                   } else {
-                    // Duiding — geen score, geen oordeel-kleur. Categorie-emoji blijft staan.
+                    // Duiding — geen score. Popup toont de bron-categorie als die er is.
                     huidigScore = null;
                     if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
                     if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
-                    // Categorie-emoji uit bronnen als die er is, anders de bestaande categorie-emoji
                     if (categorieEmoji) huidigEmoji = categorieEmoji;
                   }
-                  updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
+                  // Knop blijft op knopEmoji (eerste indruk) — niet bijwerken.
                   if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
                 }
               );
@@ -1035,6 +1037,7 @@ function startGmailCheck() {
     huidigDeepfake = null;
     huidigStrafbareContent = false;
     huidigEmoji = response.emoji || "😊";
+    knopEmoji = response.emoji || "😊";
     updateMiniBarometer(huidigScore, false, huidigEmoji);
     if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
     if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji, huidigBronType);
@@ -1261,6 +1264,7 @@ function startSocialeMediaModus() {
     }
     huidigBronnen = [];
     huidigScore = 100;
+    knopEmoji = huidigEmoji; // sociale-media-modus: knop volgt de timer-emoji
     updateMiniBarometer(huidigScore, false, huidigEmoji);
     if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, [], null, false, huidigEmoji, "verdieping");
   }
@@ -1332,6 +1336,7 @@ function startCheck() {
         ? `Let op: mogelijk nep-site in zoekresultaten. Ga naar de officiële site: ${resultaat.officieel}`
         : "Let op: een zoekresultaat bevat een verdacht domein. Wees voorzichtig met klikken.";
       huidigEmoji   = "😦";
+      knopEmoji     = "😦";
       huidigBronnen = [];
       updateMiniBarometer(huidigScore, false, huidigEmoji);
       toonZoekWaarschuwing(resultaat.officieel);
@@ -1401,6 +1406,7 @@ function startCheck() {
         huidigVerificatieBronnen = response.verificatieBronnen || [];
         huidigRodeVlaggen = response.rodeVlaggen || [];
         huidigEmoji    = response.emoji || "😐";
+        knopEmoji      = response.emoji || "😐"; // Vaste knop-emoji: eerste categorie-indruk, verandert niet meer mee
         if (!huidigStrafbareContent) {
           huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
         }
