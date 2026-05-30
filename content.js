@@ -628,18 +628,26 @@ knop.addEventListener("click", (e) => {
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
                   huidigToetsbaar = beoordeling.toetsbaar !== false;
+                  // Categorie uit de bron-verdeling (call B) — bepaalt de emoji
+                  const categorieEmoji = {
+                    wetenschap: "🎓", nieuws: "📰", lifestyle: "🌿", satire: "😄"
+                  }[beoordeling.categorie] || null;
                   if (huidigToetsbaar) {
                     if (beoordeling.score) huidigScore = beoordeling.score;
                     if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
                     if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
-                    huidigEmoji = huidigScore >= 70 ? "😊" : huidigScore >= 40 ? "😐" : "😦";
+                    // Categorie-emoji uit bronnen heeft voorrang; anders score-emoji
+                    huidigEmoji = categorieEmoji
+                      || (huidigScore >= 70 ? "😊" : huidigScore >= 40 ? "😐" : "😦");
                   } else {
                     // Duiding — geen score, geen oordeel-kleur. Categorie-emoji blijft staan.
                     huidigScore = null;
                     if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
                     if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
-                    // huidigEmoji blijft de categorie-emoji (📰/🌿/🎓) uit de hoofdcheck
+                    // Categorie-emoji uit bronnen als die er is, anders de bestaande categorie-emoji
+                    if (categorieEmoji) huidigEmoji = categorieEmoji;
                   }
+                  updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
                   if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
                 }
               );
@@ -659,13 +667,22 @@ knop.addEventListener("click", (e) => {
         haalBronnenOp();
       } else {
         // Claim nog niet klaar — wacht op OpenAI, max 5 seconden
+        let claimGekomen = false;
         const laadInterval = setInterval(() => {
           if (huidigClaim) {
+            claimGekomen = true;
             clearInterval(laadInterval);
             haalBronnenOp();
           }
         }, 300);
-        setTimeout(() => clearInterval(laadInterval), 5000);
+        // Na 5 sec: nog steeds geen claim → toch doorgaan (duiding of leeg).
+        // haalBronnenOp gebruikt dan het oordeel als zoekbasis, geen eindeloze hang.
+        setTimeout(() => {
+          clearInterval(laadInterval);
+          if (!claimGekomen && popupOpen && huidigBronnen.length === 0) {
+            haalBronnenOp();
+          }
+        }, 5000);
       }
     }
   }

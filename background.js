@@ -589,10 +589,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .then(data => sendResponse({
       toetsbaar: data.toetsbaar !== false,
       score: data.toetsbaar === false ? null : (data.score || 50),
+      categorie: data.categorie || "normaal",
+      bron_verdeling: data.bron_verdeling || {},
       uitleg: data.uitleg || "",
       oordeel: data.oordeel || ""
     }))
-    .catch(() => sendResponse({ toetsbaar: true, score: 50, uitleg: "", oordeel: "" }));
+    .catch(() => sendResponse({ toetsbaar: true, score: 50, categorie: "normaal", bron_verdeling: {}, uitleg: "", oordeel: "" }));
     return true;
   }
 
