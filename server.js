@@ -1144,7 +1144,7 @@ app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
     // Bouw een beknopte samenvatting van de bronnen
     const bronSamenvatting = gefilterdeBronnen
       .slice(0, 5)
-      .map((b, i) => `Bron ${i + 1} (${b.url || ''}): ${(b.content || b.snippet || '').slice(0, 300)}`)
+      .map((b, i) => `Bron ${i + 1} (${b.url || ''}): ${(b.content || b.snippet || '').slice(0, 800)}`)
       .join('\n\n');
 
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
