@@ -173,7 +173,7 @@ function updateMiniBarometer(score, strafbareContent, emoji) {
 const popup = document.createElement("div");
 popup.id = "tc-popup";
 popup.style.cssText = `
-  position:fixed;bottom:94px;right:20px;width:275px;
+  position:fixed;bottom:94px;right:20px;width:320px;max-width:calc(100vw - 40px);
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border-radius:18px;padding:18px;z-index:999999;
   box-shadow:0 8px 40px rgba(0,0,0,0.45);display:none;
