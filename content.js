@@ -15,6 +15,8 @@ let huidigAiTekst = 0;
 let huidigArtikeltekst = "";
 let huidigClaim = "";
 let huidigZoekterm = "";
+let huidigBronVerdeling = {};
+let pdfModusActief = false;
 let huidigTaal = "nl";
 let huidigPublicatieDatum = null;
 let huidigBronBekend = false;
@@ -260,6 +262,15 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${huidigToetsbaar === false
       ? `<span style="color:#7ab3ef;font-weight:bold;">Duiding</span> <span style="font-size:9px;opacity:0.5;">(geen toetsbare claim)</span>`
       : `${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span> <span style="font-size:9px;opacity:0.5;">(verificatiescore)</span>`}</div>
+    ${Object.keys(huidigBronVerdeling || {}).length > 0 ? `
+    <div style="font-size:10px;color:${tekstKleur};opacity:0.6;margin-bottom:10px;font-family:${lettertype};display:flex;flex-wrap:wrap;gap:6px;">
+      ${Object.entries(huidigBronVerdeling)
+        .sort((a, b) => b[1] - a[1])
+        .map(([cat, aantal]) => {
+          const emoji = { wetenschap: '🎓', nieuws: '📰', lifestyle: '🌿', satire: '😄', overheid: '🏛️', factcheck: '✅', overig: '⬜' }[cat] || '⬜';
+          return `<span style="background:rgba(255,255,255,0.07);border-radius:4px;padding:2px 7px;">${emoji} ${cat} ${aantal}</span>`;
+        }).join('')}
+    </div>` : ''}
     ${(location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) ? `
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
@@ -556,6 +567,13 @@ document.addEventListener("mouseup", () => {
 
 knop.addEventListener("click", (e) => {
   if (heeftGesleept) return;
+  // ── PDF-modus: geen scan, alleen de duiding tonen ──
+  if (pdfModusActief) {
+    popupOpen = !popupOpen;
+    popup.style.display = popupOpen ? "block" : "none";
+    if (popupOpen) toonPdfPopup();
+    return;
+  }
   if (isZoekpagina() && !isActieveZoekopdracht()) return; // Geen actie op uitgesloten pagina's
   if (isActieveZoekopdracht() && huidigEmoji !== "😡") return; // Alleen openen bij verdachte link
   popupOpen = !popupOpen;
@@ -632,6 +650,7 @@ knop.addEventListener("click", (e) => {
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
                   huidigToetsbaar = beoordeling.toetsbaar !== false;
+                  if (beoordeling.bron_verdeling) huidigBronVerdeling = beoordeling.bron_verdeling;
                   // POPUP-emoji = categorie uit de bron-verdeling (call B). Raakt de knop NIET.
                   const categorieEmoji = {
                     wetenschap: "🎓", nieuws: "📰", lifestyle: "🌿", satire: "😄"
@@ -1187,6 +1206,9 @@ function isUitgesloten() {
   if (!domein || url === "about:blank" || url.startsWith("chrome://") ||
       url.startsWith("edge://") || url.startsWith("moz-extension://")) return true;
 
+  // Blog-overzichtspagina's — geen enkel artikel, alleen een lijst
+  if (/^\/(blog|blogs|blogpost|nieuws-overzicht|archief)(\/?)$/i.test(pad)) return true;
+
   // Portalen met mijn. prefix — altijd uitsluiten
   if (domein.startsWith("mijn.") || domein.startsWith("my.") || domein.startsWith("portal.")) return true;
 
@@ -1319,8 +1341,45 @@ function vindVerdachteZoekLink() {
   return null;
 }
 
+function startPdfModus() {
+  pdfModusActief = true;
+  knop.style.display = "block";
+  knopEmoji = "📄";
+  huidigEmoji = "📄";
+  huidigBronnen = [];
+  huidigClaim = "";
+  huidigScore = null;
+  huidigOordeel = "PDF-document";
+  updateMiniBarometer(null, false, "📄");
+}
+
+// Eigen popup-inhoud voor PDF: geen scan, geen bronnen — alleen een nette melding
+function toonPdfPopup() {
+  popup.style.background = hexNaarRgba(achtergrondKleur, transparantie);
+  popup.style.border = `1px solid rgba(255,255,255,0.1)`;
+  popup.style.color = tekstKleur;
+  popup.style.fontFamily = lettertype;
+  popup.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <span style="font-size:32px;line-height:1;">📄</span>
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;font-family:${lettertype};">Feitencheck</div>
+        <div style="font-size:15px;font-weight:bold;color:#7ab3ef;font-family:${lettertype};">PDF-document</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:${tekstKleur};line-height:1.5;margin-bottom:14px;font-family:${lettertype};">
+      Dit is een PDF-bestand. FactRadar leest geen tekst uit PDF's — open het document zelf om de inhoud te bekijken. PDF's van instituten en planbureaus zijn vaak waardevolle achtergrondbronnen.
+    </div>
+    <button id="tc-sluit" style="width:100%;margin-top:4px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">Sluiten</button>`;
+  const sluit = document.getElementById("tc-sluit");
+  if (sluit) sluit.onclick = () => { popup.style.display = "none"; popupOpen = false; };
+}
+
 function startCheck() {
   if (location.hostname.includes("mail.google.com")) { initialiseerGmail(); return; }
+
+  // ── PDF-document — geen leesbare paginatekst, scannen heeft geen zin ──
+  if (/\.pdf(\?.*)?$/i.test(location.href)) { startPdfModus(); return; }
 
   // ── Sociale media — neutrale modus met timer ─────────────────
   if (isSocialMedia()) { startSocialeMediaModus(); return; }
