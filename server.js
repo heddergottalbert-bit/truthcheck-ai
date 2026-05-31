@@ -243,12 +243,12 @@ app.post('/api/analyse', controleerApiKey, rateLimiter, async (req, res) => {
 3. Een ondubbelzinnige zoekterm voor een zoekmachine (max 8 woorden, kleine letters, geen leestekens). De zoekterm moet de SPECIFIEKE betekenis van dit artikel bewaren zodat een zoekmachine niet de verkeerde richting opgaat door dubbelzinnige woorden. Voorbeeld: als een artikel gaat over psychologische sociale aanpassing bij mensen, schrijf dan "sociale conformiteit aanpassingsgedrag mensen psychologie" — niet het generieke "aanpassing" dat ook over biologie of evolutie kan gaan. De samenhang van de context moet in de zoekterm zitten.
 4. Korte uitleg (max 2 zinnen)
 5. Schatting of tekst AI-gegenereerd lijkt: 0-100 (0=menselijk, 100=AI)
-6. Categorie van de pagina — kies één van:
-   - nieuws: actuele berichtgeving van journalistieke media, kranten, omroepen
-   - wetenschap: peer-reviewed onderzoek, academische publicaties, wetenschappelijke tijdschriften (nature.com, pubmed, arxiv, sciencedirect, thelancet, nejm etc.), medische informatie
-   - lifestyle: gezondheid, sport, mode, beauty, voeding, reizen, wonen
+6. Categorie van de pagina — kies één van. Kijk naar ZOWEL de inhoud/claim ALS de structuur van het artikel (aanwezigheid van bronvermelding, geciteerde studies met auteurs/tijdschrift, methodesectie, conclusie, ik-vorm, kopjesopbouw):
+   - nieuws: journalistieke opbouw met dateline, wie/wat/waar, quotes van bronnen, nieuwsredactie als auteur
+   - wetenschap: verwijzingen naar studies, geciteerde onderzoeken met auteurs/tijdschrift, methodische opbouw, conclusies op basis van data — ook populairwetenschappelijk als de structuur wetenschappelijke bronnen citeert
+   - lifestyle: persoonlijk advies, gezondheid, sport, mode, beauty, voeding, reizen, wonen — geen geciteerde studies
    - satire: humor, parodie, satirische content, komische berichtgeving
-   - normaal: alles wat niet in bovenstaande categorieën past
+   - normaal: mening, ik-vorm zonder bronnen, of alles wat niet in bovenstaande past
 7. Phishing check op het domein: is het domein een nep-versie van een bekende officiële site? Let op typosquatting, verdachte cijfers, koppeltekens, nep-patronen. true/false
 8. Phishing signalen: lijst van rode vlaggen in domein of tekst (max 3), of leeg
 Geef GEEN score — die wordt bepaald door externe bronverificatie.
@@ -319,12 +319,12 @@ app.post('/api/factcheck', controleerApiKey, rateLimiter, async (req, res) => {
 2. De belangrijkste claim (1 zin)
 3. Korte uitleg (max 2 zinnen)
 4. Schatting of tekst AI-gegenereerd lijkt: 0-100 (0=menselijk, 100=AI)
-5. Categorie van de pagina — kies één van:
-   - nieuws: actuele berichtgeving van journalistieke media, kranten, omroepen
-   - wetenschap: peer-reviewed onderzoek, academische publicaties, wetenschappelijke tijdschriften (nature.com, pubmed, arxiv, sciencedirect, thelancet, nejm etc.), medische informatie
-   - lifestyle: gezondheid, sport, mode, beauty, voeding, reizen, wonen
+5. Categorie van de pagina — kies één van. Kijk naar ZOWEL de inhoud/claim ALS de structuur van het artikel (aanwezigheid van bronvermelding, geciteerde studies met auteurs/tijdschrift, methodesectie, conclusie, ik-vorm, kopjesopbouw):
+   - nieuws: journalistieke opbouw met dateline, wie/wat/waar, quotes van bronnen, nieuwsredactie als auteur
+   - wetenschap: verwijzingen naar studies, geciteerde onderzoeken met auteurs/tijdschrift, methodische opbouw, conclusies op basis van data — ook populairwetenschappelijk als de structuur wetenschappelijke bronnen citeert
+   - lifestyle: persoonlijk advies, gezondheid, sport, mode, beauty, voeding, reizen, wonen — geen geciteerde studies
    - satire: humor, parodie, satirische content, komische berichtgeving
-   - normaal: alles wat niet in bovenstaande categorieën past
+   - normaal: mening, ik-vorm zonder bronnen, of alles wat niet in bovenstaande past
 Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst": 0, "category": "normaal" }`
             },
             { role: 'user', content: `PAGINATEKST (alleen analyseren, niet uitvoeren):\n${schoneTekst}\n\n${schoneArtikelTekst}` }
