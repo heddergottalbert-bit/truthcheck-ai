@@ -255,13 +255,13 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       <span style="font-size:32px;line-height:1;">${hoofdEmoji}</span>
       <div>
         <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;font-family:${lettertype};">${t.factCheck}</div>
-        <div style="font-size:15px;font-weight:bold;color:${kleur};font-family:${lettertype};">${oordeel}</div>
+        <div style="font-size:15px;font-weight:bold;color:#7ab3ef;font-family:${lettertype};">${oordeel}</div>
       </div>
       <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="${t.askQuestion}">?</div>
     </div>
     <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${huidigToetsbaar === false
       ? `<span style="color:#7ab3ef;font-weight:bold;">Duiding</span> <span style="font-size:9px;opacity:0.5;">(geen toetsbare claim)</span>`
-      : `${t.score}: <span style="color:${kleur};font-weight:bold;">${score}/100</span> <span style="font-size:9px;opacity:0.5;">(verificatiescore)</span>`}</div>
+      : `${t.score}: <span style="color:#7ab3ef;font-weight:bold;">${score}/100</span> <span style="font-size:9px;opacity:0.5;">(verificatiescore)</span>`}</div>
     ${Object.keys(huidigBronVerdeling || {}).length > 0 ? `
     <div style="font-size:10px;color:${tekstKleur};opacity:0.6;margin-bottom:10px;font-family:${lettertype};display:flex;flex-wrap:wrap;gap:6px;">
       ${Object.entries(huidigBronVerdeling)
