@@ -359,6 +359,17 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst
 
     const tavilyData = await tavilyRes.json();
 
+    // Eigen domein eruit — een artikel kan zichzelf niet onafhankelijk bevestigen
+    if (domein && tavilyData.results) {
+      const schoonPaginaDomein = domein.replace(/^www\./, '').toLowerCase();
+      tavilyData.results = tavilyData.results.filter(r => {
+        try {
+          const bronDomein = new URL(r.url).hostname.replace(/^www\./, '').toLowerCase();
+          return !bronDomein.endsWith(schoonPaginaDomein) && !schoonPaginaDomein.endsWith(bronDomein);
+        } catch(e) { return true; }
+      });
+    }
+
     const verificatieScore = berekenVerificatieScore(tavilyData.results, tavilyData.answer);
     const signalen = berekenSignalen(domein, tavilyData.results, [], false);
     const bonusTekst = verificatieScore > 50 ? ` (Verificatiescore +${verificatieScore - 50} — onafhankelijke bronnen bevestigen de claim.)`
