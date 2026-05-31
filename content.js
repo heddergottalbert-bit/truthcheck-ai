@@ -770,69 +770,49 @@ function detecteerTaal(tekst) {
 }
 
 function vindArtikelTekst() {
-  // ── Token-stripping: reclame en ruis actief verwijderen ──────
-  const ruis = document.querySelectorAll(
-    "nav, header, footer, aside, .nav, .header, .footer, .sidebar, " +
-    ".advertisement, .ad, .ads, .reclame, .cookie-banner, .cookie-notice, " +
-    "[class*='sponsor'], [class*='promo'], [class*='banner'], [class*='advert'], " +
-    "[id*='sponsor'], [id*='promo'], [id*='banner'], [id*='advert'], " +
-    "script, style, noscript, iframe"
-  );
-  ruis.forEach(el => el.setAttribute("data-tc-skip", "true"));
+  // ── Ruis wegsnijden — alles wat niet de artikelinhoud is ─────
+  const ruisSelector = [
+    "nav", "header", "footer", "aside",
+    ".nav", ".header", ".footer", ".sidebar", ".side-bar",
+    ".advertisement", ".ad", ".ads", ".reclame",
+    ".cookie-banner", ".cookie-notice", ".cookie-bar",
+    ".newsletter", ".nieuwsbrief", ".subscribe",
+    ".related", ".gerelateerd", ".read-also", ".lees-ook",
+    ".social-share", ".share-buttons", ".share",
+    ".comments", ".reacties", ".reactions",
+    ".copyright", ".disclaimer", ".auteursrecht",
+    "[class*='sponsor']", "[class*='promo']", "[class*='banner']",
+    "[class*='advert']", "[class*='related']", "[class*='recommended']",
+    "[id*='sponsor']", "[id*='promo']", "[id*='banner']",
+    "[id*='advert']", "[id*='related']", "[id*='newsletter']",
+    "script", "style", "noscript", "iframe"
+  ].join(", ");
 
-  const uitsluitWoorden = ["cookies", "privacy", "huisregel", "copyright", "all rights reserved", "terms of service", "newsletter", "subscribe", "advertentie", "gesponsord", "sponsored"];
+  // Markeer alle ruis-elementen
+  document.querySelectorAll(ruisSelector).forEach(el => el.setAttribute("data-tc-skip", "true"));
 
-  function isSchoneTekst(tekst) {
-    const lower = tekst.toLowerCase();
-    // Sla elementen over die gemarkeerd zijn als ruis
-    return tekst.length > 30 && !uitsluitWoorden.some(w => lower.includes(w));
-  }
-
-  function filterRuis(els) {
-    return Array.from(els).filter(el => !el.closest("[data-tc-skip='true']"));
-  }
-
-  // Stap 1: specifieke artikel selectors
-  const artikelSelectors = [
-    "article p", ".article-body p", ".article__body p",
-    ".content p", ".post-content p", ".article-content p",
-    "main article p", ".nieuws-artikel p", ".article-text p"
+  // Uitsluitwoorden als extra vangnet voor resterende ruis
+  const uitsluitWoorden = [
+    "cookies", "privacy", "huisregel", "copyright", "all rights reserved",
+    "terms of service", "newsletter", "subscribe", "advertentie",
+    "gesponsord", "sponsored", "ongeoorloofd gebruik", "auteursrecht"
   ];
-  for (const sel of artikelSelectors) {
-    const els = filterRuis(document.querySelectorAll(sel));
-    if (els.length > 0) {
-      const tekst = els.slice(0, 30).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 5000);
-      if (tekst.length > 100) return tekst;
-    }
-  }
 
-  // Stap 2: bredere selectors
-  const bredeSelectors = [
-    "main p", "section p", ".description p", ".details p",
-    ".body p", ".text p", ".entry p", ".post p"
-  ];
-  for (const sel of bredeSelectors) {
-    const els = filterRuis(document.querySelectorAll(sel));
-    if (els.length > 0) {
-      const tekst = els.slice(0, 30).map(p => p.innerText).filter(isSchoneTekst).join(" ").substring(0, 5000);
-      if (tekst.length > 100) return tekst;
-    }
-  }
+  // Neem alle resterende tekst-elementen — geen aannames over welke container het artikel is
+  const tekst = Array.from(document.querySelectorAll("p, li, h2, h3, h4, blockquote"))
+    .filter(el => {
+      if (el.closest("[data-tc-skip='true']")) return false;
+      const t = el.innerText?.trim() || "";
+      if (t.length < 30) return false;
+      const lower = t.toLowerCase();
+      return !uitsluitWoorden.some(w => lower.includes(w));
+    })
+    .map(el => el.innerText.trim())
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .substring(0, 5000);
 
-  // Stap 3: alle p tags — ook gefilterd
-  const alleTekst = filterRuis(document.querySelectorAll("p"))
-    .filter(p => isSchoneTekst(p.innerText))
-    .slice(0, 30).map(p => p.innerText).join(" ").substring(0, 5000);
-  if (alleTekst.length > 100) return alleTekst;
-
-  // Stap 4: li elementen — ook gefilterd
-  const liTekst = filterRuis(document.querySelectorAll("li"))
-    .filter(li => isSchoneTekst(li.innerText))
-    .slice(0, 30).map(li => li.innerText).join(" ").substring(0, 5000);
-  if (liTekst.length > 100) return liTekst;
-
-  // Stap 5: body.innerText als laatste redmiddel
-  return (document.body.innerText || "").replace(/\s+/g, " ").substring(0, 5000);
+  return tekst;
 }
 
 function vindZoekContext() {
@@ -1409,9 +1389,10 @@ function startCheck() {
     return;
   }
   knop.style.display = "block"; // Zorg dat knop zichtbaar is op andere pagina's
-  const text = document.querySelector("h1")?.innerText
-    || document.querySelector("h2")?.innerText
-    || document.title;
+  const text = document.querySelector('meta[property="og:title"]')?.content?.trim()
+    || document.title?.trim()
+    || document.querySelector("h1")?.innerText?.trim()
+    || document.querySelector("h2")?.innerText?.trim();
   if (!text || text.length < 3) return;
 
   // ── Dagelijks limiet ──────────────────────────────────────────
