@@ -1144,7 +1144,7 @@ app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
     // Bouw een beknopte samenvatting van de bronnen
     const bronSamenvatting = gefilterdeBronnen
       .slice(0, 5)
-      .map((b, i) => `Bron ${i + 1} (${b.url || ''}): ${(b.content || b.snippet || '').slice(0, 800)}`)
+      .map((b, i) => `Bron ${i + 1} (${b.url || ''}): ${(b.content || b.snippet || '').slice(0, 1500)}`)
       .join('\n\n');
 
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1173,7 +1173,7 @@ Bepaal eerst of de claim TOETSBAAR is:
 - niet-toetsbaar (false): de claim is een beschrijving, trend, duiding of mening zonder verifieerbaar feit (bijv. "inzicht in de kenmerken van Generatie Z", "waarom mensen zich anders gaan gedragen"). Hier valt niets te bevestigen of te weerleggen.
 - Bij twijfel: kies true. Gebruik false alleen als er echt geen feitelijke bewering in zit.
 
-Deel daarna de bronnen in naar hun ACHTERGROND. Kijk per bron naar de aard van het domein en de inhoud — niet naar het onderwerp. Tel hoeveel bronnen er per achtergrond zijn. Gebruik alleen deze sleutels waar van toepassing: wetenschap, nieuws, lifestyle, overheid, factcheck, overig. Bijvoorbeeld { "wetenschap": 3, "lifestyle": 2 }. Dit is de bron_verdeling.
+Deel daarna de bronnen in naar hun ACHTERGROND. Kijk per bron naar de structuur én de aard van het domein — niet naar het onderwerp. Structuursignalen: bevat de bron geciteerde studies met auteurs/tijdschrift → wetenschap; journalistieke opbouw met dateline/quotes/nieuwsredactie → nieuws; persoonlijk advies zonder geciteerde studies → lifestyle; overheidssite of officieel instituut → overheid; factcheck-organisatie → factcheck; al het andere → overig. Tel hoeveel bronnen er per achtergrond zijn. Gebruik alleen deze sleutels waar van toepassing: wetenschap, nieuws, lifestyle, overheid, factcheck, overig. Bijvoorbeeld { "wetenschap": 3, "lifestyle": 2 }. Dit is de bron_verdeling.
 Bepaal de categorie als de grootste groep uit de verdeling — bij gelijkspel de inhoudelijk dominante. Kies uit: wetenschap, nieuws, lifestyle, satire, normaal.
 
 Geef terug:
