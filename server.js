@@ -297,9 +297,23 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst
       catch { analysis = { theme: 'Onbekend', claim: schoneTekst.slice(0, 100), explanation: content, aiTekst: 0, category: 'normaal' }; }
     }
 
-    const tavilyQuery = schoneClaim
-      ? (sanitizeInput(req.body.zoekterm || '') || schoneClaim)
-      : schoneTekst.slice(0, 200);
+    // Geen claim = geen Tavily — uitval naar duiding
+    if (!schoneClaim) {
+      return res.json({
+        score: 50,
+        theme: analysis.theme || '',
+        claim: '',
+        explanation: analysis.explanation || '',
+        sources: [],
+        answer: null,
+        aiTekst: analysis.aiTekst || 0,
+        category: analysis.category || 'normaal',
+        toetsbaar: false
+      });
+    }
+
+    // Claim leidend voor Tavily — de hele bewering, niet de opgeknipte zoekterm
+    const tavilyQuery = schoneClaim;
 
     console.log('🔍 Tavily query:', tavilyQuery);
     const tavilyRes = await fetch('https://api.tavily.com/search', {
