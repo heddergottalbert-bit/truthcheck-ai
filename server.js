@@ -969,7 +969,11 @@ Tel hoeveel bronnen er per achtergrond zijn. Gebruik alleen sleutels waar van to
 
 Geef terug:
 - toetsbaar: true of false
-- score: 0-100 (50 = neutraal). Alleen relevant als toetsbaar=true; bij false vul 50 in.
+- score: 0-100. Alleen relevant als toetsbaar=true; bij false vul 50 in.
+  * 70-90: bronnen doen dezelfde bewering en bevestigen die
+  * 50: bronnen bevestigen noch weerleggen — geen uitspraak mogelijk
+  * 30-49: bronnen gaan over hetzelfde onderwerp maar doen een ANDERE bewering, of de specifieke bewering ontbreekt volledig in de bronnen
+  * 10-29: bronnen spreken de bewering expliciet tegen
 - bron_verdeling: telling per achtergrond
 - categorie: de grootste groep uit bron_verdeling (wetenschap/nieuws/lifestyle/satire/normaal)
 - uitleg: max 2 zinnen — noem de verdeling concreet zodat de gebruiker zelf kan wegen
