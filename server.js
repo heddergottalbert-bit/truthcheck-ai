@@ -299,6 +299,7 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst
     const tavilyQuery = schoneClaim
       ? (sanitizeInput(req.body.zoekterm || '') || schoneClaim)
       : schoneTekst.slice(0, 200);
+  console.log('🔍 Tavily query:', tavilyQuery);
 
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
