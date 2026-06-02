@@ -119,7 +119,8 @@ function berekenVerificatieScore(tavilyResultaten, tavilyAnswer) {
     try {
       const richting = bepaalBronRichting(resultaat, tavilyAnswer);
       if (richting === 'weerlegt') bonus -= 10;
-      else bonus += 10;
+      else if (richting === 'bevestigt') bonus += 10;
+      // neutraal = 0, geen effect op score
     } catch(e) { continue; }
   }
   return Math.min(Math.max(beginScore + bonus, 10), 90);
@@ -974,6 +975,7 @@ Geef terug:
 - oordeel: één zin die de claim samenvat in relatie tot de bronnen
 
 De app geeft alleen aan waar het artikel op rust — zij oordeelt niet. Nooit "dit is nep".
+Als de bronnen een wezenlijk ander beeld schetsen dan de claim suggereert, benoem dat contrast expliciet in de uitleg. Formuleer het als constatering: "De claim stelt X, de gevonden bronnen beschrijven Y." Nooit als oordeel.
 ${recentInstructie}
 ${taalInstructie}
 Antwoord in JSON: { "toetsbaar": true, "score": 50, "bron_verdeling": {}, "categorie": "normaal", "uitleg": "", "oordeel": "" }`
