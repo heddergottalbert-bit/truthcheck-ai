@@ -975,6 +975,12 @@ Geef terug:
 - uitleg: max 2 zinnen — noem de verdeling concreet zodat de gebruiker zelf kan wegen
 - oordeel: één zin die de claim samenvat in relatie tot de bronnen
 
+Voor elke bron: toets of de bron DEZELFDE BEWERING doet als de claim, of een ANDERE BEWERING over hetzelfde onderwerp.
+- Bron doet dezelfde bewering én bevestigt → bevestigt
+- Bron doet dezelfde bewering én spreekt tegen → weerlegt
+- Bron gaat over hetzelfde onderwerp maar doet een ANDERE bewering → neutraal. Dit is GEEN bevestiging.
+Voorbeeld: claim = "X is een commerciële speler". Bron zegt "X krijgt een eredoctoraat voor zijn klimaatwerk" → gaat over X maar doet niet de bewering dat X een commerciële speler is → neutraal.
+
 De app geeft alleen aan waar het artikel op rust — zij oordeelt niet. Nooit "dit is nep".
 Als de bronnen een wezenlijk ander beeld schetsen dan de claim suggereert, benoem dat contrast expliciet in de uitleg. Formuleer het als constatering: "De claim stelt X, de gevonden bronnen beschrijven Y." Nooit als oordeel.
 ${recentInstructie}
