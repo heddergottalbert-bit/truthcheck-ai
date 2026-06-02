@@ -646,7 +646,7 @@ knop.addEventListener("click", (e) => {
             // Stap 3 — OpenAI beoordeelt bronnen tegen claim
             if (huidigClaim && rawBronnen.length > 0) {
               chrome.runtime.sendMessage(
-                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: huidigTaal || "nl", publicatieDatum: huidigPublicatieDatum || "" },
+                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, artikelTekst: huidigArtikeltekst || "", taal: huidigTaal || "nl", publicatieDatum: huidigPublicatieDatum || "" },
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
                   huidigToetsbaar = beoordeling.toetsbaar !== false;
