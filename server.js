@@ -978,7 +978,7 @@ Analyseer:
 
 Nooit "dit is nep" — wel "claims niet onderbouwd" of "eenzijdige framing gedetecteerd".
 ${taalInstructie}
-Antwoord in JSON: { "score": 0, "oordeel": "", "uitleg": "", "signalen": [] }`
+Antwoord in JSON: { "score": 0, "verdict": "", "explanation": "", "signals": [] }`
           },
           {
             role: 'user',
@@ -1054,7 +1054,7 @@ app.post('/api/vision', controleerApiKey, rateLimiter, async (req, res) => {
                 type: 'text',
                 text: `Analyseer deze afbeelding en geef een schatting of het AI-gegenereerd is.
 Let op: perfecte huid, onnatuurlijke achtergronden, vreemde vingers of handen, te symmetrische gezichten, overdreven details, surreële elementen zijn signalen van AI.
-Antwoord alleen in JSON: { "aiAfbeelding": 0, "uitleg": "" }
+Antwoord alleen in JSON: { "aiAfbeelding": 0, "explanation": "" }
 aiAfbeelding is 0-100 (0 = zeker echt, 100 = zeker AI-gegenereerd).`
               }
             ]
@@ -1076,7 +1076,7 @@ aiAfbeelding is 0-100 (0 = zeker echt, 100 = zeker AI-gegenereerd).`
 
     res.json({
       aiAfbeelding: result.aiAfbeelding || 0,
-      uitleg: result.uitleg || ''
+      explanation: result.explanation || ''
     });
 
   } catch (err) {
@@ -1202,7 +1202,7 @@ Geef terug:
 De app geeft alleen aan waar het artikel op rust — zij oordeelt niet. Nooit "dit is nep" — wel "bronnen bevestigen dit niet" of "bronnen weerleggen deze claim".
 ${recentInstructie}
 ${taalInstructie}
-Antwoord in JSON: { "toetsbaar": true, "score": 50, "bron_verdeling": {}, "categorie": "normaal", "uitleg": "", "oordeel": "" }`
+Antwoord in JSON: { "toetsbaar": true, "score": 50, "bron_verdeling": {}, "category": "normaal", "explanation": "", "verdict": "" }`
           },
           {
             role: 'user',
@@ -1236,9 +1236,9 @@ Antwoord in JSON: { "toetsbaar": true, "score": 50, "bron_verdeling": {}, "categ
       toetsbaar: isToetsbaar,
       score: result.score,
       bron_verdeling: result.bron_verdeling || {},
-      categorie: result.categorie || 'normaal',
-      uitleg: result.uitleg || '',
-      oordeel: result.oordeel || ''
+      category: result.category || 'normaal',
+      explanation: result.explanation || '',
+      verdict: result.verdict || ''
     });
 
   } catch (err) {

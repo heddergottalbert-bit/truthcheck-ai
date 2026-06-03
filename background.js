@@ -530,8 +530,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       } else {
         sendResponse({
           score: data.score,
-          oordeel: data.oordeel,
-          uitleg: data.uitleg,
+          oordeel: data.verdict || "",
+          uitleg: data.explanation || "",
           signalen: data.signalen || []
         });
       }
@@ -558,7 +558,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const bronnen = (data.sources || []).map(r => r.url);
       const rawBronnen = data.sources || []; // Volledige bronnen met content voor beoordeling
       const score = data.score || 50;
-      const emoji = bepaalEmoji(score, data.category || "normaal");
+      const emoji = bepaalEmoji(score, "normaal");
       sendResponse({
         bronnen: bronnen,
         rawBronnen: rawBronnen,
@@ -591,10 +591,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .then(data => sendResponse({
       toetsbaar: data.toetsbaar !== false,
       score: data.toetsbaar === false ? null : (data.score || 50),
-      categorie: data.categorie || "normaal",
+      category: data.category || "normaal",
       bron_verdeling: data.bron_verdeling || {},
-      uitleg: data.uitleg || "",
-      oordeel: data.oordeel || ""
+      explanation: data.explanation || "",
+      verdict: data.verdict || ""
     }))
     .catch(() => sendResponse({ toetsbaar: true, score: 50, categorie: "normaal", bron_verdeling: {}, uitleg: "", oordeel: "" }));
     return true;

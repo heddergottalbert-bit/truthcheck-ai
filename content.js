@@ -653,20 +653,20 @@ knop.addEventListener("click", (e) => {
                   if (beoordeling.bron_verdeling) huidigBronVerdeling = beoordeling.bron_verdeling;
                   // POPUP-emoji = categorie uit de bron-verdeling (call B). Raakt de knop NIET.
                   const categorieEmoji = {
-                    wetenschap: "🎓", nieuws: "📰", lifestyle: "🌿", satire: "😄", normaal: "😐"
-                  }[beoordeling.categorie] || null;
+                    wetenschap: "🎓", nieuws: "📰", lifestyle: "🌿", satire: "😄"
+                  }[beoordeling.category] || null;
                   if (huidigToetsbaar) {
                     if (beoordeling.score) huidigScore = beoordeling.score;
-                    if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
-                    if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
+                    if (beoordeling.explanation) huidigUitleg = beoordeling.explanation;
+                    if (beoordeling.verdict) huidigOordeel = beoordeling.verdict;
                     // Popup toont de bron-categorie; anders score-emoji
                     huidigEmoji = categorieEmoji
                       || (huidigScore >= 70 ? "😊" : huidigScore >= 40 ? "😐" : "😦");
                   } else {
                     // Duiding — geen score. Popup toont de bron-categorie als die er is.
                     huidigScore = null;
-                    if (beoordeling.uitleg) huidigUitleg = beoordeling.uitleg;
-                    if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
+                    if (beoordeling.explanation) huidigUitleg = beoordeling.explanation;
+                    if (beoordeling.verdict) huidigOordeel = beoordeling.verdict;
                     if (categorieEmoji) huidigEmoji = categorieEmoji;
                   }
                   // Knop blijft op knopEmoji (eerste indruk) — niet bijwerken.
