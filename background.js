@@ -481,6 +481,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         bronType: "verificatie",
         aiTekst: aiScore,
         claim: data.claim || "",
+        zoekterm: data.zoekterm || data.claim || "",
         bronBekend: false,
         onderwerpVerifieerbaar: false,
         verificatieBronnen: [],
@@ -615,3 +616,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
