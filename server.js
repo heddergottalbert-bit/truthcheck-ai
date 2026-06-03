@@ -974,12 +974,21 @@ Deel de bronnen in naar hun ACHTERGROND:
    - factcheck: factcheck-organisatie (snopes, nieuwscheckers etc.)
    - overig: al het andere
 
+Geef een score op deze schaal:
+1. Beginwaarde: 50
+2. Bronnen bevestigen de bewering expliciet: score richting 70-90
+3. Bronnen doen geen uitspraak pro of con over de bewering: score blijft 50
+4. Bronnen gaan over het onderwerp maar de SPECIFIEKE bewering ontbreekt volledig: score richting 30-49
+5. Bronnen weerleggen de bewering expliciet: score richting 10-29
+Grenzen: min 10, max 90.
+LET OP: score en uitleg moeten consistent zijn. Als uitleg zegt dat bronnen de claim niet bevestigen, moet score onder 50 zijn.
+
 De app geeft alleen aan waar het artikel op rust — zij oordeelt niet. Nooit "dit is nep".
 Als de bronnen een wezenlijk ander beeld schetsen dan de claim suggereert, benoem dat contrast expliciet in de uitleg. Formuleer het als constatering: "De claim stelt X, de gevonden bronnen beschrijven Y." Nooit als oordeel.
 Geef ook een oordeel: één zin die de claim samenvat in relatie tot de bronnen — dit is de zin die de gebruiker als eerste ziet in de popup.
 ${recentInstructie}
 ${taalInstructie}
-Antwoord in JSON: { "toetsbaar": true, "bron_verdeling": {}, "categorie": "normaal", "uitleg": "", "oordeel": "" }`
+Antwoord in JSON: { "toetsbaar": true, "score": 50, "bron_verdeling": {}, "categorie": "normaal", "uitleg": "", "oordeel": "" }`
           },
           {
             role: 'user',
@@ -998,49 +1007,10 @@ Antwoord in JSON: { "toetsbaar": true, "bron_verdeling": {}, "categorie": "norma
     catch { result = { toetsbaar: true, bron_verdeling: {}, uitleg: content, oordeel: '' }; }
 
     const isToetsbaar = result.toetsbaar !== false;
-
-    // Score deterministisch berekenen — server bepaalt richting per bron op basis van brontekst vs claim
-    // Schaal: beginpunt 50, bevestigt +8, neutraal 0, niet_bevestigd -4, weerlegt -8
-    // Grenzen: min 10, max 90
-    let berekendeScore = 50;
-    if (isToetsbaar && gefilterdeBronnen.length > 0) {
-      // Extraheer kernwoorden uit de claim (woorden > 4 tekens, geen stopwoorden)
-      const stopwoorden = new Set(['heeft', 'wordt', 'waren', 'deze', 'wordt', 'zijn', 'door', 'voor', 'maar', 'over', 'naar', 'than', 'that', 'with', 'from', 'this', 'have', 'been', 'they', 'their']);
-      const claimWoorden = schoneClaim.toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter(w => w.length > 4 && !stopwoorden.has(w));
-
-      for (const bron of gefilterdeBronnen.slice(0, 5)) {
-        const bronTekst = (bron.content || bron.snippet || '').toLowerCase();
-        const bronUrl = (bron.url || '').toLowerCase();
-
-        // Weerlegging: expliciete tegenstellingswoorden + claim-context
-        const weerleggingsTermen = ['false', 'incorrect', 'onjuist', 'niet waar', 'weerlegd', 'ontkracht', 'misleidend', 'geen bewijs', 'not true', 'debunked', 'klopt niet', 'onwaar'];
-        const heeftWeerlegging = weerleggingsTermen.some(w => bronTekst.includes(w));
-
-        // Tel hoeveel kernwoorden van de claim in de brontekst voorkomen
-        const matchCount = claimWoorden.filter(w => bronTekst.includes(w)).length;
-        const matchRatio = claimWoorden.length > 0 ? matchCount / claimWoorden.length : 0;
-
-        if (heeftWeerlegging) {
-          berekendeScore -= 8; // weerlegt
-        } else if (matchRatio >= 0.5) {
-          berekendeScore += 8; // bevestigt — meer dan helft van claimwoorden aanwezig
-        } else if (matchRatio >= 0.2) {
-          berekendeScore += 0; // neutraal — bron gaat over onderwerp maar claim niet specifiek aanwezig
-        } else {
-          berekendeScore -= 4; // niet_bevestigd — specifieke bewering ontbreekt volledig
-        }
-      }
-      berekendeScore = Math.min(Math.max(berekendeScore, 10), 90);
-    }
-
-    const isToetsbaarFinal = isToetsbaar;
-    if (!isToetsbaarFinal) {
-      result.score = null;
+    if (isToetsbaar) {
+      result.score = Math.min(Math.max(result.score, 10), 90);
     } else {
-      result.score = berekendeScore;
+      result.score = null;
     }
 
     res.json({
