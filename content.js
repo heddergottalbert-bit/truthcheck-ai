@@ -785,8 +785,7 @@ function vindArtikelTekst() {
     "[class*='advert']", "[class*='related']", "[class*='recommended']",
     "[id*='sponsor']", "[id*='promo']", "[id*='banner']",
     "[id*='advert']", "[id*='related']", "[id*='newsletter']",
-    "script", "style", "noscript", "iframe",
-    "[id='header']", "[role='heading']"
+    "script", "style", "noscript", "iframe"
   ].join(", ");
 
   // Markeer alle ruis-elementen
