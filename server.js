@@ -961,49 +961,46 @@ app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
 
 Beoordeel of de aangeleverde bronnen de claim bevestigen of weerleggen.
 
-Bronkwaliteit — weeg bronnen als volgt:
-- Zwaar: wetenschappelijke tijdschriften (nature.com, pubmed, nejm.org, thelancet.com, sciencedirect.com), nieuwsagentschappen (reuters.com, apnews.com, bbc.com), overheid (rivm.nl, rijksoverheid.nl, who.int), factcheckers (snopes.com, nieuwscheckers.nl)
-- Gemiddeld: gevestigde kranten en omroepen (nos.nl, nrc.nl, nytimes.com, theguardian.com), wetenschapsjournalistiek
-- Licht: blogs, vakbladen, algemene websites
-- Negeer: sociale media
-
 Bepaal eerst of de claim TOETSBAAR is:
 - toetsbaar (true): de claim bevat een feit, cijfer, gebeurtenis of verifieerbare bewering
 - niet-toetsbaar (false): de claim is een beschrijving, trend, duiding of mening zonder verifieerbaar feit
 - Bij twijfel: kies true
 
-Deel daarna de bronnen in naar hun ACHTERGROND — gebruik dezelfde structuurladder als voor het hoofdartikel:
-   - wetenschap: bron bevat geciteerde studies met auteursnaam én tijdschrift/organisatie zichtbaar. "Uit onderzoek blijkt" zonder naam = NIET wetenschap.
+Deel de bronnen in naar hun ACHTERGROND:
+   - wetenschap: geciteerde studies met auteursnaam én tijdschrift/organisatie zichtbaar
    - nieuws: journalistieke opbouw met dateline, quotes van benoemde bronnen, nieuwsredactie als auteur
-   - lifestyle: persoonlijk advies, gezondheid, sport, mode, beauty — geen geciteerde studies met auteur+tijdschrift
+   - lifestyle: persoonlijk advies, gezondheid, sport, mode, beauty — geen geciteerde studies
    - overheid: overheidssite of officieel instituut (rivm, cbs, who, rijksoverheid etc.)
    - factcheck: factcheck-organisatie (snopes, nieuwscheckers etc.)
    - overig: al het andere
-Tel hoeveel bronnen er per achtergrond zijn. Gebruik alleen sleutels waar van toepassing. Bijv. { "wetenschap": 3, "lifestyle": 2 }. Dit is de bron_verdeling.
 
-Geef terug:
-- toetsbaar: true of false
-- score: 0-100. Alleen relevant als toetsbaar=true; bij false vul 50 in.
-  * 70-90: bronnen doen dezelfde bewering en bevestigen die
-  * 50: bronnen bevestigen noch weerleggen — geen uitspraak mogelijk
-  * 30-49: bronnen gaan over hetzelfde onderwerp maar doen een ANDERE bewering, of de specifieke bewering ontbreekt volledig in de bronnen
-  * 10-29: bronnen spreken de bewering expliciet tegen
-- bron_verdeling: telling per achtergrond
-- categorie: de grootste groep uit bron_verdeling (wetenschap/nieuws/lifestyle/satire/normaal)
-- uitleg: max 2 zinnen — noem de verdeling concreet zodat de gebruiker zelf kan wegen
-- oordeel: één zin die de claim samenvat in relatie tot de bronnen
+Classificeer ELKE bron op zijn relatie tot de claim. Gebruik precies deze vier opties:
+- bevestigt: de bron doet DEZELFDE bewering als de claim en ondersteunt die aantoonbaar
+- weerlegt: de bron spreekt de bewering EXPLICIET tegen
+- niet_bevestigd: de bron gaat over het onderwerp of de persoon, maar de SPECIFIEKE bewering uit de claim ontbreekt volledig in de bron
+- neutraal: de bron gaat over het onderwerp maar doet bewust geen uitspraak pro of con
 
-Voor elke bron: toets of de bron DEZELFDE BEWERING doet als de claim, of een ANDERE BEWERING over hetzelfde onderwerp.
-- Bron doet dezelfde bewering én bevestigt → bevestigt
-- Bron doet dezelfde bewering én spreekt tegen → weerlegt
-- Bron gaat over hetzelfde onderwerp maar doet een ANDERE bewering → neutraal. Dit is GEEN bevestiging.
-Voorbeeld: claim = "X is een commerciële speler". Bron zegt "X krijgt een eredoctoraat voor zijn klimaatwerk" → gaat over X maar doet niet de bewering dat X een commerciële speler is → neutraal.
+Schaal:
+1. Beginwaarde: 50
+2. bevestigt: +8 per bron
+3. neutraal: 0 per bron
+4. niet_bevestigd: -4 per bron
+5. weerlegt: -8 per bron
+6. Grenzen: min 10, max 90
+
+Voorbeeld:
+Claim = "Hiemstra is een commerciële speler op de klimaatmarkt"
+Bron over Hiemstra's eredoctoraat → niet_bevestigd (gaat over Hiemstra maar commerciële activiteiten ontbreken volledig)
+Bron die Hiemstra's zakelijke deals beschrijft → bevestigt
+Bron die zegt dat Hiemstra geen financieel belang heeft → weerlegt
+Bron die neutraal zijn klimaatwerk beschrijft zonder commercieel aspect → neutraal
 
 De app geeft alleen aan waar het artikel op rust — zij oordeelt niet. Nooit "dit is nep".
 Als de bronnen een wezenlijk ander beeld schetsen dan de claim suggereert, benoem dat contrast expliciet in de uitleg. Formuleer het als constatering: "De claim stelt X, de gevonden bronnen beschrijven Y." Nooit als oordeel.
 ${recentInstructie}
 ${taalInstructie}
-Antwoord in JSON: { "toetsbaar": true, "score": 50, "bron_verdeling": {}, "categorie": "normaal", "uitleg": "", "oordeel": "" }`
+Antwoord in JSON: { "toetsbaar": true, "bron_richtingen": ["niet_bevestigd", "neutraal"], "bron_verdeling": {}, "categorie": "normaal", "uitleg": "", "oordeel": "" }
+bron_richtingen is een array met per bron (in volgorde) één van: bevestigt, weerlegt, niet_bevestigd, neutraal`
           },
           {
             role: 'user',
@@ -1011,7 +1008,7 @@ Antwoord in JSON: { "toetsbaar": true, "score": 50, "bron_verdeling": {}, "categ
           }
         ],
         temperature: 0.3,
-        max_tokens: 300
+        max_tokens: 400
       })
     });
 
@@ -1019,13 +1016,26 @@ Antwoord in JSON: { "toetsbaar": true, "score": 50, "bron_verdeling": {}, "categ
     const content = openaiData.choices[0].message.content;
     let result;
     try { result = JSON.parse(content); }
-    catch { result = { toetsbaar: true, score: 50, uitleg: content, oordeel: '' }; }
+    catch { result = { toetsbaar: true, bron_richtingen: [], uitleg: content, oordeel: '' }; }
 
     const isToetsbaar = result.toetsbaar !== false;
-    if (isToetsbaar) {
-      result.score = Math.min(Math.max(result.score, 10), 90);
-    } else {
+
+    // Score deterministisch berekenen op basis van bron_richtingen — schaal vastgesteld 3 juni 2026
+    let berekendeScore = 50;
+    if (isToetsbaar && result.bron_richtingen && result.bron_richtingen.length > 0) {
+      for (const richting of result.bron_richtingen) {
+        if (richting === 'bevestigt') berekendeScore += 8;
+        else if (richting === 'weerlegt') berekendeScore -= 8;
+        else if (richting === 'niet_bevestigd') berekendeScore -= 4;
+        // neutraal = 0, geen effect
+      }
+      berekendeScore = Math.min(Math.max(berekendeScore, 10), 90);
+    }
+
+    if (!isToetsbaar) {
       result.score = null;
+    } else {
+      result.score = berekendeScore;
     }
 
     res.json({
