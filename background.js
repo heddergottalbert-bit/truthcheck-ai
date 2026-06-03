@@ -558,7 +558,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const bronnen = (data.sources || []).map(r => r.url);
       const rawBronnen = data.sources || []; // Volledige bronnen met content voor beoordeling
       const score = data.score || 50;
-      const emoji = bepaalEmoji(score, "normaal");
+      const emoji = bepaalEmoji(score, data.category || "normaal");
       sendResponse({
         bronnen: bronnen,
         rawBronnen: rawBronnen,

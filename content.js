@@ -653,7 +653,7 @@ knop.addEventListener("click", (e) => {
                   if (beoordeling.bron_verdeling) huidigBronVerdeling = beoordeling.bron_verdeling;
                   // POPUP-emoji = categorie uit de bron-verdeling (call B). Raakt de knop NIET.
                   const categorieEmoji = {
-                    wetenschap: "🎓", nieuws: "📰", lifestyle: "🌿", satire: "😄"
+                    wetenschap: "🎓", nieuws: "📰", lifestyle: "🌿", satire: "😄", normaal: "😐"
                   }[beoordeling.categorie] || null;
                   if (huidigToetsbaar) {
                     if (beoordeling.score) huidigScore = beoordeling.score;
