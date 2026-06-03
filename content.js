@@ -157,7 +157,7 @@ function toonLaadAnimatie() {
 function updateMiniBarometer(score, strafbareContent, emoji) {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   // De knop toont ALTIJD de vaste categorie-emoji (eerste indruk). Verandert nooit mee met de popup.
-  const hoofdEmoji = knopEmoji || emoji || "😐";
+  const hoofdEmoji = knopEmoji || emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
   const strafbareEmoji = strafbareContent
     ? `<span style="font-size:20px;line-height:1;position:absolute;bottom:2px;right:2px;">😈</span>`
     : "";
@@ -247,7 +247,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
        </div>`
     : "";
 
-  const hoofdEmoji = emoji || "😐";
+  const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
   const schoneUitleg = (uitleg || "").replace(" Let op: strafbare content gedetecteerd in de reacties.", "");
 
   popup.innerHTML = `
@@ -646,7 +646,7 @@ knop.addEventListener("click", (e) => {
             // Stap 3 — OpenAI beoordeelt bronnen tegen claim
             if (huidigClaim && rawBronnen.length > 0) {
               chrome.runtime.sendMessage(
-                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, artikelTekst: huidigArtikeltekst || "", taal: huidigTaal || "nl", publicatieDatum: huidigPublicatieDatum || "" },
+                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: huidigTaal || "nl", publicatieDatum: huidigPublicatieDatum || "" },
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
                   huidigToetsbaar = beoordeling.toetsbaar !== false;
@@ -661,7 +661,7 @@ knop.addEventListener("click", (e) => {
                     if (beoordeling.oordeel) huidigOordeel = beoordeling.oordeel;
                     // Popup toont de bron-categorie; anders score-emoji
                     huidigEmoji = categorieEmoji
-                      || "😐";
+                      || (huidigScore >= 70 ? "😊" : huidigScore >= 40 ? "😐" : "😦");
                   } else {
                     // Duiding — geen score. Popup toont de bron-categorie als die er is.
                     huidigScore = null;
@@ -676,7 +676,7 @@ knop.addEventListener("click", (e) => {
             } else {
               if (response.score) {
                 huidigScore = response.score;
-                huidigEmoji = response.emoji || huidigEmoji; // categorie-emoji uit factcheck
+                huidigEmoji = response.emoji || huidigEmoji;
                 huidigUitleg = response.uitleg || huidigUitleg;
               }
               if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
@@ -1036,8 +1036,8 @@ function startGmailCheck() {
     huidigBronnen = response.bronnen || [];
     huidigDeepfake = null;
     huidigStrafbareContent = false;
-    huidigEmoji = response.emoji || "😐";
-    knopEmoji = response.emoji || "😐";
+    huidigEmoji = response.emoji || "😊";
+    knopEmoji = response.emoji || "😊";
     updateMiniBarometer(huidigScore, false, huidigEmoji);
     if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
     if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji, huidigBronType);
