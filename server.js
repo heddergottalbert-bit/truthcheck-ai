@@ -312,10 +312,8 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst
       });
     }
 
-    // Claim leidend voor Tavily — hele bewering + 400 tekens artikelcontext als anker
-    const tavilyQuery = schoneArtikelTekst
-      ? `${schoneClaim} ${schoneArtikelTekst.slice(0, 400)}`
-      : schoneClaim;
+    // Claim leidend voor Tavily — de hele claimzin, niet de opgeknipte zoekterm
+    const tavilyQuery = schoneClaim;
 
     console.log('🔍 Tavily query:', tavilyQuery);
     const tavilyRes = await fetch('https://api.tavily.com/search', {

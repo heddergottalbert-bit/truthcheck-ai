@@ -576,7 +576,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // ── Bronbeoordeling — OpenAI beoordeelt claim tegen bronnen ──
   if (request.action === "beoordeel_bronnen") {
-    const { claim, bronnen, taal, publicatieDatum } = request;
+    const { claim, bronnen, artikelTekst, taal, publicatieDatum } = request;
     if (!claim || !bronnen || bronnen.length === 0) {
       sendResponse({ score: 50, uitleg: "", oordeel: "" });
       return true;
@@ -584,7 +584,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetch(SERVER_URL + "/api/beoordeel", {
       method: "POST",
       headers: SERVER_HEADERS,
-      body: metSleutel({ claim, bronnen, taal: taal || "nl", publicatieDatum: publicatieDatum || "" })
+      body: metSleutel({ claim, bronnen, artikelTekst: artikelTekst || "", taal: taal || "nl", publicatieDatum: publicatieDatum || "" })
     })
     .then(res => res.json())
     .then(data => sendResponse({
