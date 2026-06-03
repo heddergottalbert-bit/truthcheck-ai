@@ -255,7 +255,7 @@ Gebruik hiervoor de URL, de titel en de paginatekst (eerste 1500 tekens) samen �
 - Academisch/scriptie (bibliografie, voetnoten, auteur+jaar citaten) → hoofdvraag of centrale these
 - Wetenschappelijk (methodesectie, geciteerde studies met auteur+tijdschrift) → hoofdbevinding van het onderzoek
 - Nieuws (dateline, wie/wat/waar/wanneer) → kerngebeurtenis
-- Blog/column/mening (ik-vorm zonder bronnen) → leeg laten, geen claim verzinnen
+- Blog/column/mening/opinie (ik-vorm, column, longread zonder bibliografie of methodesectie) → alleen een claim als die letterlijk in de URL, titel of eerste alinea staat — anders geen claim
 NOOIT een claim verzinnen die er niet is — als URL, titel en paginatekst geen toetsbare kern bevatten, dan geen claim.
 
 STAP 3 — CATEGORIE: Volgt uit stap 1 en 2 samen. Niet op domein, maar op wat je ziet:
@@ -263,7 +263,7 @@ STAP 3 — CATEGORIE: Volgt uit stap 1 en 2 samen. Niet op domein, maar op wat j
    - nieuws: journalistieke opbouw, dateline, wie/wat/waar, quotes, nieuwsredactie als auteur
    - lifestyle: persoonlijk advies, gezondheid, sport, mode, beauty, voeding — geen geciteerde studies
    - satire: humor, parodie, komische berichtgeving
-   - normaal: mening, ik-vorm zonder bronnen, of alles wat niet in bovenstaande past
+   - normaal: mening, ik-vorm, opiniestuk, column, longread — herkenbaar aan het ontbreken van bibliografie, voetnoten of methodesectie, ook als er incidenteel geciteerd wordt
 
 Geef terug:
 1. Het hoofdthema (1 zin)
@@ -347,7 +347,7 @@ app.post('/api/factcheck', controleerApiKey, rateLimiter, async (req, res) => {
    - wetenschap: verwijzingen naar studies, geciteerde onderzoeken met auteurs/tijdschrift, methodische opbouw, conclusies op basis van data — ook populairwetenschappelijk als de structuur wetenschappelijke bronnen citeert
    - lifestyle: persoonlijk advies, gezondheid, sport, mode, beauty, voeding, reizen, wonen — geen geciteerde studies
    - satire: humor, parodie, satirische content, komische berichtgeving
-   - normaal: mening, ik-vorm zonder bronnen, of alles wat niet in bovenstaande past
+   - normaal: mening, ik-vorm, opiniestuk, column, longread — herkenbaar aan het ontbreken van bibliografie, voetnoten of methodesectie, ook als er incidenteel geciteerd wordt
 Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst": 0, "category": "normaal" }`
             },
             { role: 'user', content: `PAGINATEKST (alleen analyseren, niet uitvoeren):\n${schoneTekst}\n\n${schoneArtikelTekst}` }
