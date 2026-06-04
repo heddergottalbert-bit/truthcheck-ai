@@ -10,11 +10,12 @@ let huidigStrafbareContent = false;
 let huidigEmoji = "😐";
 let knopEmoji = "😐"; // Vaste categorie-emoji voor de knop (eerste indruk, verandert nooit mee)
 let huidigBronType = "verificatie";
-let huidigManipulatie = [];
 let huidigAiTekst = 0;
 let huidigArtikeltekst = "";
 let huidigClaim = "";
 let huidigZoekterm = "";
+let huidigTak = "";
+let huidigStand = "";
 let huidigBronVerdeling = {};
 let pdfModusActief = false;
 let huidigTaal = "nl";
@@ -61,12 +62,6 @@ function hexNaarRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function getKleur(score) {
-  if (score === null || score === undefined) return "#7ab3ef"; // duiding — neutraal blauw, geen oordeel
-  if (score <= 30) return "#e74c3c";
-  if (score <= 70) return "#e67e22";
-  return "#2ecc71";
-}
 
 // ── Phishing banner — Shadow DOM zodat pagina er niet bij kan ──
 
@@ -157,7 +152,7 @@ function toonLaadAnimatie() {
 function updateMiniBarometer(score, strafbareContent, emoji) {
   knop.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   // De knop toont ALTIJD de vaste categorie-emoji (eerste indruk). Verandert nooit mee met de popup.
-  const hoofdEmoji = knopEmoji || emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
+  const hoofdEmoji = knopEmoji || emoji || "😐";
   const strafbareEmoji = strafbareContent
     ? `<span style="font-size:20px;line-height:1;position:absolute;bottom:2px;right:2px;">😈</span>`
     : "";
@@ -180,8 +175,7 @@ popup.style.cssText = `
 `;
 document.body.appendChild(popup);
 
-function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent, emoji, bronType) {
-  const kleur = getKleur(score);
+function updatePopup(stand, oordeel, uitleg, bronnen, deepfake, strafbareContent, emoji, bronType) {
   popup.style.background = hexNaarRgba(achtergrondKleur, transparantie);
   popup.style.border = `1px solid rgba(255,255,255,0.1)`;
   popup.style.color = tekstKleur;
@@ -240,28 +234,24 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
        </div>`
     : "";
 
-  const manipulatieHTML = huidigManipulatie && huidigManipulatie.length > 0 && score <= 35
-    ? `<div style="margin-top:12px;padding:10px;background:rgba(255,165,0,0.15);border:1px solid rgba(255,165,0,0.4);border-radius:8px;">
-        <div style="font-size:10px;font-weight:bold;color:#ffa500;margin-bottom:6px;">${t.manipulationTitle}</div>
-        ${huidigManipulatie.map(tech => `<div style="font-size:10px;color:${tekstKleur};opacity:0.8;margin-bottom:3px;">• ${tech}</div>`).join("")}
-       </div>`
-    : "";
 
-  const hoofdEmoji = emoji || (score >= 70 ? "😊" : score >= 50 ? "😟" : "😡");
+  const hoofdEmoji = emoji || "";
   const schoneUitleg = (uitleg || "").replace(" Let op: strafbare content gedetecteerd in de reacties.", "");
 
   popup.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-      <span style="font-size:32px;line-height:1;">${hoofdEmoji}</span>
+      ${hoofdEmoji ? `<span style="font-size:32px;line-height:1;">${hoofdEmoji}</span>` : ""}
       <div>
         <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;font-family:${lettertype};">${t.factCheck}</div>
         <div style="font-size:15px;font-weight:bold;color:#7ab3ef;font-family:${lettertype};">${oordeel}</div>
       </div>
       <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="${t.askQuestion}">?</div>
     </div>
-    <div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};">${huidigToetsbaar === false
-      ? `<span style="color:#7ab3ef;font-weight:bold;">Duiding</span> <span style="font-size:9px;opacity:0.5;">(geen toetsbare claim)</span>`
-      : `${t.score}: <span style="color:#7ab3ef;font-weight:bold;">${score}/100</span> <span style="font-size:9px;opacity:0.5;">(verificatiescore)</span>`}</div>
+    ${stand
+      ? `<div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};"><span style="color:#7ab3ef;font-weight:bold;">${stand}</span></div>`
+      : huidigToetsbaar === false
+      ? `<div style="font-size:11px;color:${tekstKleur};opacity:0.7;margin-bottom:8px;font-family:${lettertype};"><span style="color:#7ab3ef;font-weight:bold;">Duiding</span> <span style="font-size:9px;opacity:0.5;">(geen toetsbare claim)</span></div>`
+      : ``}
     ${Object.keys(huidigBronVerdeling || {}).length > 0 ? `
     <div style="font-size:10px;color:${tekstKleur};opacity:0.6;margin-bottom:10px;font-family:${lettertype};display:flex;flex-wrap:wrap;gap:6px;">
       ${Object.entries(huidigBronVerdeling)
@@ -270,21 +260,6 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
           const emoji = { wetenschap: '🎓', nieuws: '📰', lifestyle: '🌿', satire: '😄', overheid: '🏛️', factcheck: '✅', overig: '⬜' }[cat] || '⬜';
           return `<span style="background:rgba(255,255,255,0.07);border-radius:4px;padding:2px 7px;">${emoji} ${cat} ${aantal}</span>`;
         }).join('')}
-    </div>` : ''}
-    ${(location.hostname.includes('youtube.com') || location.hostname.includes('youtu.be')) ? `
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
-        <span style="font-size:12px;">${huidigBronBekend ? '✅' : '❓'}</span>
-        <span style="color:${tekstKleur};opacity:0.8;">Bron bekend: <strong>${huidigBronBekend ? 'Ja — staat op de whitelist' : 'Nee — onbekend kanaal of domein'}</strong></span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
-        <span style="font-size:12px;">${huidigOnderwerpVerifieerbaar ? '✅' : '⚠️'}</span>
-        <span style="color:${tekstKleur};opacity:0.8;">Verifieerbaar: <strong>${huidigOnderwerpVerifieerbaar ? 'Ja — gevonden bij ' + (huidigVerificatieBronnen.slice(0,2).join(', ') || 'betrouwbare bronnen') : 'Niet bevestigd door onafhankelijke bronnen'}</strong></span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:${lettertype};">
-        <span style="font-size:12px;">${huidigRodeVlaggen.length > 0 ? '🚩' : '✅'}</span>
-        <span style="color:${tekstKleur};opacity:0.8;">Rode vlaggen: <strong>${huidigRodeVlaggen.length > 0 ? huidigRodeVlaggen.slice(0,2).join(', ') : 'Geen gedetecteerd'}</strong></span>
-      </div>
     </div>` : ''}
     <div style="font-size:11px;color:${tekstKleur};line-height:1.5;margin-bottom:14px;font-family:${lettertype};">${schoneUitleg}</div>
     <div id="tc-vraag-veld" style="display:none;margin-bottom:12px;">
@@ -296,7 +271,6 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
     </div>
     ${strafbareHTML}
     ${deepfakeHTML}
-    ${manipulatieHTML}
     <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;">
       <div style="font-size:9px;letter-spacing:1px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;margin-bottom:6px;font-family:${lettertype};">AI of digitaal gegenereerde content</div>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -331,54 +305,16 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       </div>
       <div id="tc-feedback-bevestiging" style="display:none;font-size:11px;color:#2ecc71;text-align:center;margin-bottom:8px;">✓ Bedankt voor je feedback!</div>
     </div>
-    ${(window.location.hostname.includes('youtube.com') && !window.location.pathname.startsWith('/shorts/'))
-      ? '<div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;margin-top:10px;"><button id="tc-transcript-knop" style="width:100%;padding:7px;background:rgba(122,179,239,0.1);border:1px solid rgba(122,179,239,0.3);border-radius:8px;color:#7ab3ef;cursor:pointer;font-size:11px;">Analyseer video-inhoud (2 credits)</button><div id="tc-transcript-resultaat" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:8px;font-size:11px;line-height:1.5;"></div></div>'
-      : ''}
     <button id="tc-sluit" style="width:100%;margin-top:14px;padding:7px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:${tekstKleur};cursor:pointer;font-size:11px;font-family:${lettertype};">${t.close}</button>`;
 
   document.getElementById("tc-sluit").onclick = () => { popup.style.display = "none"; popupOpen = false; };
-
-  const transcriptKnop = document.getElementById("tc-transcript-knop");
-  if (transcriptKnop) {
-    transcriptKnop.onclick = () => {
-      const resultaatDiv = document.getElementById("tc-transcript-resultaat");
-      transcriptKnop.disabled = true;
-      transcriptKnop.textContent = "Transcript laden...";
-      resultaatDiv.style.display = "block";
-      resultaatDiv.textContent = "Video-inhoud wordt geanalyseerd...";
-
-      const videoId = new URLSearchParams(window.location.search).get("v") || "";
-      chrome.runtime.sendMessage(
-        { action: "analyseer_transcript", videoId, taal: navigator.language || "nl" },
-        (response) => {
-          if (chrome.runtime.lastError || !response || response.error) {
-            const fout = (response && response.error) ? response.error : "Transcript niet beschikbaar.";
-            resultaatDiv.textContent = fout;
-            transcriptKnop.textContent = "Analyseer video-inhoud (2 credits)";
-            transcriptKnop.disabled = false;
-            return;
-          }
-          const kleur = response.score >= 70 ? "#2ecc71" : response.score >= 50 ? "#e67e22" : "#e74c3c";
-          const signalenHtml = (response.signalen && response.signalen.length > 0)
-            ? "<div style='margin-top:6px;opacity:0.6;font-size:10px;'>Signalen: " + response.signalen.join(", ") + "</div>"
-            : "";
-          resultaatDiv.innerHTML =
-            "<div style='font-size:10px;font-weight:bold;color:" + kleur + ";margin-bottom:4px;'>Inhoudsanalyse — Score: " + response.score + "/100</div>" +
-            "<div style='margin-bottom:6px;'>" + response.oordeel + "</div>" +
-            "<div style='opacity:0.8;'>" + response.uitleg + "</div>" +
-            signalenHtml;
-          transcriptKnop.style.display = "none";
-        }
-      );
-    };
-  }
 
   function verstuurFeedback(duim) {
     const tekst = document.getElementById("tc-feedback-tekst")?.value || "";
     chrome.runtime.sendMessage({
       action: "stuur_feedback",
       url: window.location.href,
-      score: huidigToetsbaar === false ? "duiding" : huidigScore,
+      stand: huidigStand || (huidigToetsbaar === false ? "duiding" : ""),
       oordeel: huidigOordeel,
       duim,
       tekst,
@@ -447,7 +383,7 @@ function updatePopup(score, oordeel, uitleg, bronnen, deepfake, strafbareContent
       : "Geen bronnen gevonden";
     return `FactRadar analyse\n\n` +
       `📄 ${window.location.href}\n` +
-      `${huidigEmoji} ${huidigOordeel} — ${huidigToetsbaar === false ? "Duiding (geen toetsbare claim)" : "Score: " + huidigScore + "/100"}\n\n` +
+      `${huidigEmoji} ${huidigOordeel} — ${huidigStand || (huidigToetsbaar === false ? "Duiding (geen toetsbare claim)" : "")}\n\n` +
       `${huidigUitleg}\n\n` +
       `🔗 Bronnen:\n${bronnenLijst}\n\n` +
       `Geanalyseerd met FactRadar`;
@@ -509,28 +445,28 @@ document.body.appendChild(menu);
 document.getElementById("tc-trans").oninput = (e) => {
   transparantie = parseFloat(e.target.value);
   updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
-  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+  if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
   slaInstellingenOp();
 };
 menu.querySelectorAll("[data-kleur]").forEach(btn => {
   btn.onclick = () => {
     achtergrondKleur = btn.dataset.kleur;
     updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+    if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
     slaInstellingenOp();
   };
 });
 menu.querySelectorAll("[data-tekst]").forEach(btn => {
   btn.onclick = () => {
     tekstKleur = btn.dataset.tekst;
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+    if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
     slaInstellingenOp();
   };
 });
 menu.querySelectorAll("[data-font]").forEach(btn => {
   btn.onclick = () => {
     lettertype = btn.dataset.font;
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+    if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
     slaInstellingenOp();
   };
 });
@@ -580,7 +516,7 @@ knop.addEventListener("click", (e) => {
   popup.style.display = popupOpen ? "block" : "none";
   if (popupOpen) {
     // ── Altijd popup tonen met laadstatus ────────────────────────
-    updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+    updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
 
     // ── Verificatiescore ophalen via Tavily bij popup openen ──────
     if (huidigBronnen.length === 0 && chrome.runtime && chrome.runtime.sendMessage) {
@@ -646,30 +582,27 @@ knop.addEventListener("click", (e) => {
             // Stap 3 — OpenAI beoordeelt bronnen tegen claim
             if (huidigClaim && rawBronnen.length > 0) {
               chrome.runtime.sendMessage(
-                { action: "beoordeel_bronnen", claim: huidigClaim, bronnen: rawBronnen, taal: huidigTaal || "nl", publicatieDatum: huidigPublicatieDatum || "" },
+                { action: "beoordeel_bronnen", claim: huidigClaim, tak: huidigTak || "", bronnen: rawBronnen, taal: huidigTaal || "nl", publicatieDatum: huidigPublicatieDatum || "" },
                 (beoordeling) => {
                   if (chrome.runtime.lastError || !beoordeling) return;
                   huidigToetsbaar = beoordeling.toetsbaar !== false;
                   if (beoordeling.bron_verdeling) huidigBronVerdeling = beoordeling.bron_verdeling;
-                  // POPUP-emoji = categorie uit de bron-verdeling (call B). Raakt de knop NIET.
+                  // POPUP-emoji = categorie uit de bron-verdeling. Raakt de knop NIET.
                   const categorieEmoji = {
                     wetenschap: "🎓", nieuws: "📰", lifestyle: "🌿", satire: "😄", normaal: "😐"
-                  }[beoordeling.category] || "😐";
-                  if (huidigToetsbaar) {
-                    if (beoordeling.score) huidigScore = beoordeling.score;
-                    if (beoordeling.explanation) huidigUitleg = beoordeling.explanation;
-                    if (beoordeling.verdict) huidigOordeel = beoordeling.verdict;
-                    // Popup toont de bron-categorie; nooit score-emoji
+                  }[beoordeling.category] || "";
+                  huidigStand = beoordeling.stand || "";
+                  if (beoordeling.explanation) huidigUitleg = beoordeling.explanation;
+                  if (beoordeling.verdict) huidigOordeel = beoordeling.verdict;
+                  if (huidigToetsbaar && huidigStand) {
+                    // Verificatie gelukt: popup toont categorie-emoji
                     huidigEmoji = categorieEmoji;
                   } else {
-                    // Duiding — geen score. Popup toont de bron-categorie als die er is.
-                    huidigScore = null;
-                    if (beoordeling.explanation) huidigUitleg = beoordeling.explanation;
-                    if (beoordeling.verdict) huidigOordeel = beoordeling.verdict;
-                    if (categorieEmoji) huidigEmoji = categorieEmoji;
+                    // Geen verificatie-uitkomst: geen emoji
+                    huidigEmoji = "";
                   }
                   // Knop blijft op knopEmoji (eerste indruk) — niet bijwerken.
-                  if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+                  if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
                 }
               );
             } else {
@@ -678,7 +611,7 @@ knop.addEventListener("click", (e) => {
                 huidigEmoji = response.emoji || huidigEmoji;
                 huidigUitleg = response.uitleg || huidigUitleg;
               }
-              if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+              if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
             }
           }
         );
@@ -832,113 +765,6 @@ function vindZoekContext() {
 }
 
 
-function isYouTubeReclame() {
-  return !!(
-    document.querySelector(".ad-showing") ||
-    document.querySelector(".ytp-ad-player-overlay") ||
-    document.querySelector(".ytp-ad-skip-button") ||
-    document.querySelector("[class*='ad-interrupting']")
-  );
-}
-
-function vindVideoContext() {
-  if (location.hostname.includes("youtube.com")) {
-    if (isYouTubeReclame()) return null;
-    const titel        = document.querySelector("h1.ytd-video-primary-info-renderer, h1.style-scope.ytd-watch-metadata")?.innerText || "";
-    // Kanaalnaam ophalen via kanaallink — YouTube laadt DOM asynchroon
-    function haalKanaalNaam() {
-      const link = [...document.querySelectorAll('a[href*="/@"]')]
-        .map(el => el.textContent.trim().split('\n')[0].trim())
-        .find(t => t.length > 1 && !t.includes('@') && !/^\d/.test(t));
-      return link
-        || document.querySelector("#channel-name, #owner #channel-name, ytd-channel-name")?.innerText?.split('\n')[0]?.trim()
-        || "";
-    }
-    const kanaal = haalKanaalNaam();
-    const beschrijving = document.querySelector("#description-inline-expander, #description ytd-text-inline-expander, #snippet")?.innerText || "";
-    const tags         = Array.from(document.querySelectorAll("meta[property='og:video:tag']")).map(m => m.content).join(", ");
-    const views        = document.querySelector(".view-count, #info .ytd-video-view-count-renderer")?.innerText || "";
-    const abonnees     = document.querySelector("#owner-sub-count, #subscriber-count")?.innerText || "";
-    const aiTag        = document.querySelector("ytd-badge-supported-renderer .badge-style-type-simple")?.innerText || "";
-    const isAiContent  = beschrijving.toLowerCase().includes("ai generated") ||
-                         beschrijving.toLowerCase().includes("ai-generated") ||
-                         beschrijving.toLowerCase().includes("gemaakt met ai") ||
-                         aiTag.toLowerCase().includes("ai") ||
-                         tags.toLowerCase().includes("ai generated");
-    // Shorts detectie — andere DOM structuur
-    const isShort = location.pathname.startsWith('/shorts/');
-    const shortsTitel = document.querySelector('ytd-reel-video-renderer[is-active] .title, .ytd-shorts .title')?.innerText
-      || document.querySelector('h2.ytd-reel-video-renderer')?.innerText
-      || document.querySelector('.ytd-shorts h2')?.innerText
-      || document.querySelector('meta[name="title"]')?.content
-      || document.title.split(' - YouTube')[0] || '';
-    const shortsKanaal = document.querySelector('ytd-reel-video-renderer[is-active] #channel-name, .ytd-shorts #channel-name')?.innerText
-      || document.querySelector('ytd-channel-name')?.innerText || '';
-    const shortsCaption = document.querySelector('ytd-reel-video-renderer[is-active] #description, .ytd-shorts #description')?.innerText
-      || document.querySelector('meta[property="og:description"]')?.content || '';
-    // Duur uitlezen — betrouwbaarder dan pathname check
-    const duurTekst = document.querySelector(".ytp-time-duration")?.innerText || "";
-    const duurSeconden = duurTekst.split(":").reverse().reduce((acc, v, i) => acc + parseInt(v || 0) * Math.pow(60, i), 0);
-
-    // Shorts zijn max 60 seconden — op duur, niet op pathname
-    if (isShort || duurSeconden > 0 && duurSeconden <= 60) {
-      return `Titel: ${shortsTitel || titel} | Kanaal: ${shortsKanaal || kanaal} | Abonnees: ${abonnees} | Tags: entertainment shorts | IsShort: ja | Beschrijving: ${shortsCaption.substring(0, 200)}`;
-    }
-
-    // Duur meesturen als signaal
-    const duurLabel = duurSeconden === 0 ? "onbekend"
-      : duurSeconden <= 900  ? "kort (onder 15 min)"
-      : duurSeconden <= 3600 ? "middellang (15-60 min)"
-      : "lang (boven 60 min)";
-
-    return `Titel: ${titel} | Kanaal: ${kanaal} | Abonnees: ${abonnees} | Views: ${views} | AI-content: ${isAiContent ? "ja" : "onbekend"} | Tags: ${tags} | Duur: ${duurLabel} | Beschrijving: ${beschrijving.substring(0, 400)}`;
-  }
-
-  // Vimeo
-  if (location.hostname.includes("vimeo.com")) {
-    const titel     = document.querySelector(".clip_info-description h1, .player_container h1")?.innerText || document.title;
-    const uploader  = document.querySelector(".byline a, .user-handle")?.innerText || "";
-    const beschrijving = document.querySelector(".clip_description, .description")?.innerText || "";
-    return `Titel: ${titel} | Uploader: ${uploader} | Beschrijving: ${beschrijving.substring(0, 400)}`;
-  }
-
-  // TikTok — breed net gooien via meerdere selectors + meta tags
-  if (location.hostname.includes("tiktok.com")) {
-    // Caption — meerdere selectors want TikTok wijzigt DOM regelmatig
-    const caption = document.querySelector("[data-e2e='browse-video-desc']")?.innerText
-      || document.querySelector("[data-e2e='video-desc']")?.innerText
-      || document.querySelector(".video-meta-caption")?.innerText
-      || document.querySelector("h1")?.innerText
-      || document.querySelector('meta[property="og:description"]')?.content
-      || document.title || "";
-
-    // Gebruiker
-    const gebruiker = document.querySelector("[data-e2e='browse-username']")?.innerText
-      || document.querySelector("[data-e2e='video-author-uniqueid']")?.innerText
-      || document.querySelector(".author-uniqueId")?.innerText
-      || document.querySelector('meta[name="author"]')?.content || "";
-
-    // Volgers en likes — fallback op 0
-    const volgers = document.querySelector("[data-e2e='followers-count']")?.innerText
-      || document.querySelector("[data-e2e='user-post-item-count']")?.innerText || "";
-
-    const likes = document.querySelector("[data-e2e='like-count']")?.innerText
-      || document.querySelector("[data-e2e='undefined-count']")?.innerText || "";
-
-    // Hashtags uit caption halen
-    const hashtagMatches = caption.match(/#\w+/g) || [];
-    const tags = hashtagMatches.join(" ");
-
-    return `Titel: ${caption} | Kanaal: ${gebruiker} | Abonnees: ${volgers} | Views: ${likes} likes | Tags: ${tags} | Beschrijving: ${caption}`;
-  }
-
-  // Generiek — fallback voor andere videoplatforms
-  const ogTitle   = document.querySelector('meta[property="og:title"]')?.content || "";
-  const ogDesc    = document.querySelector('meta[property="og:description"]')?.content || "";
-  const auteur    = document.querySelector('[rel="author"], .author, .creator')?.innerText || "";
-  return `Titel: ${ogTitle} | Auteur: ${auteur} | Beschrijving: ${ogDesc.substring(0, 400)}`;
-}
-
 function vindReacties() {
   const nujijSelectors = [
     ".nujij__comment-body", ".nujij__comment-body p",
@@ -980,7 +806,7 @@ function startReactieCheck(vertraging) {
         if (response.strafbareContent && !huidigStrafbareContent) {
           huidigStrafbareContent = true;
           updateMiniBarometer(huidigScore, true, huidigEmoji);
-          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji, huidigBronType);
+          if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji, huidigBronType);
         }
       }
     );
@@ -1029,6 +855,8 @@ function startGmailCheck() {
     afzenderEmail: mailData.afzenderEmail
   }, (response) => {
     if (chrome.runtime.lastError || !response || response.status !== "success") return;
+    huidigStand   = "";
+    huidigToetsbaar = true;
     huidigScore   = response.score;
     huidigOordeel = response.oordeel;
     huidigUitleg  = response.uitleg;
@@ -1039,7 +867,7 @@ function startGmailCheck() {
     knopEmoji = response.emoji || "😊";
     updateMiniBarometer(huidigScore, false, huidigEmoji);
     if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji, huidigBronType);
+    if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji, huidigBronType);
   });
 }
 
@@ -1083,13 +911,13 @@ const ZOEKMASCHINE_UITSLUIT = [
 
 // ── Altijd uitsluiten — geen enkel pad ───────────────────────
 const ALTIJD_UITSLUIT = [
-  // Social media — facebook en tiktok bewust niet uitgesloten (video/content check)
-  "instagram.com", "twitter.com", "x.com",
+  // Social media — facebook, instagram, tiktok via social-media-modus (scroll-timer)
+  "twitter.com", "x.com",
   "linkedin.com", "pinterest.com", "snapchat.com", "threads.net",
   "reddit.com", "tumblr.com", "mastodon.social",
 
-  // Video & streaming — youtube.com bewust niet uitgesloten (YouTube integratie)
-  "netflix.com", "videoland.com",
+  // Video & streaming
+  "youtube.com", "netflix.com", "videoland.com",
   "disneyplus.com", "hbomax.com", "primevideo.com", "twitch.tv",
   "vimeo.com", "dailymotion.com", "peacocktv.com", "paramountplus.com",
 
@@ -1188,14 +1016,9 @@ function isUitgesloten() {
   // Blog-overzichtspagina's — geen enkel artikel, alleen een lijst
   if (/^\/(blog|blogs|blogpost|nieuws-overzicht|archief)(\/?)$/i.test(pad)) return true;
 
-  // Portalen met mijn. prefix — altijd uitsluiten
-  if (domein.startsWith("mijn.") || domein.startsWith("my.") || domein.startsWith("portal.")) return true;
 
   // Homepage — geen artikel te checken
   if (pad === "/" || pad === "") return true;
-
-  // YouTube — videopaginas en Shorts checken, homepage en zoeken uitsluiten
-  if ((domein === "youtube.com" || domein.endsWith(".youtube.com")) && !pad.startsWith("/watch") && !pad.startsWith("/shorts")) return true;
 
   // Zoekpagina's
   const isZoekDomein = ZOEKMASCHINE_UITSLUIT.some(d => domein === d || domein.endsWith("." + d));
@@ -1266,9 +1089,11 @@ function startSocialeMediaModus() {
     }
     huidigBronnen = [];
     huidigScore = 100;
+    huidigStand = "";
+    huidigToetsbaar = true;
     knopEmoji = huidigEmoji; // sociale-media-modus: knop volgt de timer-emoji
     updateMiniBarometer(huidigScore, false, huidigEmoji);
-    if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, [], null, false, huidigEmoji, "verdieping");
+    if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, [], null, false, huidigEmoji, "verdieping");
   }
 
   updateSocialeEmoji();
@@ -1328,6 +1153,8 @@ function startPdfModus() {
   huidigBronnen = [];
   huidigClaim = "";
   huidigScore = null;
+  huidigStand = "";
+  huidigToetsbaar = true;
   huidigOordeel = "PDF-document";
   updateMiniBarometer(null, false, "📄");
 }
@@ -1370,6 +1197,8 @@ function startCheck() {
     if (resultaat) {
       knop.style.display = "block";
       huidigScore   = 20;
+      huidigStand   = "";
+      huidigToetsbaar = true;
       huidigOordeel = "Verdachte link in zoekresultaten";
       huidigUitleg  = resultaat.officieel
         ? `Let op: mogelijk nep-site in zoekresultaten. Ga naar de officiële site: ${resultaat.officieel}`
@@ -1409,15 +1238,7 @@ function startCheck() {
     const afbeeldingUrl = vindHoofdAfbeelding();
 
     // ── Geen artikeltekst gevonden — geen check starten ──────────
-    const isVideoPagina = location.hostname.includes("youtube.com") || location.hostname.includes("vimeo.com") || location.hostname.includes("tiktok.com");
-    if (!isVideoPagina && artikelTekst.length < 150) {
-      knop.style.display = "none";
-      return;
-    }
-    const videoContext = isVideoPagina ? vindVideoContext() : "";
-
-    // YouTube reclame — knop verbergen
-    if (location.hostname.includes("youtube.com") && videoContext === null) {
+    if (artikelTekst.length < 150) {
       knop.style.display = "none";
       return;
     }
@@ -1428,20 +1249,22 @@ function startCheck() {
     huidigTaal = detecteerTaal(artikelTekst || paginaTekst);
     huidigPublicatieDatum = vindPublicatieDatum();
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, videoContext, taal: huidigTaal, publicatieDatum: huidigPublicatieDatum },
+      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, taal: huidigTaal, publicatieDatum: huidigPublicatieDatum },
       (response) => {
         if (chrome.runtime.lastError || !response || response.status !== "success") return;
+        huidigStand    = "";
+        huidigToetsbaar = true;
         huidigScore    = response.score;
         huidigOordeel  = response.oordeel;
         huidigUitleg   = response.uitleg;
         huidigBronnen  = response.bronnen || [];
         huidigDeepfake = response.deepfake || null;
         huidigBronType = response.bronType || "verificatie";
-        huidigManipulatie = response.manipulatie || [];
         huidigAiTekst    = response.aiTekst || 0;
         huidigArtikeltekst = artikelTekst || "";
         huidigClaim    = response.claim || "";
         huidigZoekterm = response.zoekterm || response.claim || "";
+        huidigTak      = response.tak || "";
         huidigBronBekend = response.bronBekend || false;
         huidigOnderwerpVerifieerbaar = response.onderwerpVerifieerbaar || false;
         huidigVerificatieBronnen = response.verificatieBronnen || [];
@@ -1453,7 +1276,7 @@ function startCheck() {
         }
         updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
         if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
-        if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
+        if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
       }
     );
   }); // einde chrome.storage.local.get
@@ -1476,23 +1299,12 @@ window.addEventListener("scroll", () => {
         if (response.strafbareContent && !huidigStrafbareContent) {
           huidigStrafbareContent = true;
           updateMiniBarometer(huidigScore, true, huidigEmoji);
-          if (popupOpen) updatePopup(huidigScore, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji, huidigBronType);
+          if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, true, huidigEmoji, huidigBronType);
         }
       }
     );
   }, 500);
 });
-
-// ── YouTube reclame check — knop terugbrengen na reclame ────────
-if (location.hostname.includes('youtube.com') && !location.pathname.startsWith('/shorts')) {
-  setInterval(() => {
-    if (!isYouTubeReclame() && knop.style.display === 'none') {
-      knop.style.display = 'block';
-      toonLaadAnimatie();
-      setTimeout(() => { startCheck(); }, 1000);
-    }
-  }, 20000);
-}
 
 // ── URL verandering detecteren ────────────────────────────────
 
@@ -1520,12 +1332,10 @@ laadInstellingen((items) => {
   if (items.tc_positie_x) knop.style.right  = items.tc_positie_x;
   if (items.tc_positie_y) knop.style.bottom = items.tc_positie_y;
   toonLaadAnimatie();
-  // YouTube laadt kanaaldata asynchroon — extra wachttijd voor correcte kanaalnaam
-  const vertraging = location.hostname.includes("youtube.com") ? 2500 : 0;
   setTimeout(() => {
     startCheck();
     startReactieCheck(3000);
     startReactieCheck(8000);
     startReactieCheck(12000);
-  }, vertraging);
+  }, 0);
 });

@@ -280,60 +280,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return true;
     }
 
-    // ── Politieke namen detectie voor TikTok/social media ───────
-    const POLITIEKE_NAMEN = ["trump", "biden", "putin", "rutte", "wilders", "zelensky","xi jinping", "erdogan", "modi", "macron", "johnson", "scholz"];
-    const captionTekst = (request.videoContext || request.paginaTekst || "").toLowerCase();
-    const heeftPolitiekeNaam = POLITIEKE_NAMEN.some(n => captionTekst.includes(n));
-    const isTikTok = request.domein && request.domein.includes("tiktok.com");
-
-    // ── Video check — YouTube én TikTok met politieke content ────
-    if (request.domein && (request.domein.includes("youtube.com") || request.domein.includes("youtu.be") || (isTikTok && heeftPolitiekeNaam)) && request.videoContext) {
-      fetch(SERVER_URL + "/api/youtube", {
-        method: "POST",
-        headers: SERVER_HEADERS,
-        body: metSleutel({
-          titel: request.text || "",
-          kanaal: request.videoContext.match(/Kanaal:\s*([^|]+)/)?.[1]?.trim() || "",
-          abonnees: request.videoContext.match(/Abonnees:\s*([^|]+)/)?.[1]?.trim() || "",
-          beschrijving: request.videoContext.match(/Beschrijving:\s*(.+)/s)?.[1]?.trim() || "",
-          views: request.videoContext.match(/Views:\s*([^|]+)/)?.[1]?.trim() || "",
-          aiContent: request.videoContext.match(/AI-content:\s*([^|]+)/)?.[1]?.trim() || "onbekend",
-          tags: request.videoContext.match(/Tags:\s*([^|]+)/)?.[1]?.trim() || "",
-          videoUrl: request.url || "",
-          taal: request.taal || "nl"
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        const score = data.score || 50;
-        const bronnen = (data.sources || []).map(r => r.url);
-        const contentType = data.contentType || "normaal";
-        const emoji = "👨‍🔧";
-        const signalen = data.signals && data.signals.length > 0
-          ? " Signalen: " + data.signals.join(", ") + "."
-          : "";
-        const metadataMelding = " ℹ️ Analyse gebaseerd op metadata, niet op video-inhoud.";
-        sendResponse({
-          status: "success",
-          score: score,
-          oordeel: data.theme || "YouTube video",
-          uitleg: (data.explanation || "") + signalen + metadataMelding,
-          bronnen: bronnen,
-          bronType: score < 50 ? "weerlegging" : "verdieping",
-          phishing: { actief: false },
-          strafbareContent: false,
-          emoji: emoji,
-          type: "youtube",
-          bronBekend: data.bronBekend || false,
-          onderwerpVerifieerbaar: data.onderwerpVerifieerbaar || false,
-          verificatieBronnen: data.verificatieBronnen || [],
-          rodeVlaggen: data.rodeVlaggen || []
-        });
-      })
-      .catch(() => sendResponse({ status: "error", message: "YouTube analyse mislukt" }));
-      return true;
-    }
-
     const phishing = request.isEmail
       ? berekenPhishingEmail(request)
       : berekenPhishingWebsite(request);
@@ -499,7 +445,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       headers: SERVER_HEADERS,
       body: metSleutel({
         url: request.url || "",
-        score: request.score || 0,
+        stand: request.stand || "",
         oordeel: request.oordeel || "",
         duim: request.duim || "",
         tekst: request.tekst || "",
@@ -509,34 +455,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .then(res => res.json())
     .then(() => sendResponse({ status: "ok" }))
     .catch(() => sendResponse({ status: "ok" })); // Stille fout — feedback is niet kritiek
-    return true;
-  }
-
-  if (request.action === "analyseer_transcript") {
-    const videoId = (request.videoId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 20);
-    if (!videoId) {
-      sendResponse({ error: "Geen geldig video ID." });
-      return true;
-    }
-    fetch(SERVER_URL + "/api/transcript", {
-      method: "POST",
-      headers: SERVER_HEADERS,
-      body: metSleutel({ videoId, taal: request.taal || "nl" })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.error) {
-        sendResponse({ error: data.error });
-      } else {
-        sendResponse({
-          score: data.score,
-          oordeel: data.verdict || "",
-          uitleg: data.explanation || "",
-          signalen: data.signalen || []
-        });
-      }
-    })
-    .catch(() => sendResponse({ error: "Transcript analyse mislukt." }));
     return true;
   }
 
@@ -577,7 +495,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // ── Bronbeoordeling — OpenAI beoordeelt claim tegen bronnen ──
   if (request.action === "beoordeel_bronnen") {
-    const { claim, bronnen, taal, publicatieDatum } = request;
+    const { claim, tak, bronnen, taal, publicatieDatum } = request;
     if (!claim || !bronnen || bronnen.length === 0) {
       sendResponse({ score: 50, uitleg: "", oordeel: "" });
       return true;
@@ -585,12 +503,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetch(SERVER_URL + "/api/beoordeel", {
       method: "POST",
       headers: SERVER_HEADERS,
-      body: metSleutel({ claim, bronnen, taal: taal || "nl", publicatieDatum: publicatieDatum || "" })
+      body: metSleutel({ claim, tak: tak || "", bronnen, taal: taal || "nl", publicatieDatum: publicatieDatum || "" })
     })
     .then(res => res.json())
     .then(data => sendResponse({
       toetsbaar: data.toetsbaar !== false,
       score: data.toetsbaar === false ? null : (data.score || 50),
+      stand: data.stand || "",
+      tak: data.tak || tak || "",
       category: data.category || "normaal",
       bron_verdeling: data.bron_verdeling || {},
       explanation: data.explanation || "",
