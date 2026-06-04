@@ -61,7 +61,7 @@ setInterval(() => {
 function sanitizeInput(tekst) {
   if (!tekst || typeof tekst !== 'string') return '';
 
-  let schoon = tekst.slice(0, 2000);
+  let schoon = tekst.slice(0, 5000);
 
   const INJECTIE_PATRONEN = [
     /ignore\s+(all\s+)?(previous|prior|above)\s+instructions?/gi,
@@ -251,7 +251,7 @@ STAP 1 — STRUCTUUR: Kijk naar deze concrete opmaakkenmerken in de tekst:
 Deze kenmerken bepalen de bril waarmee je stap 2 leest.
 
 STAP 2 — CLAIM: Extraheer de centrale kern door de bril van stap 1.
-Baseer de claim primair op ARTICLE_TEXT (eerste 1500 tekens) — daar staat de inhoud en de eigennamen. TITLE en URL zijn ondersteunend voor context en disambiguatie. Als ARTICLE_TEXT geen bruikbare kern oplevert, val dan terug op TITLE en URL. Behoud altijd de eigennamen en unieke kenmerken (wie, welke instantie, welke plaats) in de claim, zodat de specifieke zaak vindbaar blijft en niet verwart met een thematisch vergelijkbaar geval. Formuleer één scherpe claim:
+Baseer de claim primair op ARTICLE_TEXT (eerste 5000 tekens) — daar staat de inhoud en de eigennamen. TITLE en URL zijn ondersteunend voor context en disambiguatie. Als ARTICLE_TEXT geen bruikbare kern oplevert, val dan terug op TITLE en URL. Behoud altijd de eigennamen en unieke kenmerken (wie, welke instantie, welke plaats) in de claim, zodat de specifieke zaak vindbaar blijft en niet verwart met een thematisch vergelijkbaar geval. Formuleer één scherpe claim:
 - Academisch/scriptie (bibliografie, voetnoten, auteur+jaar citaten) → hoofdvraag of centrale these
 - Wetenschappelijk (methodesectie, geciteerde studies met auteur+tijdschrift) → hoofdbevinding van het onderzoek
 - Nieuws (dateline, wie/wat/waar/wanneer) → kerngebeurtenis
@@ -276,7 +276,11 @@ STAP 3 — CATEGORIE: Volgt uit stap 1 en 2 samen. Niet op domein, maar op wat j
 Geef terug:
 1. Het hoofdthema (1 zin)
 2. De centrale claim vanuit de structuur (1 zin, of "" als er geen toetsbare claim is)
-3. Een ondubbelzinnige zoekterm voor een zoekmachine (max 8 woorden, kleine letters, geen leestekens) — neem de eigennamen en unieke kenmerken op (wie, welke instantie, welke plaats) zodat de zoekmachine de specifieke zaak vindt en niet een thematisch vergelijkbaar geval
+3. Een zoekterm voor een zoekmachine (kleine letters, geen leestekens, ruim onder 400 tekens). Bouw die zo op:
+   - Begin met het BELANGRIJKSTE FEIT scherp en kort vooraan, zodat duidelijk is wat de kern van het artikel is (bijvoorbeeld "hongarije heft blokkade op").
+   - Voeg daarachter enkele TREFWOORDEN toe die het bredere onderwerp en de context dekken, zodat de zoekmachine ook bronnen over de bredere zaak vindt en niet alleen over dat ene feit (bijvoorbeeld "oekraine eu-toetreding eu-lening").
+   - Borg altijd de EIGENNAMEN en unieke kenmerken (wie, welke instantie, welke plaats), zodat de juiste zaak gevonden wordt en niet een thematisch vergelijkbaar geval.
+   Het resultaat is dus een korte trefwoordenreeks met het feit voorop en de context erachter — geen volzin met vulwoorden, maar ook niet samengeplakte woorden (schrijf "hongarije blokkade", niet "hongarijeblokkade"). Voorbeeld: "hongarije heft blokkade op oekraine eu-toetreding eu-lening"
 4. Korte uitleg (max 2 zinnen) — beschrijf wat het artikel doet, niet wat jij ervan vindt
 5. Schatting of tekst AI-gegenereerd lijkt: 0-100
 6. Categorie (uit stap 3)
@@ -374,9 +378,14 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "explanation": "", "aiTekst
       }
     }
 
-    const tavilyQuery = schoneClaim
+    let tavilyQuery = schoneClaim
       ? (sanitizeInput(req.body.zoekterm || '') || schoneClaim)
       : schoneTekst.slice(0, 200);
+
+    // Vangnet: Tavily accepteert queries onder 400 tekens. OpenAI maakt een
+    // trefwoordenreeks (feit voorop + context); bij terugval op de claim kan dat
+    // langer zijn. Kap af op 400 tekens zodat de query nooit wordt geweigerd.
+    tavilyQuery = tavilyQuery.trim().slice(0, 400);
 
     const tavilyRes = await fetch('https://api.tavily.com/search', {
       method: 'POST',
