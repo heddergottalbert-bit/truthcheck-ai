@@ -752,7 +752,7 @@ Geef terug:
 - stand: EXACT een van de standzinnen hierboven, passend bij de tak
 - bron_verdeling: telling per achtergrond, bijvoorbeeld { "wetenschap": 3, "lifestyle": 2 }
 - categorie: de grootste groep uit bron_verdeling (wetenschap/nieuws/lifestyle/satire/normaal)
-- uitleg: max 2 zinnen. Beschrijf ALLEEN wat de bronnen doen en welke achtergrond ze hebben, zodat de gebruiker zelf kan wegen — bijvoorbeeld "Twee wetenschappelijke bronnen bevestigen dit, één lifestyle-bron noemt het zonder onderbouwing". Attribueer altijd aan de bronnen. Claim NOOIT zelf de waarheid. Geen sturende woorden als "misleidend", "nep", "terecht" of "onjuist".
+- uitleg: max 2 zinnen. Beschrijf de inhoud van de bronnen die het meest direct over de claim gaan — wat zeggen zij feitelijk? Richt je op de sterkste, meest relevante bronnen. Een bron die alleen algemeen of zijdelings met het onderwerp te maken heeft (bijvoorbeeld een algemene landen- of achtergrondpagina) licht je NIET uit en gebruik je niet als hoofdmoot van de uitleg — laat die ongenoemd of noem hem hooguit kort als aanvulling. Noem de achtergrond van de relevante bronnen zodat de gebruiker zelf kan wegen, bijvoorbeeld "Drie nieuwsbronnen melden dat Hongarije zijn blokkade heeft opgeheven". Attribueer altijd aan de bronnen. Claim NOOIT zelf de waarheid. Geen sturende woorden als "misleidend", "nep", "terecht" of "onjuist".
 - verdict: één zin die de claim samenvat in relatie tot wat de bronnen doen
 ${recentInstructie}
 ${taalInstructie}
