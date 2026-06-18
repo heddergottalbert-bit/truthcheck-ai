@@ -25,6 +25,7 @@ let huidigOnderwerpVerifieerbaar = false;
 let huidigVerificatieBronnen = [];
 let huidigRodeVlaggen = [];
 let huidigToetsbaar = true;
+let huidigPhishingNiveau = ""; // "" / "oranje" / "rood" — stuurt alleen de oordeel-kleur bij phishing/spam, niet bij categorie/score (die blijven neutraal)
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -81,22 +82,30 @@ phishingBanner.style.cssText = `
 bannerShadow.appendChild(phishingBanner);
 
 function toonPhishingWaarschuwing(phishing) {
-  if (!phishing || !phishing.actief) return;
+  if (!phishing) return;
+  const isOranje = phishing.niveau === "oranje";
+  if (!phishing.actief && !isOranje) return;
   const signalenHTML = (phishing.signalen || [])
     .map(s => `<span style="background:rgba(0,0,0,0.2);border-radius:4px;padding:2px 8px;font-size:11px;margin:2px;display:inline-block;">${s}</span>`)
     .join("");
   const officieelHTML = phishing.officieelDomein
     ? `<a href="https://${phishing.officieelDomein}" target="_blank" style="color:white;font-weight:bold;text-decoration:underline;">${t.phishingOfficialSite}: ${phishing.officieelDomein}</a>`
     : "";
+  phishingBanner.style.background = isOranje
+    ? "linear-gradient(135deg,#e67e22,#f39c12)"
+    : "linear-gradient(135deg,#c0392b,#e74c3c)";
+  const titelTekst = isOranje
+    ? "Mail uit spam — let op"
+    : `${phishing.isEmail ? t.phishingSuspiciousEmail : t.phishingDangerousPage} — ${t.phishingWarning}`;
   phishingBanner.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px;max-width:100%;">
       <div style="display:flex;align-items:flex-start;gap:14px;flex:1;">
-        <div style="font-size:28px;line-height:1;">⚠️</div>
+        <div style="font-size:28px;line-height:1;">${isOranje ? "📨" : "⚠️"}</div>
         <div>
           <div style="font-size:14px;font-weight:bold;margin-bottom:4px;">
-            ${phishing.isEmail ? t.phishingSuspiciousEmail : t.phishingDangerousPage} — ${t.phishingWarning}
+            ${titelTekst}
           </div>
-          <div style="font-size:11px;opacity:0.9;margin-bottom:4px;">${t.phishingSignals}: ${signalenHTML}</div>
+          <div style="font-size:11px;opacity:0.9;margin-bottom:4px;">${t.phishingSignals}: ${signalenHTML || "Gmail markeerde dit als spam"}</div>
           ${officieelHTML}
         </div>
       </div>
@@ -237,13 +246,14 @@ function updatePopup(stand, oordeel, uitleg, bronnen, deepfake, strafbareContent
 
   const hoofdEmoji = emoji || "";
   const schoneUitleg = (uitleg || "").replace(" Let op: strafbare content gedetecteerd in de reacties.", "");
+  const oordeelKleur = huidigPhishingNiveau === "rood" ? "#e74c3c" : huidigPhishingNiveau === "oranje" ? "#e67e22" : "#7ab3ef";
 
   popup.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
       ${hoofdEmoji ? `<span style="font-size:32px;line-height:1;">${hoofdEmoji}</span>` : ""}
       <div>
         <div style="font-size:9px;letter-spacing:2px;color:${tekstKleur};opacity:0.5;text-transform:uppercase;font-family:${lettertype};">${t.factCheck}</div>
-        <div style="font-size:15px;font-weight:bold;color:#7ab3ef;font-family:${lettertype};">${oordeel}</div>
+        <div style="font-size:15px;font-weight:bold;color:${oordeelKleur};font-family:${lettertype};">${oordeel}</div>
       </div>
       <div style="margin-left:auto;background:rgba(255,255,255,0.1);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:bold;color:${tekstKleur};" id="tc-vraag-knop" title="${t.askQuestion}">?</div>
     </div>
@@ -840,6 +850,7 @@ function startGmailCheck() {
   if (!mailData || mailData.onderwerp === geopendeMail) return;
   geopendeMail = mailData.onderwerp;
   phishingBanner.style.top = "-200px";
+  huidigPhishingNiveau = "";
   updateMiniBarometer(50, false, "🤔");
   if (!chrome.runtime || !chrome.runtime.sendMessage) return;
 
@@ -865,8 +876,9 @@ function startGmailCheck() {
     huidigStrafbareContent = false;
     huidigEmoji = response.emoji || "😊";
     knopEmoji = response.emoji || "😊";
+    huidigPhishingNiveau = response.type === "phishing" ? "rood" : response.type === "phishing-oranje" ? "oranje" : "";
     updateMiniBarometer(huidigScore, false, huidigEmoji);
-    if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
+    if (response.phishing?.actief || response.phishing?.niveau === "oranje") toonPhishingWaarschuwing(response.phishing);
     if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji, huidigBronType);
   });
 }
@@ -1271,6 +1283,7 @@ function startCheck() {
         huidigRodeVlaggen = response.rodeVlaggen || [];
         huidigEmoji    = response.emoji || "😐";
         knopEmoji      = response.emoji || "😐"; // Vaste knop-emoji: eerste categorie-indruk, verandert niet meer mee
+        huidigPhishingNiveau = response.type === "phishing" ? "rood" : response.type === "phishing-oranje" ? "oranje" : "";
         if (!huidigStrafbareContent) {
           huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
         }
@@ -1315,6 +1328,7 @@ setInterval(() => {
     phishingBanner.style.top = "-200px";
     geopendeMail = null;
     huidigStrafbareContent = false;
+    huidigPhishingNiveau = "";
     reactieCheckGedaan = false;
     updateMiniBarometer(50, false, "🤔");
     setTimeout(() => {

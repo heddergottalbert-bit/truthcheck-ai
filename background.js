@@ -55,32 +55,69 @@ function isZoekmaschine(domein) {
   return ZOEKMASCHINE_DOMEINEN.some(d => domein.includes(d));
 }
 
-function naamMatchtDomein(afzenderNaam, afzenderDomein) {
-  if (!afzenderNaam || !afzenderDomein) return true;
-  if (afzenderDomein.startsWith("noreply") ||
-      afzenderDomein.includes("no-reply") ||
-      afzenderDomein.includes("notifications") ||
-      afzenderDomein.includes("mail.") ||
-      afzenderDomein.includes("mailing.") ||
-      afzenderDomein.includes("newsletter")) {
-    return true;
-  }
+// Vangt gevallen als "stichting-elinkwijks-belang@send.laposta.email" —
+// de organisatienaam staat vóór de @, het domein is een extern
+// mailing-platform en zegt niets over de afzender.
+function naamMatchtDomein(afzenderNaam, afzenderEmail) {
+  if (!afzenderNaam || !afzenderEmail) return true;
+
+  const delen = afzenderEmail.toLowerCase().split("@");
+  const lokaalDeel = delen[0] || "";
+  const afzenderDomein = delen[1] || "";
+  if (!afzenderDomein) return true;
+
+  // Generieke lokale delen zeggen niets over de afzender — geen
+  // basis voor een match, maar ook geen basis om te diskwalificeren.
+  const GENERIEK = [
+    "noreply", "no-reply", "info", "nieuwsbrief", "newsletter",
+    "mail", "mailing", "notifications", "contact", "support",
+    "hello", "hallo", "service", "team", "office"
+  ];
+  const lokaalSchoon = lokaalDeel.replace(/[^a-z0-9]/g, "");
+  const lokaalGeneriek = GENERIEK.some(g => lokaalSchoon === g.replace(/[^a-z0-9]/g, ""));
+
   const naamWoorden = afzenderNaam
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter(w => w.length > 2);
+
+  if (naamWoorden.length === 0) return true;
+
   const domeinDelen = afzenderDomein.split(".");
   const hoofdDomein = domeinDelen.length >= 2
     ? domeinDelen[domeinDelen.length - 2]
     : afzenderDomein;
   const domeinTekst = afzenderDomein.replace(/\./g, " ");
+
   for (const woord of naamWoorden) {
+    // Match tegen het domein (bestaand gedrag)
     if (domeinTekst.includes(woord) ||
         hoofdDomein.includes(woord) ||
         woord.includes(hoofdDomein)) {
       return true;
     }
+    // Match tegen het lokale deel vóór de @ (nieuw) — alleen
+    // zinvol als dat lokale deel geen generieke term is.
+    if (!lokaalGeneriek && lokaalSchoon.includes(woord)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ── Verdachte link in de mailtekst ─────────────────────────────
+// Zelfde verdacht-domeinpatroon als bij de websitecheck. Dit loopt
+// VOOR de noreply-vrijbrief, zodat een noreply-adres met een
+// kwaadaardige link niet automatisch groen wordt.
+const VERDACHT_DOMEIN_PATROON_MAIL = /\d{3,}|(-service|-login|-secure|-verify|-update|-check|-controle|-inloggen|-portal)/i;
+
+function heeftVerdachteLinkInMail(mailTekst) {
+  const urlPatroon = /https?:\/\/([a-z0-9.-]+)/gi;
+  let match;
+  while ((match = urlPatroon.exec(mailTekst)) !== null) {
+    const linkDomein = match[1].toLowerCase().replace(/^www\./, "");
+    if (VERDACHT_DOMEIN_PATROON_MAIL.test(linkDomein)) return true;
   }
   return false;
 }
@@ -154,8 +191,20 @@ function berekenPhishingEmail(request) {
   let phishingScore = 0;
   const phishingSignalen = [];
 
-  if (afzenderEmail.includes("noreply") || afzenderEmail.includes("no-reply")) {
-    return { actief: false, score: 0, signalen: [], isEmail: true };
+  const verdachteLink = heeftVerdachteLinkInMail(mailTekst);
+  const isSpam = request.isSpam === true;
+  const onderwerpTekst = (request.text || "").toLowerCase();
+
+  // ── Noreply — alleen vrijbrief als geen verdachte link én niet in spam ──
+  // Spammap mag nooit groen geven, ook niet voor noreply-afzenders.
+  if ((afzenderEmail.includes("noreply") || afzenderEmail.includes("no-reply")) && !verdachteLink && !isSpam) {
+    return { actief: false, niveau: "groen", score: 0, signalen: [], isEmail: true };
+  }
+
+  // ── Verdachte link in de mail — telt altijd mee, ook bij noreply ──
+  if (verdachteLink) {
+    phishingScore += 35;
+    phishingSignalen.push("Verdachte link in e-mail");
   }
 
   // ── Gratis emailprovider + zakelijke claim ───────────────────
@@ -201,9 +250,14 @@ function berekenPhishingEmail(request) {
     phishingSignalen.push("Vraagt om persoonlijke gegevens");
   }
 
-  // ── Naam matcht niet met domein ──────────────────────────────
-  if (!naamMatchtDomein(afzenderNaam, afzenderDomein)) {
-    phishingScore += 60;
+  // ── Naam matcht niet met domein óf lokaal deel — LICHT signaal ──
+  // Was eerder +60 en daarmee op zichzelf al genoeg voor alarm. Klopte
+  // niet: bijna elke nieuwsbrief verstuurt via een extern platform
+  // (laposta, mailchimp) waar de naam niet in het domein voorkomt.
+  // Mismatch is nu een signaal, geen oordeel — alarm volgt alleen
+  // samen met andere risicosignalen.
+  if (!naamMatchtDomein(afzenderNaam, afzenderEmail)) {
+    phishingScore += 20;
     phishingSignalen.push(`"${afzenderNaam}" stuurt niet via eigen domein`);
   }
 
@@ -214,15 +268,33 @@ function berekenPhishingEmail(request) {
   }
 
   // ── Financiële spam woorden ──────────────────────────────────
+  // Was eerder: alleen mailTekst gecheckt. Daardoor telde "investment"
+  // in het ONDERWERP niet mee (test: Arthur Regan / INVESTMENT PROJECT),
+  // waardoor de drempel van 2 treffers werd gemist. Nu samen checken.
   const FINANCIELE_WOORDEN = [
     "loan", "funding", "investment", "financing", "withdrawal",
     "cryptocurrency", "wallet", "portfolio", "trading", "investors",
     "capital", "debt financing", "angel investors", "business loan"
   ];
-  const gevondenFinancieel = FINANCIELE_WOORDEN.filter(w => mailTekst.includes(w));
+  const combinatieTekst = onderwerpTekst + " " + mailTekst;
+  const gevondenFinancieel = FINANCIELE_WOORDEN.filter(w => combinatieTekst.includes(w));
   if (gevondenFinancieel.length >= 2) {
     phishingScore += 40;
     phishingSignalen.push("Financiële spam gedetecteerd");
+  }
+
+  // ── Koude-acquisitie-taal — typisch patroon bij beleggingsfraude ──
+  // Gevonden bij test met Arthur Regan-mail: generieke "cold outreach"
+  // zinnen die zelf niet financieel zijn, maar wel het vaste opzetje
+  // vormen waarmee dit soort fraude begint.
+  const KOUDE_ACQUISITIE_PATRONEN = [
+    "came across your profile", "reaching out", "online opportunities",
+    "consistent results", "would love to connect", "great opportunity"
+  ];
+  const gevondenAcquisitie = KOUDE_ACQUISITIE_PATRONEN.filter(w => combinatieTekst.includes(w));
+  if (gevondenAcquisitie.length > 0) {
+    phishingScore += 25;
+    phishingSignalen.push("Koude-acquisitietaal gedetecteerd");
   }
 
   // ── Bestaande phishing woorden ───────────────────────────────
@@ -233,12 +305,20 @@ function berekenPhishingEmail(request) {
     }
   });
 
+  // ── Niveau bepalen — spammap mag NOOIT groen geven ───────────
+  // Sterk signaal (score ≥60) → rood, ongeacht spam-status.
+  // In spammap zonder sterke signalen → oranje, met uitleg dat
+  // Gmail dit als spam markeerde. Buiten spammap, score <60 → groen.
+  const niveau = phishingScore >= 60 ? "rood" : (isSpam ? "oranje" : "groen");
+
   return {
-    actief: phishingScore >= 60,
+    actief: niveau === "rood",
+    niveau,
     score: Math.min(phishingScore, 100),
     signalen: [...new Set(phishingSignalen)].slice(0, 4),
     officieelDomein: null,
     isEmail: true,
+    isSpam,
     afzenderDomein: afzenderDomein
   };
 }
@@ -295,29 +375,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 
 
-    if (phishing.actief) {
-      const isWaarschuwing = phishing.isZoekmaschine;
-      sendResponse({
-        status: "success",
-        score: isWaarschuwing ? 45 : Math.max(5, 25 - phishing.score),
-        oordeel: request.isEmail
-          ? "Verdachte e-mail"
-          : isWaarschuwing ? "Let op bij klikken" : "Verdachte site",
-        uitleg: request.isEmail
-          ? "De afzender klopt niet met het e-mailadres. Reageer niet en klik op geen enkele link."
-          : isWaarschuwing
-            ? "Controleer altijd de URL voordat je klikt. Phishing sites kunnen tussen zoekresultaten staan."
-            : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
-        bronnen: [],
-        phishing: phishing,
-        strafbareContent: false,
-        emoji: "😡",
-        type: "phishing"
-      });
-      return true;
-    }
-
+    // ── E-mail: rood / oranje / groen — los van website-logica ──
     if (request.isEmail) {
+      if (phishing.niveau === "rood") {
+        sendResponse({
+          status: "success",
+          score: Math.max(5, 25 - phishing.score),
+          oordeel: "Verdachte e-mail",
+          uitleg: "De afzender klopt niet met het e-mailadres, of er zijn meerdere risicosignalen gevonden. Reageer niet en klik op geen enkele link.",
+          bronnen: [],
+          phishing: phishing,
+          strafbareContent: false,
+          emoji: "😡",
+          type: "phishing"
+        });
+        return true;
+      }
+
+      if (phishing.niveau === "oranje") {
+        const signalenTekst = phishing.signalen.length > 0
+          ? " Gevonden signalen: " + phishing.signalen.join(", ") + "."
+          : "";
+        sendResponse({
+          status: "success",
+          score: 40,
+          oordeel: "Let op: uit spam, signalen gevonden",
+          uitleg: "Gmail markeerde deze e-mail als spam." + signalenTekst + " Geen automatisch oordeel — wees voorzichtig.",
+          bronnen: [],
+          phishing: phishing,
+          strafbareContent: false,
+          emoji: "😬",
+          type: "phishing-oranje"
+        });
+        return true;
+      }
+
       sendResponse({
         status: "success",
         score: 75,
@@ -328,6 +420,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         strafbareContent: false,
         emoji: "😊",
         type: "normaal"
+      });
+      return true;
+    }
+
+    if (phishing.actief) {
+      const isWaarschuwing = phishing.isZoekmaschine;
+      sendResponse({
+        status: "success",
+        score: isWaarschuwing ? 45 : Math.max(5, 25 - phishing.score),
+        oordeel: isWaarschuwing ? "Let op bij klikken" : "Verdachte site",
+        uitleg: isWaarschuwing
+          ? "Controleer altijd de URL voordat je klikt. Phishing sites kunnen tussen zoekresultaten staan."
+          : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
+        bronnen: [],
+        phishing: phishing,
+        strafbareContent: false,
+        emoji: "😡",
+        type: "phishing"
       });
       return true;
     }
@@ -536,4 +646,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
-
