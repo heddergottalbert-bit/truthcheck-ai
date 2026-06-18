@@ -76,11 +76,21 @@ function naamMatchtDomein(afzenderNaam, afzenderEmail) {
   const lokaalSchoon = lokaalDeel.replace(/[^a-z0-9]/g, "");
   const lokaalGeneriek = GENERIEK.some(g => lokaalSchoon === g.replace(/[^a-z0-9]/g, ""));
 
+  // Was eerder: filter op woordlengte >2 tekens. Probleem (gevonden bij
+  // test met "Het SP-ontmoetingsteam" / sp.nl): dat filtert ook korte
+  // maar betekenisvolle afkortingen weg (SP, NS, AH, EO) — precies de
+  // woorden die wél met het domein zouden matchen. Nu een gerichte
+  // stopwoordenlijst i.p.v. een blinde lengte-grens.
+  const NAAM_STOPWOORDEN = [
+    "de", "het", "een", "en", "of", "te", "in", "op", "aan", "van",
+    "voor", "met", "bij", "uw", "is", "wij", "we", "ons", "onze",
+    "the", "and", "for", "to", "are"
+  ];
   const naamWoorden = afzenderNaam
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter(w => w.length > 2);
+    .filter(w => w.length > 0 && !NAAM_STOPWOORDEN.includes(w));
 
   if (naamWoorden.length === 0) return true;
 
