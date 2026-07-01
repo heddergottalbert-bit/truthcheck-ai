@@ -1024,6 +1024,19 @@ const UITSLUIT_PATRONEN = [
   /\/(search|zoeken)\?/i
 ];
 
+// Bepaalt of een pagina een volwaardig artikel bevat: een echte inhouds-
+// kop (h1 die niet enkel de sitenaam is) plus voldoende artikeltekst.
+// Gebruikt om homepage-uitsluiting te overrulen bij nagemaakte artikelen
+// op de root van een domein. Bewust streng: een kale koppenlijst-homepage
+// heeft geen h1-kop mét een lap tekst en blijft dus uitgesloten.
+function heeftEchtArtikelOpPagina() {
+  const h1 = document.querySelector("h1");
+  const kop = h1?.innerText?.trim() || "";
+  if (kop.length < 15) return false; // korte/lege kop = geen artikel
+  const artikel = vindArtikelTekst();
+  return artikel.length >= 150;
+}
+
 function isUitgesloten() {
   const domein = location.hostname.replace("www.", "");
   const url    = location.href;
@@ -1037,8 +1050,16 @@ function isUitgesloten() {
   if (/^\/(blog|blogs|blogpost|nieuws-overzicht|archief)(\/?)$/i.test(pad)) return true;
 
 
-  // Homepage — geen artikel te checken
-  if (pad === "/" || pad === "") return true;
+  // Homepage — geen artikel te checken.
+  // UITZONDERING: sommige (frauduleuze) pagina's serveren een volwaardig
+  // artikel op de root van het domein (bv. een nagemaakt nieuwsartikel op
+  // een wegwerp-domein). Als er een echte artikelkop (h1) én voldoende
+  // artikeltekst staat, is het inhoudelijk een artikelpagina — dan tóch
+  // checken. Bekende nieuws-homepages worden hierna alsnog uitgesloten
+  // via de domeinlijsten (nos.nl etc.), want die hebben geen los artikel.
+  if (pad === "/" || pad === "") {
+    if (!heeftEchtArtikelOpPagina()) return true;
+  }
 
   // Zoekpagina's
   const isZoekDomein = ZOEKMASCHINE_UITSLUIT.some(d => domein === d || domein.endsWith("." + d));
