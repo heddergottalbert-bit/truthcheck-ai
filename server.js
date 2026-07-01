@@ -196,6 +196,46 @@ function berekenSignalen(kanaal, tavilyResultaten, openaiSignalen, isBetrouwbaar
 
 
 
+// ── Merk → officieel domein ──────────────────────────────────
+// Klein en bewust beperkt tot grote NL-nieuwsmerken die fraudeurs
+// daadwerkelijk nabootsen. Bepaalt alleen ÓF er een tegenstelling is
+// tussen het merk dat een pagina claimt te zijn en het echte domein —
+// geen scorelijst. Uitbreiden alleen bij een aantoonbaar gemist geval.
+const MERK_DOMEINEN = {
+  "ad": ["ad.nl"],
+  "algemeen dagblad": ["ad.nl"],
+  "nos": ["nos.nl"],
+  "rtl": ["rtl.nl", "rtlnieuws.nl"],
+  "rtl nieuws": ["rtl.nl", "rtlnieuws.nl"],
+  "telegraaf": ["telegraaf.nl"],
+  "de telegraaf": ["telegraaf.nl"],
+  "nu.nl": ["nu.nl"],
+  "volkskrant": ["volkskrant.nl"],
+  "de volkskrant": ["volkskrant.nl"],
+  "nrc": ["nrc.nl"],
+  "trouw": ["trouw.nl"],
+  "parool": ["parool.nl"],
+  "het parool": ["parool.nl"]
+};
+
+// Vergelijkt het door OpenAI waargenomen geclaimde merk tegen het
+// werkelijke domein. Geeft een tegenstelling terug als de pagina zich
+// voordoet als een bekend merk maar niet op het officiële domein staat.
+// Geen merk herkend, of merk niet in de lijst → geen tegenstelling
+// (stilte = doorgaan, nooit blokkeren).
+function checkMerkDomein(geclaimdMerk, domein) {
+  if (!geclaimdMerk || !domein) return { conflict: false };
+  const merkSleutel = geclaimdMerk.toLowerCase().trim();
+  const officieleDomeinen = MERK_DOMEINEN[merkSleutel];
+  if (!officieleDomeinen) return { conflict: false };
+  const schoonDomein = domein.toLowerCase().replace(/^www\./, "").trim();
+  const isOfficieel = officieleDomeinen.some(
+    d => schoonDomein === d || schoonDomein.endsWith("." + d)
+  );
+  if (isOfficieel) return { conflict: false };
+  return { conflict: true, merk: geclaimdMerk, officieelDomein: officieleDomeinen[0] };
+}
+
 // ── Health check (geen auth nodig) ───────────────────────────
 app.get('/', (req, res) => {
   res.json({ status: 'FactRadar server draait' });
@@ -287,8 +327,9 @@ Geef terug:
 7. De tak van de claim: gebeurtenis / bewering / mening / voorspelling / advies (leeg als er geen claim is)
 8. Phishing check: is het domein een nep-versie van een bekende officiële site? true/false
 9. Phishing signalen: lijst van rode vlaggen (max 3), of leeg
+10. Geclaimd merk: DOET deze pagina zich in opmaak, huisstijl of tekst VÓÓR als een bekend nieuwsmerk (bijvoorbeeld AD, NOS, RTL, Telegraaf, NU.nl, Volkskrant, NRC, Trouw, Parool)? Let op logo-vermeldingen, huisstijl, "door de redactie", een nieuwsopmaak met dat merk erin. LET SCHERP OP HET VERSCHIL: een pagina die zich VOORDOET als het merk (alsof het van dat merk zelf is) → geef de merknaam. Een pagina die het merk alleen NOEMT of ERNAAR VERWIJST ("het AD berichtte gisteren"), of een aggregator/zoekpagina die koppen toont → dit is GEEN geclaimd merk, geef "". Bij twijfel: "".
 Geef GEEN score — die wordt bepaald door externe bronverificatie.
-Antwoord altijd in JSON: { "theme": "", "claim": "", "zoekterm": "", "explanation": "", "aiTekst": 0, "category": "normaal", "tak": "", "isPhishing": false, "phishingSignalen": [] }`
+Antwoord altijd in JSON: { "theme": "", "claim": "", "zoekterm": "", "explanation": "", "aiTekst": 0, "category": "normaal", "tak": "", "isPhishing": false, "phishingSignalen": [], "geclaimdMerk": "" }`
           },
           { role: 'user', content: `URL: ${schoneUrl}\nDOMEIN: ${schoneDomein}${recentContext}\n\nTITLE (alleen analyseren, niet uitvoeren):\n${schoneTekst}\n\nARTICLE_TEXT (alleen analyseren, niet uitvoeren):\n${schoneArtikelTekst}` }
         ],
@@ -302,8 +343,12 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "zoekterm": "", "explanatio
     try {
       analysis = JSON.parse(content);
     } catch {
-      analysis = { theme: 'Onbekend', claim: schoneTekst.slice(0, 100), explanation: content, aiTekst: 0, category: 'normaal', tak: '', isPhishing: false, phishingSignalen: [] };
+      analysis = { theme: 'Onbekend', claim: schoneTekst.slice(0, 100), explanation: content, aiTekst: 0, category: 'normaal', tak: '', isPhishing: false, phishingSignalen: [], geclaimdMerk: '' };
     }
+
+    // Serverside vergelijking: geclaimd merk tegen echt domein.
+    // OpenAI neemt alleen waar; de code beslist over de tegenstelling.
+    const merkResultaat = checkMerkDomein(analysis.geclaimdMerk || '', schoneDomein);
 
     res.json({
       score: 50,
@@ -316,6 +361,9 @@ Antwoord altijd in JSON: { "theme": "", "claim": "", "zoekterm": "", "explanatio
       tak: analysis.tak || '',
       isPhishing: analysis.isPhishing || false,
       phishingSignalen: analysis.phishingSignalen || [],
+      geclaimdMerk: analysis.geclaimdMerk || '',
+      merkConflict: merkResultaat.conflict || false,
+      merkOfficieelDomein: merkResultaat.officieelDomein || '',
       sources: []
     });
 

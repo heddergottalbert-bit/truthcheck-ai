@@ -317,8 +317,9 @@ function berekenPhishingEmail(request) {
 
   // ── Niveau bepalen — spammap mag NOOIT groen geven ───────────
   // Sterk signaal (score ≥60) → rood, ongeacht spam-status.
-  // In spammap zonder sterke signalen → oranje, met uitleg dat
-  // Gmail dit als spam markeerde. Buiten spammap, score <60 → groen.
+  // In spammap zonder sterke signalen → interne tussenwaarde "oranje",
+  // die de handler omzet naar de blauwe attentie-respons (🔎).
+  // Buiten spammap, score <60 → groen.
   const niveau = phishingScore >= 60 ? "rood" : (isSpam ? "oranje" : "groen");
 
   return {
@@ -396,7 +397,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           bronnen: [],
           phishing: phishing,
           strafbareContent: false,
-          emoji: "😡",
+          emoji: "❌",
           type: "phishing"
         });
         return true;
@@ -412,10 +413,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           oordeel: "Let op: uit spam, signalen gevonden",
           uitleg: "Gmail markeerde deze e-mail als spam." + signalenTekst + " Geen automatisch oordeel — wees voorzichtig.",
           bronnen: [],
-          phishing: phishing,
+          phishing: { ...phishing, niveau: "blauw" },
           strafbareContent: false,
-          emoji: "😬",
-          type: "phishing-oranje"
+          emoji: "🔎",
+          type: "attentie"
         });
         return true;
       }
@@ -444,10 +445,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           ? "Controleer altijd de URL voordat je klikt. Phishing sites kunnen tussen zoekresultaten staan."
           : "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
         bronnen: [],
-        phishing: phishing,
+        phishing: { ...phishing, niveau: isWaarschuwing ? "blauw" : "rood" },
         strafbareContent: false,
-        emoji: "😡",
-        type: "phishing"
+        emoji: isWaarschuwing ? "🔎" : "❌",
+        type: isWaarschuwing ? "attentie" : "phishing"
       });
       return true;
     }
@@ -502,6 +503,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const category = data.category || "normaal";
       const emoji = bepaalEmoji(50, category);
 
+      // ── Merk-domein-tegenstelling — pagina doet zich voor als een ─
+      // bekend nieuwsmerk maar staat niet op het officiële domein.
+      // Informatielaag: blauw + 🔎, geen Tavily (leugen zit in de
+      // identiteit, niet in de inhoud). Geen claim → popup roept
+      // Tavily niet aan.
+      if (data.merkConflict) {
+        sendResponse({
+          status: "success",
+          score: 50,
+          oordeel: `Dit adres is niet van ${data.geclaimdMerk}`,
+          uitleg: `Deze pagina presenteert zich als ${data.geclaimdMerk}, maar staat niet op het officiële adres (${data.merkOfficieelDomein}). Kijk zelf goed naar het webadres voordat je iets gelooft, invult of aanklikt.`,
+          bronnen: [],
+          phishing: {
+            actief: false,
+            niveau: "blauw",
+            isEmail: false,
+            geclaimdMerk: data.geclaimdMerk,
+            officieelDomein: data.merkOfficieelDomein,
+            signalen: [`Presenteert zich als ${data.geclaimdMerk}`, `Werkelijk adres: ${request.domein || "onbekend"}`]
+          },
+          strafbareContent: false,
+          emoji: "🔎",
+          type: "merk-domein",
+          claim: ""
+        });
+        return;
+      }
+
       // ── OpenAI phishing detectie ─────────────────────────────
       const openaiPhishing = data.isPhishing || false;
       const openaiPhishingSignalen = data.phishingSignalen || [];
@@ -514,17 +543,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const phishingSignalen = [...new Set([...openaiPhishingSignalen, ...(lokalePhishing.signalen || [])])].slice(0, 4);
 
       if (phishingActief) {
+        // Veiligheidslaag (banner ❌ rood) én verificatielaag draaien
+        // naast elkaar: claim + zoekterm gaan mee, zodat de popup bij
+        // openen de weerleggende bronnen ophaalt (Fintradix-geval).
         sendResponse({
           status: "success",
           score: 10,
-          oordeel: "Verdachte site",
-          uitleg: "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig.",
+          oordeel: oordeel,
+          uitleg: "Deze pagina bevat kenmerken van phishing of misleiding. Wees voorzichtig — klik nergens op en vul geen gegevens in. Open de popup voor bronnen over dit onderwerp.",
           bronnen: [],
-          phishing: { actief: true, signalen: phishingSignalen },
+          phishing: { actief: true, niveau: "rood", signalen: phishingSignalen },
           strafbareContent: false,
-          emoji: "😡",
+          emoji: "❌",
           type: "phishing",
-          claim: ""
+          claim: data.claim || "",
+          zoekterm: data.zoekterm || data.claim || "",
+          tak: data.tak || "",
+          bronType: "verificatie"
         });
         return;
       }

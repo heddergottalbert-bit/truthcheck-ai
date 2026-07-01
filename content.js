@@ -25,7 +25,7 @@ let huidigOnderwerpVerifieerbaar = false;
 let huidigVerificatieBronnen = [];
 let huidigRodeVlaggen = [];
 let huidigToetsbaar = true;
-let huidigPhishingNiveau = ""; // "" / "oranje" / "rood" — stuurt alleen de oordeel-kleur bij phishing/spam, niet bij categorie/score (die blijven neutraal)
+let huidigPhishingNiveau = ""; // "" / "blauw" / "rood" — stuurt alleen de oordeel-kleur bij phishing/attentie, niet bij categorie/score (die blijven neutraal)
 let popupOpen = false;
 let transparantie = 0.75;
 let achtergrondKleur = "#121223";
@@ -83,24 +83,26 @@ bannerShadow.appendChild(phishingBanner);
 
 function toonPhishingWaarschuwing(phishing) {
   if (!phishing) return;
-  const isOranje = phishing.niveau === "oranje";
-  if (!phishing.actief && !isOranje) return;
+  const isBlauw = phishing.niveau === "blauw";
+  if (!phishing.actief && !isBlauw) return;
   const signalenHTML = (phishing.signalen || [])
     .map(s => `<span style="background:rgba(0,0,0,0.2);border-radius:4px;padding:2px 8px;font-size:11px;margin:2px;display:inline-block;">${s}</span>`)
     .join("");
   const officieelHTML = phishing.officieelDomein
     ? `<a href="https://${phishing.officieelDomein}" target="_blank" style="color:white;font-weight:bold;text-decoration:underline;">${t.phishingOfficialSite}: ${phishing.officieelDomein}</a>`
     : "";
-  phishingBanner.style.background = isOranje
-    ? "linear-gradient(135deg,#e67e22,#f39c12)"
+  phishingBanner.style.background = isBlauw
+    ? "linear-gradient(135deg,#5a8fd0,#7ab3ef)"
     : "linear-gradient(135deg,#c0392b,#e74c3c)";
-  const titelTekst = isOranje
-    ? "Mail uit spam — let op"
+  const titelTekst = isBlauw
+    ? (phishing.geclaimdMerk
+        ? `Dit adres is niet van ${phishing.geclaimdMerk} — kijk zelf`
+        : "Let op — kijk zelf")
     : `${phishing.isEmail ? t.phishingSuspiciousEmail : t.phishingDangerousPage} — ${t.phishingWarning}`;
   phishingBanner.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px;max-width:100%;">
       <div style="display:flex;align-items:flex-start;gap:14px;flex:1;">
-        <div style="font-size:28px;line-height:1;">${isOranje ? "📨" : "⚠️"}</div>
+        <div style="font-size:28px;line-height:1;">${isBlauw ? "🔎" : "❌"}</div>
         <div>
           <div style="font-size:14px;font-weight:bold;margin-bottom:4px;">
             ${titelTekst}
@@ -116,16 +118,16 @@ function toonPhishingWaarschuwing(phishing) {
   if (sluitKnop) sluitKnop.onclick = () => { phishingBanner.style.top = "-200px"; };
 }
 
-// ── Zoekresultaten waarschuwing — oranje, vriendelijker ──────
+// ── Zoekresultaten waarschuwing — blauw, informatief ─────────
 function toonZoekWaarschuwing(officieelDomein) {
   const officieelHTML = officieelDomein
     ? `<a href="https://${officieelDomein}" target="_blank" style="color:white;font-weight:bold;text-decoration:underline;">Ga naar officiële site: ${officieelDomein}</a>`
     : "";
-  phishingBanner.style.background = "linear-gradient(135deg,#e67e22,#f39c12)";
+  phishingBanner.style.background = "linear-gradient(135deg,#5a8fd0,#7ab3ef)";
   phishingBanner.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px;max-width:100%;">
       <div style="display:flex;align-items:flex-start;gap:14px;flex:1;">
-        <div style="font-size:28px;line-height:1;">😦</div>
+        <div style="font-size:28px;line-height:1;">🔎</div>
         <div>
           <div style="font-size:14px;font-weight:bold;margin-bottom:4px;">Let op: mogelijk nep-site in zoekresultaten</div>
           ${officieelHTML}
@@ -246,7 +248,7 @@ function updatePopup(stand, oordeel, uitleg, bronnen, deepfake, strafbareContent
 
   const hoofdEmoji = emoji || "";
   const schoneUitleg = (uitleg || "").replace(" Let op: strafbare content gedetecteerd in de reacties.", "");
-  const oordeelKleur = huidigPhishingNiveau === "rood" ? "#e74c3c" : huidigPhishingNiveau === "oranje" ? "#e67e22" : "#7ab3ef";
+  const oordeelKleur = huidigPhishingNiveau === "rood" ? "#e74c3c" : huidigPhishingNiveau === "blauw" ? "#7ab3ef" : "#7ab3ef";
 
   popup.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
@@ -521,7 +523,7 @@ knop.addEventListener("click", (e) => {
     return;
   }
   if (isZoekpagina() && !isActieveZoekopdracht()) return; // Geen actie op uitgesloten pagina's
-  if (isActieveZoekopdracht() && huidigEmoji !== "😡") return; // Alleen openen bij verdachte link
+  if (isActieveZoekopdracht() && huidigEmoji !== "🔎") return; // Alleen openen bij verdachte link
   popupOpen = !popupOpen;
   popup.style.display = popupOpen ? "block" : "none";
   if (popupOpen) {
@@ -835,7 +837,13 @@ function leesGmailMail() {
   const afzenderNaam  = afzenderElement?.getAttribute("name") || afzenderElement?.innerText || "";
   const mailContainer = document.querySelector(".a3s") || document.querySelector(".ii.gt");
   const mailTekst     = mailContainer?.innerText || "";
-  const isSpam        = location.href.includes("spam") || !!document.querySelector(".aKS");
+  // isSpam UITSLUITEND uit de URL — de eerdere .aKS-class bleek óók in
+  // gewone inbox-mails voor te komen (test: InteraktContour inbox-mail
+  // kreeg ten onrechte oranje spam-banner). We matchen op het #spam-
+  // pad-segment, niet op "spam" ergens los in de URL (dat kan ook in
+  // een zoekterm of bericht-ID staan).
+  const hash = location.hash.toLowerCase();
+  const isSpam = /#spam(\/|$|\?)/.test(hash) || hash.startsWith("#spam");
   if (!onderwerp && !mailTekst) return null;
   const domeinMatch = afzenderEmail.match(/@([a-zA-Z0-9.-]+)/);
   return {
@@ -876,9 +884,9 @@ function startGmailCheck() {
     huidigStrafbareContent = false;
     huidigEmoji = response.emoji || "😊";
     knopEmoji = response.emoji || "😊";
-    huidigPhishingNiveau = response.type === "phishing" ? "rood" : response.type === "phishing-oranje" ? "oranje" : "";
+    huidigPhishingNiveau = response.type === "phishing" ? "rood" : (response.type === "merk-domein" || response.type === "attentie") ? "blauw" : "";
     updateMiniBarometer(huidigScore, false, huidigEmoji);
-    if (response.phishing?.actief || response.phishing?.niveau === "oranje") toonPhishingWaarschuwing(response.phishing);
+    if (response.phishing?.actief || response.phishing?.niveau === "blauw") toonPhishingWaarschuwing(response.phishing);
     if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, null, false, huidigEmoji, huidigBronType);
   });
 }
@@ -1215,8 +1223,8 @@ function startCheck() {
       huidigUitleg  = resultaat.officieel
         ? `Let op: mogelijk nep-site in zoekresultaten. Ga naar de officiële site: ${resultaat.officieel}`
         : "Let op: een zoekresultaat bevat een verdacht domein. Wees voorzichtig met klikken.";
-      huidigEmoji   = "😦";
-      knopEmoji     = "😦";
+      huidigEmoji   = "🔎";
+      knopEmoji     = "🔎";
       huidigBronnen = [];
       updateMiniBarometer(huidigScore, false, huidigEmoji);
       toonZoekWaarschuwing(resultaat.officieel);
@@ -1283,12 +1291,12 @@ function startCheck() {
         huidigRodeVlaggen = response.rodeVlaggen || [];
         huidigEmoji    = response.emoji || "😐";
         knopEmoji      = response.emoji || "😐"; // Vaste knop-emoji: eerste categorie-indruk, verandert niet meer mee
-        huidigPhishingNiveau = response.type === "phishing" ? "rood" : response.type === "phishing-oranje" ? "oranje" : "";
+        huidigPhishingNiveau = response.type === "phishing" ? "rood" : (response.type === "merk-domein" || response.type === "attentie") ? "blauw" : "";
         if (!huidigStrafbareContent) {
           huidigStrafbareContent = (response.strafbareContent === true) && (reactiesTekst.length > 0);
         }
         updateMiniBarometer(huidigScore, huidigStrafbareContent, huidigEmoji);
-        if (response.phishing?.actief) toonPhishingWaarschuwing(response.phishing);
+        if (response.phishing?.actief || response.phishing?.niveau === "blauw") toonPhishingWaarschuwing(response.phishing);
         if (popupOpen) updatePopup(huidigStand, huidigOordeel, huidigUitleg, huidigBronnen, huidigDeepfake, huidigStrafbareContent, huidigEmoji, huidigBronType);
       }
     );
