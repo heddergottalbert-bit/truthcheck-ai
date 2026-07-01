@@ -270,6 +270,7 @@ app.post('/api/analyse', controleerApiKey, rateLimiter, async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept-Encoding': 'identity',
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
@@ -392,6 +393,7 @@ app.post('/api/factcheck', controleerApiKey, rateLimiter, async (req, res) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept-Encoding': 'identity',
           'Authorization': `Bearer ${OPENAI_API_KEY}`
         },
         body: JSON.stringify({
@@ -499,6 +501,7 @@ app.post('/api/phishing', controleerApiKey, rateLimiter, async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept-Encoding': 'identity',
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
@@ -548,6 +551,7 @@ app.post('/api/harmful', controleerApiKey, rateLimiter, async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept-Encoding': 'identity',
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
@@ -647,6 +651,7 @@ app.post('/api/vision', controleerApiKey, rateLimiter, async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept-Encoding': 'identity',
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
@@ -709,6 +714,7 @@ app.post('/api/vraag', async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept-Encoding': 'identity',
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
@@ -775,6 +781,7 @@ app.post('/api/beoordeel', controleerApiKey, rateLimiter, async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept-Encoding': 'identity',
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
