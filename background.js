@@ -462,6 +462,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       body: metSleutel({
         text: request.text,
         artikelTekst: request.artikelTekst || "",
+        headerTekst: request.headerTekst || "",
         url: request.url || "",
         domein: request.domein || "",
         publicatieDatum: request.publicatieDatum || ""

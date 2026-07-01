@@ -1024,6 +1024,21 @@ const UITSLUIT_PATRONEN = [
   /\/(search|zoeken)\?/i
 ];
 
+// Leest de header/nav-tekst apart uit — de vaste plek waar de huisstijl
+// van een merk staat (menustructuur, "TV-Gids", "Digitale Krant" etc.).
+// Wordt los meegestuurd zodat OpenAI kan zien of een pagina zich voordoet
+// als een bekend merk. MOET aangeroepen worden VÓÓR vindArtikelTekst(),
+// want die markeert header/nav als ruis en snijdt ze weg (terecht — voor
+// de feitencheck is het ruis, alleen voor de merkvraag niet).
+function vindHeaderTekst() {
+  const kandidaten = [
+    document.querySelector("header")?.innerText || "",
+    document.querySelector("nav")?.innerText || ""
+  ];
+  const langste = kandidaten.sort((a, b) => b.length - a.length)[0] || "";
+  return langste.replace(/\s+/g, " ").trim().substring(0, 400);
+}
+
 // Bepaalt of een pagina een volwaardig artikel bevat: een echte inhouds-
 // kop (h1 die niet enkel de sitenaam is) plus voldoende artikeltekst.
 // Gebruikt om homepage-uitsluiting te overrulen bij nagemaakte artikelen
@@ -1273,6 +1288,7 @@ function startCheck() {
 
     const domein        = window.location.hostname.replace("www.", "").replace("nl.", "");
     const paginaTekst   = (document.body.innerText || "").substring(0, 1000).toLowerCase();
+    const headerTekst   = vindHeaderTekst(); // VÓÓR vindArtikelTekst — header wordt daar als ruis weggesneden
     const artikelTekst  = vindArtikelTekst();
     const reactiesTekst = vindReacties();
     const zoekContext   = vindZoekContext();
@@ -1290,7 +1306,7 @@ function startCheck() {
     huidigTaal = detecteerTaal(artikelTekst || paginaTekst);
     huidigPublicatieDatum = vindPublicatieDatum();
     chrome.runtime.sendMessage(
-      { action: "start_check", text, domein, url: window.location.href, paginaTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, taal: huidigTaal, publicatieDatum: huidigPublicatieDatum },
+      { action: "start_check", text, domein, url: window.location.href, paginaTekst, headerTekst, artikelTekst, reactiesTekst, zoekContext, afbeeldingUrl, taal: huidigTaal, publicatieDatum: huidigPublicatieDatum },
       (response) => {
         if (chrome.runtime.lastError || !response || response.status !== "success") return;
         huidigStand    = "";
